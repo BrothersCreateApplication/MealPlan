@@ -9,6 +9,16 @@ const db = require('./supabase');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ---- Region prompt helper ----
+function getRegionPrompt(region) {
+  const prompts = {
+    'bac': 'QUAN TRỌNG: Nấu theo phong cách ẩm thực Miền Bắc. Đặc điểm: thanh đạm, ít cay, dùng nước mắm nhạt, ít đường, nhiều rau thơm (mùi tàu, húng láng), nước dùng trong. Điều chỉnh nguyên liệu, gia vị và cách nấu phù hợp.',
+    'trung': 'QUAN TRỌNG: Nấu theo phong cách ẩm thực Miền Trung. Đặc điểm: cay, mặn, đậm đà gia vị, dùng nhiều ớt, nhiều nước mắm mặn, màu sắc đậm. Điều chỉnh nguyên liệu, gia vị và cách nấu phù hợp.',
+    'nam': 'QUAN TRỌNG: Nấu theo phong cách ẩm thực Miền Nam. Đặc điểm: ngọt, dùng nhiều đường, nước cốt dừa, nhiều rau sống ăn kèm, nước mắm ngọt. Điều chỉnh nguyên liệu, gia vị và cách nấu phù hợp.',
+  };
+  return prompts[region] || 'Gợi ý món ăn phổ biến nhất cho mọi vùng miền.';
+}
+
 // ---- Helper: parse JSON safely ----
 function tryParseJSON(str) {
   try { return JSON.parse(str); } catch (e) { return null; }
@@ -37,7 +47,7 @@ function normalizeDish(dish) {
 
 // ---- Search dishes: DB trước, DeepSeek nếu món mới ----
 app.post('/api/search-dishes', async (req, res) => {
-  const { query } = req.body;
+  const { query, region } = req.body;
   if (!query) return res.json({ dishes: [] });
 
   const q = query.trim().toLowerCase();
@@ -53,6 +63,7 @@ app.post('/api/search-dishes', async (req, res) => {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 8000);
+        const regionPrompt = getRegionPrompt(region);
         const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -62,7 +73,7 @@ app.post('/api/search-dishes', async (req, res) => {
           body: JSON.stringify({
             model: 'deepseek-chat',
             messages: [
-              { role: 'system', content: 'Bạn là chuyên gia ẩm thực Việt Nam. Trả lời JSON array. TUYỆT ĐỐI TUÂN THỦ: Mỗi món có: name, time (số phút), calories (số kcal), difficulty, description, ingredients (mảng {name, quantity}), instructions (các bước nấu cách nhau bằng \\n). QUY TẮC TÌM KIẾM: Người dùng search từ khóa. Ưu tiên món trùng phương pháp chế biến. LOẠI BỎ món dùng phương pháp khác. Trả về ĐÚNG 3-5 món.' },
+              { role: 'system', content: `Bạn là chuyên gia ẩm thực Việt Nam. Trả lời JSON array. TUYỆT ĐỐI TUÂN THỦ: Mỗi món có: name, time (số phút), calories (số kcal), difficulty, description, ingredients (mảng {name, quantity}), instructions (các bước nấu cách nhau bằng \\n). QUY TẮC TÌM KIẾM: Người dùng search từ khóa. Ưu tiên món trùng phương pháp chế biến. LOẠI BỎ món dùng phương pháp khác. Trả về ĐÚNG 3-5 món. ${regionPrompt}` },
               { role: 'user', content: `Tìm món: ${query}` }
             ],
             temperature: 0.7,
@@ -282,7 +293,7 @@ app.get('/api/dish-names', async (req, res) => {
 // ===================== Gợi ý món theo nguyên liệu (Tủ Lạnh) =====================
 
 app.post('/api/suggest-by-ingredients', async (req, res) => {
-  const { ingredients, forceAI } = req.body;
+  const { ingredients, forceAI, region } = req.body;
   if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
     return res.json({ suggestions: [], fromCache: true });
   }
@@ -299,6 +310,7 @@ app.post('/api/suggest-by-ingredients', async (req, res) => {
     if (apiKey) {
       try {
         const ingsStr = ingredients.join(', ');
+        const regionPrompt = getRegionPrompt(region);
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 10000);
         const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -319,7 +331,8 @@ QUY TẮC:
 - Gợi ý 3-4 món có thể nấu từ các nguyên liệu này, chỉ cần mua thêm tối đa 1-2 gia vị/nguyên liệu phụ thông dụng.
 - Ưu tiên món Việt Nam phổ biến trong mâm cơm hàng ngày.
 - Mỗi món phải ghi ĐẦY ĐỦ nguyên liệu (kể cả cái đã có + cái cần mua thêm).
-- time là số phút (number), calories là số kcal (number).` },
+- time là số phút (number), calories là số kcal (number).
+${regionPrompt}` },
               { role: 'user', content: `Tôi có các nguyên liệu: ${ingsStr}. Gợi ý tôi nấu món gì?` }
             ],
             temperature: 0.7,
@@ -407,6 +420,7 @@ app.post('/api/analyze-image', async (req, res) => {
 
   const isFridge = mode === 'fridge';
   const apiKey = process.env.GEMINI_API_KEY;
+  const regionPrompt = getRegionPrompt(req.body.region);
 
   if (!apiKey) {
     return res.json({
@@ -419,7 +433,7 @@ app.post('/api/analyze-image', async (req, res) => {
   try {
     const prompt = isFridge
       ? 'Phân tích ảnh chụp tủ lạnh này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "ingredients": ["tên nguyên liệu 1", "tên nguyên liệu 2", ...] }. Liệt kê TẤT CẢ nguyên liệu thực phẩm nhìn thấy được (thịt, cá, rau, củ, quả, trứng, v.v.). Bỏ qua gia vị khô, chai lọ, đồ đóng hộp. Mỗi nguyên liệu viết hoa chữ cái đầu. Nếu không thấy nguyên liệu nào, trả về { "ingredients": [] }'
-      : 'Phân tích ảnh món ăn này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "name": "Tên món", "time": "thời gian nấu (có đơn vị)", "calories": "lượng calo (có đơn vị)", "difficulty": "Dễ/Trung bình/Khó", "description": "mô tả ngắn", "ingredients": [{"name": "tên nguyên liệu", "quantity": "số lượng", "price": 0}], "instructions": "bước 1\\nbước 2\\nbước 3" }. Nếu không nhận diện được món, hãy trả về món ăn bất kỳ nhìn thấy trong ảnh.';
+      : 'Phân tích ảnh món ăn này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "name": "Tên món", "time": "thời gian nấu (có đơn vị)", "calories": "lượng calo (có đơn vị)", "difficulty": "Dễ/Trung bình/Khó", "description": "mô tả ngắn", "ingredients": [{"name": "tên nguyên liệu", "quantity": "số lượng", "price": 0}], "instructions": "bước 1\\nbước 2\\nbước 3" }. Nếu không nhận diện được món, hãy trả về món ăn bất kỳ nhìn thấy trong ảnh.\n\n' + regionPrompt;
 
     // Extract base64 data (remove data:image/...;base64, prefix)
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');

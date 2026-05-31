@@ -10,6 +10,7 @@ const MealPlan = (function() {
     history: [],
     dishes: [],
     favorites: [],      // [{ name, time, calories, difficulty, description, ingredients }]
+    region: 'all',       // 'all' | 'bac' | 'trung' | 'nam'
     topItems: [
       { name: 'Trứng gà', icon: 'egg', count: '12 lần/tháng' },
       { name: 'Cải xanh', icon: 'eco', count: '8 lần/tháng' },
@@ -383,7 +384,7 @@ const MealPlan = (function() {
         fetch('/api/analyze-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: compressed, mode })
+          body: JSON.stringify({ image: compressed, mode, region: getRegion() })
         })
         .then(r => r.json())
         .then(result => {
@@ -425,9 +426,58 @@ const MealPlan = (function() {
   }
 
 
+  // ---- Region helpers ----
+  const REGIONS = [
+    { value: 'all', label: 'Tất cả', emoji: '🇻🇳' },
+    { value: 'bac', label: 'Miền Bắc', emoji: '🏔️' },
+    { value: 'trung', label: 'Miền Trung', emoji: '🏖️' },
+    { value: 'nam', label: 'Miền Nam', emoji: '🌴' },
+  ];
+
+  function getRegionLabel(val) {
+    const r = REGIONS.find(r => r.value === val);
+    return r ? r.label : 'Tất cả';
+  }
+
+  function getRegion() {
+    return state.region || 'all';
+  }
+
+  function setRegion(val) {
+    state.region = val;
+    saveState();
+    renderRegionPickers();
+  }
+
+  function renderRegionPickers() {
+    ['region-picker-home', 'region-picker-fridge'].forEach(id => {
+      const container = document.getElementById(id);
+      if (!container) return;
+      container.innerHTML = REGIONS.map(r => `
+        <button class="region-btn px-4 py-2 rounded-full text-sm font-label-md transition-all ${
+          state.region === r.value
+            ? 'bg-primary text-on-primary shadow-sm'
+            : 'bg-surface-container-high text-on-surface-variant hover:bg-primary-container/30'
+        }" data-region="${r.value}">
+          ${r.emoji} ${r.label}
+        </button>
+      `).join('');
+    });
+    // Attach events
+    document.querySelectorAll('.region-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setRegion(btn.dataset.region);
+      });
+    });
+  }
+
   // ---- Init ----
   function init() {
     loadState();
+
+    if (!state.region) state.region = 'all';
+
+    renderRegionPickers();
 
     // Set up navigation
     document.querySelectorAll('[data-page]').forEach(el => {
@@ -468,7 +518,11 @@ const MealPlan = (function() {
     toggleFavorite,
     isFavorite,
     removeFavorite,
-    openCamera
+    openCamera,
+    getRegion,
+    setRegion,
+    REGIONS,
+    getRegionLabel
   };
 })();
 
