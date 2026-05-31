@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="utf-8"/>
@@ -143,27 +143,29 @@
     </div>
 
     <!-- PAGE: Giỏ Đi Chợ -->
-    <div id="page-cart" class="page hidden">
-      <h1 class="font-headline-lg font-bold text-primary mb-4 text-xl">Giỏ Đi Chợ</h1>
-      <!-- Summary Bar -->
-      <div class="bg-surface-container-low rounded-xl p-3 flex items-center justify-between border border-outline-variant/30 mb-3">
-        <div class="flex gap-4">
-          <div class="flex items-center gap-1.5">
-            <span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
-            <span class="font-label-md text-xs">Cần mua: <span id="cart-needed-count">0</span></span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span class="w-2.5 h-2.5 rounded-full bg-primary-container"></span>
-            <span class="font-label-md text-xs">Đã có: <span id="cart-owned-count">0</span></span>
+    <div id="page-cart" class="page hidden flex flex-col h-[calc(100vh-8rem)]">
+      <div class="flex-shrink-0">
+        <h1 class="font-headline-lg font-bold text-primary mb-4 text-xl">Giỏ Đi Chợ</h1>
+        <!-- Summary Bar -->
+        <div class="bg-surface-container-low rounded-xl p-3 flex items-center justify-between border border-outline-variant/30 mb-3">
+          <div class="flex gap-4">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
+              <span class="font-label-md text-xs">Cần mua: <span id="cart-needed-count">0</span></span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-primary-container"></span>
+              <span class="font-label-md text-xs">Đã có: <span id="cart-owned-count">0</span></span>
+            </div>
           </div>
         </div>
       </div>
-      <!-- Cart Items -->
-      <div id="cart-items" class="space-y-2">
+      <!-- Scrollable cart items -->
+      <div id="cart-items" class="flex-1 space-y-2 overflow-y-auto min-h-0">
         <!-- Rendered by JS -->
       </div>
       <!-- Summary Card -->
-      <div id="cart-summary-card" class="bg-surface-container rounded-2xl p-5 shadow-lg border border-primary/10 mt-4">
+      <div id="cart-summary-card" class="flex-shrink-0 bg-surface-container rounded-2xl p-5 shadow-lg border border-primary/10 mt-4">
         <h2 class="font-headline-lg-mobile font-bold text-primary mb-3">Tổng quan đơn hàng</h2>
         <div class="space-y-2 mb-4 border-b border-outline-variant pb-3">
           <div class="flex justify-between items-center">
@@ -384,3 +386,7 @@
   <script src="/js/history.js"></script>
 </body>
 </html>
+
+
+
+
