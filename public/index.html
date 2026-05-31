@@ -190,8 +190,11 @@
             <span class="material-symbols-outlined">check_circle</span>
             Hoàn tất &amp; Cập nhật
           </button>
-          <button class="w-full bg-transparent text-primary border-2 border-primary/20 py-3 rounded-xl font-label-md hover:bg-primary-container/10 transition-all active:scale-[0.98]" id="cart-save-draft">
-            Lưu nháp giỏ hàng
+          <button class="w-full bg-transparent text-red-500 border-2 border-red-200 py-3 rounded-xl font-label-md hover:bg-red-50 transition-all active:scale-[0.98]" id="cart-cancel">
+            <span class="flex items-center justify-center gap-2">
+              <span class="material-symbols-outlined text-[18px]">delete_sweep</span>
+              Huỷ
+            </span>
           </button>
         </div>
       </div>
@@ -408,6 +411,12 @@
       <div id="fridge-suggestions" class="space-y-3">
         <!-- Rendered by JS -->
       </div>
+      <button id="btn-fridge-load-more" class="w-full mt-3 py-3 border-2 border-dashed border-outline-variant/50 rounded-xl text-on-surface-variant font-label-md text-sm hover:bg-surface-container-low hover:border-outline-variant transition-all hidden">
+        <span class="flex items-center justify-center gap-2">
+          <span class="material-symbols-outlined text-[18px]">refresh</span>
+          Xem thêm gợi ý
+        </span>
+      </button>
     </div>
   </main>
 

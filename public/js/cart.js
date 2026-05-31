@@ -199,9 +199,11 @@
       renderCart();
     });
 
-    document.getElementById('cart-save-draft')?.addEventListener('click', () => {
-      MealPlan.saveState();
-      MealPlan.showToast('Đã lưu nháp giỏ hàng!', 'success');
+    document.getElementById('cart-cancel')?.addEventListener('click', () => {
+      MealPlan.clearCart();
+      MealPlan.showToast('Đã huỷ giỏ hàng!', 'info');
+      renderCart();
+      MealPlan.navigate('home');
     });
   });
 

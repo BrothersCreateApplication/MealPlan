@@ -2,7 +2,9 @@
 
 (function() {
   const state = {
-    ingredients: []
+    ingredients: [],
+    suggestions: [],       // all current suggestions
+    isLoadingMore: false
   };
 
   // ---- Render ingredient tags ----
@@ -91,16 +93,103 @@
           <p class="text-on-surface-variant font-body-md">Không tìm thấy món ăn phù hợp với nguyên liệu hiện có.</p>
           <p class="text-sm text-on-surface-variant mt-2">Thử thêm nguyên liệu khác hoặc xem gợi ý ở trang chủ!</p>
         </div>`;
+      document.getElementById('btn-fridge-load-more')?.classList.add('hidden');
       return;
     }
 
     renderSuggestions(suggestions, container);
   }
 
+  // ---- Load thêm gợi ý tủ lạnh ----
+  async function handleFridgeLoadMore() {
+    if (state.isLoadingMore || state.ingredients.length === 0) return;
+    state.isLoadingMore = true;
+
+    const btn = document.getElementById('btn-fridge-load-more');
+    if (btn) {
+      btn.innerHTML = '<span class="flex items-center justify-center gap-2"><span class="material-symbols-outlined text-[18px] animate-spin">refresh</span> Đang tải...</span>';
+      btn.disabled = true;
+    }
+
+    let newSuggestions = [];
+    try {
+      const res = await fetch('/api/suggest-by-ingredients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ingredients: state.ingredients })
+      });
+      const data = await res.json();
+      if (data.suggestions) newSuggestions = data.suggestions;
+    } catch (e) {
+      console.warn('Fridge load more error:', e);
+    }
+
+    // Filter duplicates by dish name
+    const existingNames = new Set(state.suggestions.map(s => s.dish?.name));
+    const uniqueNew = newSuggestions.filter(s => s.dish?.name && !existingNames.has(s.dish.name));
+
+    if (uniqueNew.length === 0) {
+      MealPlan.showToast('Đã hiển thị tất cả gợi ý!', 'info');
+      if (btn) {
+        btn.innerHTML = '<span class="flex items-center justify-center gap-2"><span class="material-symbols-outlined text-[18px]">refresh</span> Xem thêm gợi ý</span>';
+        btn.disabled = false;
+      }
+      state.isLoadingMore = false;
+      return;
+    }
+
+    // Append
+    state.suggestions = [...state.suggestions, ...uniqueNew];
+    appendSuggestions(uniqueNew);
+
+    if (btn) {
+      btn.innerHTML = '<span class="flex items-center justify-center gap-2"><span class="material-symbols-outlined text-[18px]">refresh</span> Xem thêm gợi ý</span>';
+      btn.disabled = false;
+    }
+    state.isLoadingMore = false;
+  }
+
+  // ---- Append suggestion cards (for load more) ----
+  function appendSuggestions(newSuggestions) {
+    const container = document.getElementById('fridge-suggestions');
+    if (!container) return;
+
+    const startIdx = state.suggestions.length - newSuggestions.length;
+    const html = newSuggestions.map((s, i) => renderSuggestionCard(s, startIdx + i)).join('');
+    container.insertAdjacentHTML('beforeend', html);
+
+    // Re-attach events
+    container.querySelectorAll('.suggestion-detail-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const idx = parseInt(this.dataset.idx);
+        const s = state.suggestions[idx];
+        if (s && s.dish) showSuggestionDetail(s);
+      });
+    });
+
+    container.querySelectorAll('.suggestion-cook-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const idx = parseInt(this.dataset.idx);
+        const s = state.suggestions[idx];
+        if (s && s.dish) {
+          MealPlan.setCart(s.dish.ingredients || []);
+          MealPlan.state.currentMealName = s.dish.name;
+          MealPlan.saveState();
+          MealPlan.navigate('cart');
+          if (window.renderCart) window.renderCart();
+          MealPlan.showToast(`Đã thêm "${s.dish.name}" vào danh sách nấu!`, 'success');
+        }
+      });
+    });
+  }
+
   // ---- Render suggestion cards ----
   function renderSuggestions(suggestions, container) {
     if (!container) container = document.getElementById('fridge-suggestions');
     if (!container) return;
+
+    // Store for load more
+    state.suggestions = suggestions;
 
     const hasHighMatch = suggestions.some(s => s.matchPercent >= 80);
     const fromCacheStr = suggestions.length > 0 ? '' : '';
@@ -115,6 +204,12 @@
       </div>
       ${suggestions.map((s, idx) => renderSuggestionCard(s, idx)).join('')}
     `;
+
+    // Show/hide load more button
+    const loadMoreBtn = document.getElementById('btn-fridge-load-more');
+    if (loadMoreBtn) {
+      loadMoreBtn.classList.toggle('hidden', suggestions.length < 3);
+    }
 
     // Attach events
     container.querySelectorAll('.suggestion-detail-btn').forEach(btn => {
@@ -414,7 +509,9 @@
     // Clear button
     btnClear?.addEventListener('click', () => {
       state.ingredients = [];
+      state.suggestions = [];
       renderTags();
+      document.getElementById('btn-fridge-load-more')?.classList.add('hidden');
       if (suggestionsContainer) {
         suggestionsContainer.innerHTML = `
           <div class="bg-surface-container-lowest rounded-xl p-8 text-center shadow-sm border border-outline-variant/20">
@@ -439,6 +536,9 @@
         input.focus();
       });
     });
+
+    // Xem thêm button
+    document.getElementById('btn-fridge-load-more')?.addEventListener('click', handleFridgeLoadMore);
 
     // Show initial state
     if (suggestionsContainer) {
