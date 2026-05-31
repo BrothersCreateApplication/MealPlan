@@ -73,7 +73,13 @@ app.post('/api/search-dishes', async (req, res) => {
           body: JSON.stringify({
             model: 'deepseek-chat',
             messages: [
-              { role: 'system', content: `Bạn là chuyên gia ẩm thực Việt Nam. Trả lời JSON array. TUYỆT ĐỐI TUÂN THỦ: Mỗi món có: name, time (số phút), calories (số kcal), difficulty, description, ingredients (mảng {name, quantity}), instructions (các bước nấu cách nhau bằng \\n). QUY TẮC TÌM KIẾM: Người dùng search từ khóa. Ưu tiên món trùng phương pháp chế biến. LOẠI BỎ món dùng phương pháp khác. Trả về ĐÚNG 3-5 món. ${regionPrompt}` },
+              { role: 'system', content: `Bạn là chuyên gia ẩm thực Việt Nam. Trả lời JSON array. TUYỆT ĐỐI TUÂN THỦ: Mỗi món có: name, time (số phút), calories (số kcal), difficulty, description, ingredients (mảng {name, quantity}), instructions (các bước nấu cách nhau bằng \\n). QUY TẮC TÌM KIẾM: Người dùng search từ khóa. Ưu tiên món trùng phương pháp chế biến. LOẠI BỎ món dùng phương pháp khác. Trả về ĐÚNG 3-5 món. ${regionPrompt}
+
+YÊU CẦU QUAN TRỌNG về instructions:
+- Hướng dẫn CỰC KỲ CHI TIẾT, như một đầu bếp chỉ dạy người mới nấu ăn.
+- Mỗi bước phải rõ ràng, bao gồm: lửa to/nhỏ, thời gian chính xác (phút), cách kiểm tra độ chín, mẹo nhỏ.
+- instructions gồm 6-10 bước, mỗi bước một dòng xuống dòng \\n.
+- KÈM THEO mẹo và lưu ý ở cuối.` },
               { role: 'user', content: `Tìm món: ${query}` }
             ],
             temperature: 0.7,
@@ -147,7 +153,7 @@ app.post('/api/random-dishes', async (req, res) => {
         body: JSON.stringify({
           model: 'deepseek-chat',
           messages: [
-            { role: 'system', content: 'Bạn là chuyên gia ẩm thực Việt Nam. Trả lời JSON array. Mỗi món có: name, time (số phút), calories (số kcal), difficulty, description, ingredients (mảng {name, quantity}), instructions. Gợi ý 3 món ăn Việt Nam ngẫu nhiên, đa dạng.' },
+            { role: 'system', content: 'Bạn là chuyên gia ẩm thực Việt Nam. Trả lời JSON array. Mỗi món có: name, time (số phút), calories (số kcal), difficulty, description, ingredients (mảng {name, quantity}), instructions. Gợi ý 3 món ăn Việt Nam ngẫu nhiên, đa dạng.\n\nYÊU CẦU QUAN TRỌNG về instructions:\n- Hướng dẫn CỰC KỲ CHI TIẾT, như đầu bếp chỉ người mới nấu.\n- Mỗi bước có: lửa to/nhỏ, thời gian (phút), kiểm tra độ chín, mẹo nhỏ.\n- instructions gồm 6-10 bước, cách nhau bằng \\n.\n- KÈM MẸO và lưu ý ở cuối.' },
             { role: 'user', content: 'Gợi ý 3 món ăn ngẫu nhiên cho hôm nay' }
           ],
           temperature: 0.8,
@@ -233,6 +239,27 @@ app.post('/api/chat', async (req, res) => {
       mock: true,
       data: getMockResponse(req.body.messages)
     });
+  }
+});
+
+// ---- YouTube search for cooking videos ----
+app.get('/api/youtube-video', async (req, res) => {
+  const { dish } = req.query;
+  if (!dish) return res.json({ videoId: null });
+
+  try {
+    const ytSearch = require('yt-search');
+    const query = `cách nấu ${dish} | ${dish} recipe vietnamese`;
+    const result = await ytSearch({ query, pageStart: 1, pageEnd: 1 });
+    const videos = result?.videos || [];
+    // Ưu tiên video tiếng Việt (có từ "cách nấu", "cách làm" trong title)
+    const findBest = videos.find(v =>
+      /cách (nấu|làm)|hướng dẫn|recipe|vietnamese/i.test(v.title)
+    ) || videos[0];
+    res.json({ videoId: findBest?.videoId || null, title: findBest?.title || '' });
+  } catch (err) {
+    console.error('[YouTube] Search error:', err.message);
+    res.json({ videoId: null });
   }
 });
 
@@ -433,7 +460,7 @@ app.post('/api/analyze-image', async (req, res) => {
   try {
     const prompt = isFridge
       ? 'Phân tích ảnh chụp tủ lạnh này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "ingredients": ["tên nguyên liệu 1", "tên nguyên liệu 2", ...] }. Liệt kê TẤT CẢ nguyên liệu thực phẩm nhìn thấy được (thịt, cá, rau, củ, quả, trứng, v.v.). Bỏ qua gia vị khô, chai lọ, đồ đóng hộp. Mỗi nguyên liệu viết hoa chữ cái đầu. Nếu không thấy nguyên liệu nào, trả về { "ingredients": [] }'
-      : 'Phân tích ảnh món ăn này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "name": "Tên món", "time": "thời gian nấu (có đơn vị)", "calories": "lượng calo (có đơn vị)", "difficulty": "Dễ/Trung bình/Khó", "description": "mô tả ngắn", "ingredients": [{"name": "tên nguyên liệu", "quantity": "số lượng", "price": 0}], "instructions": "bước 1\\nbước 2\\nbước 3" }. Nếu không nhận diện được món, hãy trả về món ăn bất kỳ nhìn thấy trong ảnh.\n\n' + regionPrompt;
+      : 'Phân tích ảnh món ăn này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "name": "Tên món", "time": "thời gian nấu (có đơn vị)", "calories": "lượng calo (có đơn vị)", "difficulty": "Dễ/Trung bình/Khó", "description": "mô tả ngắn", "ingredients": [{"name": "tên nguyên liệu", "quantity": "số lượng", "price": 0}], "instructions": "bước 1\\nbước 2\\nbước 3\\n..." }. Nếu không nhận diện được món, hãy trả về món ăn bất kỳ nhìn thấy trong ảnh.\n\nYÊU CẦU QUAN TRỌNG về instructions: hướng dẫn CHI TIẾT với 6-10 bước, mỗi bước ghi rõ lửa to/nhỏ, thời gian chính xác (phút), kiểm tra độ chín, kèm mẹo nhỏ và lưu ý ở cuối.\n\n' + regionPrompt;
 
     // Extract base64 data (remove data:image/...;base64, prefix)
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
@@ -553,7 +580,7 @@ function getMockResponse(messages) {
               { name: 'Bơ', quantity: '1 quả', price: 0 },
               { name: 'Sốt mè rang', quantity: '30ml', price: 0 }
             ],
-            instructions: '1. Cá hồi rửa sạch, thấm khô, ướp muối tiêu 10 phút.\n2. Áp chảo cá hồi với dầu oliu mỗi mặt 3-4 phút lửa vừa.\n3. Xà lách rửa sạch, cà chua bổ đôi, bơ thái lát.\n4. Xếp rau ra đĩa, đặt cá hồi lên trên, rưới sốt mè rang.'
+            instructions: '1. Cá hồi rửa sạch, thấm khô bằng khăn giấy. Ướp đều 2 mặt với 1/2 thìa muối, 1/2 thìa tiêu, 1 thìa dầu oliu. Để thấm 10 phút.\n2. Bắc chảo chống dính lên bếp, cho 1 thìa dầu oliu, lửa vừa-lớn. Đợi dầu nóng già (thấy khói nhẹ).\n3. Cho cá hồi vào áp chảo, mặt da xuống trước. Chiên 3-4 phút lửa vừa đến khi da vàng giòn.\n4. Lật mặt cá, chiên thêm 2-3 phút (tuỳ độ dày). Thịt cá chín tới sẽ dễ dàng tách thành từng múi.\n5. Xà lách rửa sạch, ngâm nước muối 5 phút, để ráo. Cà chua bi bổ đôi. Bơ thái lát mỏng.\n6. Xếp rau ra đĩa lớn, đặt cá hồi lên trên. Rưới sốt mè rang hoặc sốt dầu giấm.\n💡 Mẹo: Không chiên cá quá lâu - cá hồi sẽ bị khô. Thịt còn hơi hồng ở trung tâm là ngon nhất. Có thể thay sốt mè rang bằng sốt chanh dây hoặc tương ớt Hàn Quốc.'
           },
           {
             name: 'Bò Xào Bông Cải Xanh',

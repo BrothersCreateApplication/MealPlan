@@ -435,6 +435,20 @@
                 </ul>
               </div>
             </div>
+
+            <!-- YouTube video embed -->
+            <div class="mt-5">
+              <h3 class="font-title-md flex items-center gap-2 text-error mb-3">
+                <span class="material-symbols-outlined">smart_display</span>
+                Video hướng dẫn
+              </h3>
+              <div id="youtube-video-container" class="bg-surface-container-low rounded-xl overflow-hidden aspect-video flex items-center justify-center">
+                <div class="text-center p-6">
+                  <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p class="text-xs text-on-surface-variant">Đang tìm video hướng dẫn...</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -455,6 +469,9 @@
 
     document.body.appendChild(overlay);
 
+    // Tìm video YouTube
+    loadYouTubeVideo(dish.name);
+
     // Close handlers
     overlay.querySelector('#recipe-close')?.addEventListener('click', () => overlay.remove());
     overlay.querySelector('#recipe-close-alt')?.addEventListener('click', () => overlay.remove());
@@ -472,6 +489,45 @@
       MealPlan.navigate('cart');
       if (window.renderCart) window.renderCart();
     });
+  }
+
+  // ---- Tìm video YouTube cho món ăn ----
+  async function loadYouTubeVideo(dishName) {
+    try {
+      const res = await fetch(`/api/youtube-video?dish=${encodeURIComponent(dishName)}`);
+      const data = await res.json();
+      const container = document.getElementById('youtube-video-container');
+      if (!container) return;
+
+      if (data.videoId) {
+        container.innerHTML = `
+          <iframe class="w-full h-full aspect-video"
+            src="https://www.youtube.com/embed/${data.videoId}?autoplay=0&rel=0"
+            title="${data.title || dishName}"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen>
+          </iframe>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="text-center p-6">
+            <span class="material-symbols-outlined text-3xl text-outline mb-2">videocam_off</span>
+            <p class="text-xs text-on-surface-variant">Không tìm thấy video hướng dẫn</p>
+          </div>
+        `;
+      }
+    } catch (e) {
+      const container = document.getElementById('youtube-video-container');
+      if (container) {
+        container.innerHTML = `
+          <div class="text-center p-6">
+            <span class="material-symbols-outlined text-3xl text-outline mb-2">videocam_off</span>
+            <p class="text-xs text-on-surface-variant">Lỗi tải video</p>
+          </div>
+        `;
+      }
+    }
   }
 
   // ---- Init ----

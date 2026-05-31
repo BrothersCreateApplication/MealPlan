@@ -259,13 +259,13 @@
         time: '25 ph',
         calories: '350 kcal',
         difficulty: 'Dễ',
-        description: 'Thịt ba chỉ luộc chín tới, thái lát mỏng, chấm nước mắm tỏi ớt.',
+        description: 'Thịt ba chỉ luộc chín tới, thái lát mỏng, chấm nước mắm tỏi ớt. Món đơn giản mà ngon cơm.',
         ingredients: [
           { name: 'Thịt ba chỉ', quantity: '300g', price: 0 },
           { name: 'Muối', quantity: '1 thìa', price: 0 },
           { name: 'Sả', quantity: '2 cây', price: 0 }
         ],
-        instructions: '1. Thịt ba chỉ rửa sạch.\n2. Luộc thịt với nước lạnh, thêm sả và muối.\n3. Luộc lửa vừa 20 phút, tắt bếp ngâm 5 phút.\n4. Vớt ra thái lát mỏng.'
+        instructions: '1. Thịt ba chỉ rửa sạch với muối, để ráo.\n2. Bắc nồi nước lạnh ngập thịt, thêm 1 thìa muối và 2 cây sả đập dập.\n3. Đun lửa lớn đến khi nước sôi, hạ lửa vừa. Luộc 15-20 phút.\n4. Dùng đũa xiên thử — nếu thịt mềm và không có nước hồng chảy ra là chín.\n5. Tắt bếp, ngâm thịt trong nồi thêm 5 phút để thịt mềm và giữ ngọt.\n6. Vớt thịt ra, để nguội bớt 2-3 phút rồi thái lát mỏng vừa ăn (0.5cm).\n7. Pha nước mắm tỏi ớt: 2 muỗng nước mắm + 1 muỗng đường + 1 muỗng nước cốt chanh + tỏi ớt băm.\n💡 Mẹo: Luộc bằng nước lạnh giúp thịt chín đều, không bị dai. Không luộc quá lâu sẽ bị nát.'
       },
       {
         name: 'Thịt Luộc Cuốn Bánh Tráng',
@@ -278,7 +278,7 @@
           { name: 'Bánh tráng', quantity: '10 cái', price: 0 },
           { name: 'Rau sống', quantity: '200g', price: 0 }
         ],
-        instructions: '1. Thịt ba chỉ luộc chín, thái lát mỏng.\n2. Bánh tráng nhúng nước, trải ra.\n3. Xếp rau và thịt lên bánh tráng, cuốn chặt.\n4. Pha nước mắm chua ngọt chấm kèm.'
+        instructions: '1. Thịt ba chỉ rửa sạch, luộc chín như hướng dẫn món thịt luộc (khoảng 20 phút).\n2. Vớt thịt để nguội, thái lát mỏng 0.3-0.5cm.\n3. Rau sống nhặt, rửa sạch, ngâm nước muối loãng 5 phút, vớt để ráo.\n4. Bánh tráng nhúng nhanh qua nước lã cho hơi mềm (không nhúng ướt quá).\n5. Trải bánh tráng ra thớt hoặc đĩa. Xếp rau sống vào 1/3 dưới cùng.\n6. Đặt 2-3 lát thịt lên trên rau. Cuốn chặt tay từ dưới lên, gấp 2 bên mép vào trong.\n7. Pha nước mắm chua ngọt: 1 nước mắm + 1 đường + 2 nước + chanh tỏi ớt.\n💡 Mẹo: Không nhúng bánh tráng quá lâu sẽ bị rách. Cuốn đến đâu ăn đến đó, không để lâu bánh bị khô.'
       },
       {
         name: 'Thịt Chân Giò Luộc',
@@ -581,6 +581,20 @@
                 </ul>
               </div>
             </div>
+
+            <!-- YouTube video embed -->
+            <div class="mt-5">
+              <h3 class="font-title-md flex items-center gap-2 text-error mb-3">
+                <span class="material-symbols-outlined">smart_display</span>
+                Video hướng dẫn
+              </h3>
+              <div id="youtube-video-container" class="bg-surface-container-low rounded-xl overflow-hidden aspect-video flex items-center justify-center">
+                <div class="text-center p-6">
+                  <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p class="text-xs text-on-surface-variant">Đang tìm video hướng dẫn...</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -604,6 +618,9 @@
     // Try to load real image for overlay header
     loadDishImage(dish.name, 'recipe-header-img');
 
+    // Tìm video YouTube
+    loadYouTubeVideo(dish.name);
+
     // Close handlers
     overlay.querySelector('#recipe-close')?.addEventListener('click', () => overlay.remove());
     overlay.querySelector('#recipe-close-alt')?.addEventListener('click', () => overlay.remove());
@@ -621,6 +638,45 @@
       MealPlan.navigate('cart');
       if (window.renderCart) window.renderCart();
     });
+  }
+
+  // ---- Tìm video YouTube cho món ăn ----
+  async function loadYouTubeVideo(dishName) {
+    try {
+      const res = await fetch(`/api/youtube-video?dish=${encodeURIComponent(dishName)}`);
+      const data = await res.json();
+      const container = document.getElementById('youtube-video-container');
+      if (!container) return;
+
+      if (data.videoId) {
+        container.innerHTML = `
+          <iframe class="w-full h-full aspect-video"
+            src="https://www.youtube.com/embed/${data.videoId}?autoplay=0&rel=0"
+            title="${data.title || dishName}"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen>
+          </iframe>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="text-center p-6">
+            <span class="material-symbols-outlined text-3xl text-outline mb-2">videocam_off</span>
+            <p class="text-xs text-on-surface-variant">Không tìm thấy video hướng dẫn</p>
+          </div>
+        `;
+      }
+    } catch (e) {
+      const container = document.getElementById('youtube-video-container');
+      if (container) {
+        container.innerHTML = `
+          <div class="text-center p-6">
+            <span class="material-symbols-outlined text-3xl text-outline mb-2">videocam_off</span>
+            <p class="text-xs text-on-surface-variant">Lỗi tải video</p>
+          </div>
+        `;
+      }
+    }
   }
 
   function getIngredientIcon(name) {
