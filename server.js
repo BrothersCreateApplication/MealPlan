@@ -43,12 +43,13 @@ app.post('/api/search-dishes', async (req, res) => {
   const q = query.trim().toLowerCase();
   const words = q.split(/\s+/).filter(w => w.length > 0);
 
-  // 1. Tìm trong Supabase trước (OR — chỉ cần 1 từ khớp)
-  let dishes = await db.searchDishes(words);
+  // 1. Tìm trong Supabase trước — 3 cấp độ: exact > AND > OR
+  const { exactMatch, andMatch, orMatch } = await db.searchDishes(words, q);
   let aiDishesResult = [];
 
-  // 2. Nếu không đủ (dưới 3 món), gọi DeepSeek để bổ sung
-  if (dishes.length < 3) {
+  // Nếu chưa đủ 3 món exact + AND, gọi DeepSeek để bổ sung
+  const dbExactCount = exactMatch.length + andMatch.length;
+  if (dbExactCount < 3) {
     const apiKey = process.env.DEEPSEEK_API_KEY;
     if (apiKey) {
       try {
@@ -95,11 +96,10 @@ app.post('/api/search-dishes', async (req, res) => {
     }
   }
 
-  // 3. Gộp DB + AI, loại bỏ trùng tên, ưu tiên AND-match lên đầu
+  // 3. Ghép kết quả theo thứ tự ưu tiên: exact > AND > OR > AI > fallback
   const seen = new Set();
   const merged = [];
 
-  // Helper: thêm món nếu chưa có
   function addIfNew(dish) {
     if (!dish || !dish.name) return;
     const key = dish.name.toLowerCase();
@@ -108,23 +108,30 @@ app.post('/api/search-dishes', async (req, res) => {
     merged.push(dish);
   }
 
-  // Thêm DB results trước
-  for (const d of dishes) addIfNew(d);
-  // Thêm AI results sau
-  for (const d of aiDishesResult) addIfNew(d);
+  function addBatch(arr, limit = 5) {
+    for (const d of arr) {
+      if (merged.length >= limit) break;
+      addIfNew(d);
+    }
+  }
 
-  // Sắp xếp: món chứa tất cả keywords (AND) lên đầu
-  merged.sort((a, b) => {
-    const aAll = words.every(k => a.name.toLowerCase().includes(k));
-    const bAll = words.every(k => b.name.toLowerCase().includes(k));
-    if (aAll !== bAll) return aAll ? -1 : 1;
-    return 0;
-  });
+  // Bước 1: Exact-match (chứa full cụm từ)
+  addBatch(exactMatch);
 
-  // 4. Fallback cuối — nếu vẫn không có gì
+  // Bước 2: AND-match (chứa tất cả từ)
+  if (merged.length < 3) addBatch(andMatch);
+
+  // Bước 3: OR-match (chứa ít nhất 1 từ) — chỉ nếu chưa đủ
+  if (merged.length < 3) addBatch(orMatch);
+
+  // Bước 4: AI results
+  if (merged.length < 3) addBatch(aiDishesResult);
+
+  // Bước 5: Fallback cuối
   if (merged.length < 3) {
     const all = await db.getAllDishes();
     for (const d of all) {
+      if (merged.length >= 5) break;
       if (!d.name) continue;
       if (seen.has(d.name.toLowerCase())) continue;
       const text = d.name.toLowerCase();
