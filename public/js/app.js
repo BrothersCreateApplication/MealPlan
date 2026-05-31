@@ -4,12 +4,12 @@ const MealPlan = (function() {
   // ---- State ----
   const state = {
     currentPage: 'home',
-    currentDish: null,    // Current shopping list dish
-    currentMealName: '',  // Name of the meal being cooked (set by "Nấu Ăn")
-    cart: [],           // { id, name, quantity, price, status: 'needed'|'owned', image }
-    history: [],        // { id, dishName, date, calories, cost, image }
-    dishes: [],         // Current dish suggestions from API
-    favorites: new Set(),
+    currentDish: null,
+    currentMealName: '',
+    cart: [],
+    history: [],
+    dishes: [],
+    favorites: [],      // [{ name, time, calories, difficulty, description, ingredients }]
     topItems: [
       { name: 'Trứng gà', icon: 'egg', count: '12 lần/tháng' },
       { name: 'Cải xanh', icon: 'eco', count: '8 lần/tháng' },
@@ -24,7 +24,7 @@ const MealPlan = (function() {
       const saved = localStorage.getItem('mealplan_state');
       if (saved) {
         const parsed = JSON.parse(saved);
-        Object.assign(state, parsed, { favorites: new Set(parsed.favorites || []) });
+        Object.assign(state, parsed, { favorites: Array.isArray(parsed.favorites) ? parsed.favorites : [] });
       }
     } catch (e) { /* ignore corrupt data */ }
   }
@@ -34,6 +34,41 @@ const MealPlan = (function() {
       const toSave = { ...state, favorites: [...state.favorites] };
       localStorage.setItem('mealplan_state', JSON.stringify(toSave));
     } catch (e) { /* storage full */ }
+  }
+
+  // ---- Favorites ----
+  function toggleFavorite(dish) {
+    if (!dish || !dish.name) return;
+    const idx = state.favorites.findIndex(f => f.name === dish.name);
+    if (idx >= 0) {
+      state.favorites.splice(idx, 1);
+      return false; // removed
+    } else {
+      // Store dish info
+      state.favorites.push({
+        name: dish.name,
+        time: dish.time || '',
+        calories: dish.calories || '',
+        difficulty: dish.difficulty || '',
+        description: dish.description || '',
+        ingredients: dish.ingredients || []
+      });
+      return true; // added
+    }
+  }
+
+  function isFavorite(name) {
+    return state.favorites.some(f => f.name === name);
+  }
+
+  function removeFavorite(name) {
+    const idx = state.favorites.findIndex(f => f.name === name);
+    if (idx >= 0) {
+      state.favorites.splice(idx, 1);
+      saveState();
+      return true;
+    }
+    return false;
   }
 
   // ---- API Client ----
@@ -293,7 +328,10 @@ const MealPlan = (function() {
     showToast,
     showConfirm,
     saveState,
-    loadState
+    loadState,
+    toggleFavorite,
+    isFavorite,
+    removeFavorite
   };
 })();
 

@@ -182,7 +182,7 @@
           </div>
           <div class="absolute top-3 right-3">
             <button class="fav-btn bg-white/80 backdrop-blur-md p-1.5 rounded-full shadow-sm" data-dish="${dish.name}">
-              <span class="material-symbols-outlined text-secondary ${MealPlan.state.favorites.has(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.state.favorites.has(dish.name) ? '1' : '0'};">favorite</span>
+              <span class="material-symbols-outlined text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
             </button>
           </div>
         </div>
@@ -411,7 +411,7 @@
           </div>
           <div class="absolute top-3 right-3">
             <button class="fav-btn bg-white/80 backdrop-blur-md p-1.5 rounded-full shadow-sm" data-dish="${dish.name}">
-              <span class="material-symbols-outlined text-secondary ${MealPlan.state.favorites.has(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.state.favorites.has(dish.name) ? '1' : '0'};">favorite</span>
+              <span class="material-symbols-outlined text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
             </button>
           </div>
         </div>
@@ -462,16 +462,17 @@
         e.stopPropagation();
         const dishName = this.dataset.dish;
         const icon = this.querySelector('.material-symbols-outlined');
-        if (MealPlan.state.favorites.has(dishName)) {
-          MealPlan.state.favorites.delete(dishName);
-          icon.style.setProperty('font-variation-settings', "'FILL' 0");
-          icon.classList.add('opacity-40');
-        } else {
-          MealPlan.state.favorites.add(dishName);
+        // Find dish info from currentDishes cache
+        const dish = currentDishes.find(d => d && d.name === dishName);
+        const added = MealPlan.toggleFavorite(dish || { name: dishName });
+        MealPlan.saveState();
+        if (added) {
           icon.style.setProperty('font-variation-settings', "'FILL' 1");
           icon.classList.remove('opacity-40');
+        } else {
+          icon.style.setProperty('font-variation-settings', "'FILL' 0");
+          icon.classList.add('opacity-40');
         }
-        MealPlan.saveState();
       });
     });
 

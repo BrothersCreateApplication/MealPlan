@@ -9,36 +9,6 @@
     showAll: false
   };
 
-  const favoriteDishes = [
-    {
-      name: 'Salad Địa Trung Hải',
-      icon: 'eco',
-      frequency: '5',
-      unit: 'lần/tháng',
-      description: 'Món ăn giúp bạn duy trì cân nặng tốt nhất trong tháng.',
-      gradient: 'from-emerald-400/20 to-teal-300/20',
-      emoji: '🥗'
-    },
-    {
-      name: 'Mì Ý Pesto',
-      icon: 'ramen_dining',
-      frequency: '4',
-      unit: 'lần/tháng',
-      description: 'Bạn thường chọn món này khi cần chuẩn bị nhanh dưới 15 phút.',
-      gradient: 'from-amber-400/20 to-yellow-300/20',
-      emoji: '🍝'
-    },
-    {
-      name: 'Gà Nướng Khoai Lang',
-      icon: 'set_meal',
-      frequency: '3',
-      unit: 'lần/tháng',
-      description: 'Món ăn cung cấp năng lượng ổn định cho các buổi tập chiều.',
-      gradient: 'from-orange-400/20 to-red-300/20',
-      emoji: '🍗'
-    }
-  ];
-
   // ---- Helper: parse date ----
   function parseDateVN(dateStr) {
     if (!dateStr) return null;
@@ -109,7 +79,6 @@
     const history = MealPlan.state.history || [];
     const isEmpty = history.length === 0;
 
-    // Toggle empty state vs content
     toggleEmptyState(isEmpty);
     if (isEmpty) return;
 
@@ -129,7 +98,6 @@
     if (isEmpty) {
       emptyEl?.classList.remove('hidden');
       sections.forEach(s => s.classList.add('hidden'));
-      // Hide title/subtitle pseudo
       const title = document.querySelector('#page-history .max-w-4xl > h1');
       const subtitle = document.querySelector('#page-history .max-w-4xl > p');
       if (title) title.classList.add('hidden');
@@ -169,8 +137,6 @@
     const todayMeals = history.filter(h => h.date === today);
     const totalSpent = history.reduce((sum, h) => sum + (h.cost || 0), 0);
     const todaySpent = todayMeals.reduce((sum, h) => sum + (h.cost || 0), 0);
-
-    // Calculate avg per meal
     const avgPerMeal = historyCount > 0 ? Math.round(totalSpent / historyCount) : 0;
 
     let summary = '';
@@ -217,7 +183,6 @@
     const maxVal = Math.max(...weeklyTotals, 1);
     const total = weeklyTotals.reduce((a, b) => a + b, 0);
 
-    // Update badge
     if (badgeEl) {
       if (total > 0) {
         const avg = total / weeklyTotals.filter(v => v > 0).length;
@@ -227,7 +192,6 @@
       }
     }
 
-    // Colors cycling
     const colors = ['bg-emerald-400', 'bg-emerald-500', 'bg-emerald-600', 'bg-emerald-500', 'bg-emerald-400'];
 
     container.innerHTML = weeklyTotals.map((val, idx) => {
@@ -236,7 +200,6 @@
         <div class="flex flex-col items-center flex-1 h-full justify-end">
           <div class="relative w-full max-w-[32px] group cursor-pointer">
             <div class="chart-bar w-full ${colors[idx]} rounded-t-lg transition-all duration-300 hover:brightness-110 hover:scale-y-[1.03] hover:origin-bottom" style="height: ${pct}%"></div>
-            <!-- Tooltip -->
             <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-2 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-lg pointer-events-none z-20">
               ${MealPlan.formatCurrency(val)}
             </div>
@@ -244,7 +207,6 @@
         </div>`;
     }).join('');
 
-    // Update labels with actual currency values
     const labelsContainer = document.getElementById('chart-labels');
     if (labelsContainer) {
       const labelSpans = labelsContainer.querySelectorAll('span');
@@ -287,7 +249,6 @@
             </div>
             <span class="font-label-md text-on-surface text-sm font-semibold mb-1">${item.name}</span>
             <span class="text-[11px] text-on-surface-variant mb-3">${item.count}</span>
-            <!-- Progress bar -->
             <div class="w-full h-1.5 bg-outline-variant/20 rounded-full overflow-hidden">
               <div class="h-full bg-emerald-500 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
             </div>
@@ -355,7 +316,6 @@
         </div>`;
     }).join('');
 
-    // Load more button
     if (loadMoreBtn) {
       const hasMore = filtered.length > displayLimit;
       loadMoreBtn.style.display = hasMore ? 'block' : 'none';
@@ -366,53 +326,112 @@
         </span>`;
       }
     }
+  }
 
-	  }
+  // ===================== Favorites =====================
 
-	  // ===================== Favorites =====================
+  function getFavVisual(name) {
+    const lower = name.toLowerCase();
+    const map = [
+      ['salad', { emoji: '🥗', gradient: 'from-lime-400/20 to-green-300/20' }],
+      ['phở', { emoji: '🍜', gradient: 'from-amber-500/20 to-orange-400/20' }],
+      ['bánh', { emoji: '🥟', gradient: 'from-purple-400/20 to-fuchsia-300/20' }],
+      ['trứng', { emoji: '🥚', gradient: 'from-yellow-300/20 to-amber-200/20' }],
+      ['cơm', { emoji: '🍚', gradient: 'from-orange-400/20 to-yellow-300/20' }],
+      ['canh', { emoji: '🥣', gradient: 'from-teal-400/20 to-cyan-300/20' }],
+      ['kho', { emoji: '🍲', gradient: 'from-amber-500/20 to-orange-400/20' }],
+      ['xào', { emoji: '🥘', gradient: 'from-orange-400/20 to-yellow-300/20' }],
+      ['luộc', { emoji: '🥟', gradient: 'from-teal-400/20 to-cyan-300/20' }],
+      ['chiên', { emoji: '🍳', gradient: 'from-amber-400/20 to-yellow-300/20' }],
+      ['nướng', { emoji: '🔥', gradient: 'from-red-500/20 to-orange-400/20' }],
+      ['rau', { emoji: '🥬', gradient: 'from-green-400/20 to-emerald-300/20' }],
+      ['tôm', { emoji: '🦐', gradient: 'from-pink-400/20 to-orange-300/20' }],
+      ['cá', { emoji: '🐟', gradient: 'from-blue-400/20 to-teal-300/20' }],
+      ['gà', { emoji: '🍗', gradient: 'from-amber-400/20 to-yellow-300/20' }],
+      ['bò', { emoji: '🥩', gradient: 'from-red-500/20 to-orange-400/20' }],
+      ['heo', { emoji: '🐷', gradient: 'from-rose-400/20 to-pink-300/20' }],
+      ['lợn', { emoji: '🐷', gradient: 'from-rose-400/20 to-pink-300/20' }],
+      ['mì', { emoji: '🍝', gradient: 'from-yellow-500/20 to-orange-400/20' }],
+    ];
+    map.sort(([a], [b]) => (b || '').length - (a || '').length);
+    for (const entry of map) {
+      const keywords = Array.isArray(entry) ? entry.slice(0, -1) : [entry[0]];
+      const visual = entry[entry.length - 1];
+      if (keywords.some(k => lower.includes(k))) return visual;
+    }
+    return { emoji: '🍽️', gradient: 'from-primary/10 to-primary-container/20' };
+  }
 
   function renderFavorites() {
     const container = document.getElementById('favorite-grid');
     if (!container) return;
 
-    container.innerHTML = favoriteDishes.map(dish => {
-      const freq = parseInt(dish.frequency);
-      const maxFreq = Math.max(...favoriteDishes.map(d => parseInt(d.frequency)), 1);
-      const barPct = Math.round((freq / maxFreq) * 100);
+    const favorites = MealPlan.state.favorites || [];
 
+    if (favorites.length === 0) {
+      container.innerHTML = `
+        <div class="col-span-full text-center py-8 bg-surface-container-low rounded-xl">
+          <span class="material-symbols-outlined text-3xl text-outline block mx-auto mb-2">favorite</span>
+          <p class="text-on-surface-variant text-sm">Chưa có món yêu thích.</p>
+          <p class="text-[12px] text-on-surface-variant mt-1">Thả tim món ăn ở trang chủ nhé!</p>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = favorites.map(dish => {
+      const visual = getFavVisual(dish.name);
+      const desc = dish.description || 'Món ăn yêu thích của bạn';
+      const escapedName = dish.name.replace(/'/g, "\\'");
       return `
         <div class="group bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10 hover:shadow-lg hover:border-emerald-200/50 transition-all duration-300">
-          <!-- Image placeholder -->
-          <div class="h-28 bg-gradient-to-br ${dish.gradient} flex items-center justify-center relative overflow-hidden">
-            <span class="text-4xl transition-transform duration-300 group-hover:scale-110">${dish.emoji}</span>
-            <!-- Frequency tag -->
-            <span class="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-emerald-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold shadow-sm">${dish.frequency}x/tháng</span>
+          <div class="h-28 bg-gradient-to-br ${visual.gradient} flex items-center justify-center relative overflow-hidden">
+            <span class="text-4xl transition-transform duration-300 group-hover:scale-110">${visual.emoji}</span>
+            <button class="fav-remove-btn absolute top-3 right-3 bg-white/80 backdrop-blur-sm p-1.5 rounded-full shadow-sm hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100" data-name="${dish.name}" title="Bỏ yêu thích">
+              <span class="material-symbols-outlined text-red-500 text-[16px]">close</span>
+            </button>
           </div>
-          <!-- Content -->
           <div class="p-4">
             <h4 class="font-label-md text-on-surface font-semibold mb-1">${dish.name}</h4>
-            <p class="text-[12px] text-on-surface-variant leading-relaxed mb-3">${dish.description}</p>
-            <!-- Mini progress -->
+            <p class="text-[12px] text-on-surface-variant leading-relaxed mb-3">${desc}</p>
             <div class="flex items-center gap-2 mb-3">
               <div class="flex-1 h-1 bg-outline-variant/20 rounded-full overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full transition-all" style="width: ${barPct}%"></div>
+                <div class="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full" style="width: 100%"></div>
               </div>
-              <span class="text-[10px] text-on-surface-variant font-semibold">${dish.frequency}x</span>
+              <span class="text-[10px] text-on-surface-variant font-semibold">Yêu thích</span>
             </div>
             <button class="w-full py-2.5 bg-emerald-50 text-emerald-700 rounded-xl font-label-md text-sm hover:bg-emerald-600 hover:text-white active:scale-[0.97] transition-all flex items-center justify-center gap-1.5 group/btn"
-              onclick="(function(){ MealPlan.navigate('home'); var inp=document.getElementById('dish-search'); if(inp){inp.value='${dish.name.replace(/'/g, "\\'")}'; inp.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter'}));} })()">
+              onclick="(function(){ MealPlan.navigate('home'); var inp=document.getElementById('dish-search'); if(inp){inp.value='${escapedName}'; inp.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter'}));} })()">
               <span class="material-symbols-outlined text-[16px] group-hover/btn:scale-110 transition-transform">add</span>
               Thêm vào kế hoạch
             </button>
           </div>
         </div>`;
     }).join('');
+
+    // Attach remove events
+    container.querySelectorAll('.fav-remove-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const name = this.dataset.name;
+        MealPlan.removeFavorite(name);
+        renderFavorites();
+        MealPlan.showToast(`Đã bỏ "${name}" khỏi yêu thích`, 'info');
+        // Sync heart icon on home page if visible
+        const safename = name.replace(/"/g, '\\"');
+        document.querySelectorAll('.fav-btn[data-dish="' + safename + '"]').forEach(fb => {
+          const icon = fb.querySelector('.material-symbols-outlined');
+          if (icon) {
+            icon.style.setProperty('font-variation-settings', "'FILL' 0");
+            icon.classList.add('opacity-40');
+          }
+        });
+      });
+    });
   }
 
   // ===================== Init =====================
 
   function initHistory() {
-    // Apply filter
     document.getElementById('btn-apply-history-filter')?.addEventListener('click', () => {
       filterState.search = document.getElementById('history-search')?.value || '';
       filterState.dateFrom = document.getElementById('history-date-from')?.value || '';
@@ -421,7 +440,6 @@
       renderHistory();
     });
 
-    // Clear filter
     document.getElementById('btn-clear-history-filter')?.addEventListener('click', () => {
       const searchInput = document.getElementById('history-search');
       const dateFrom = document.getElementById('history-date-from');
@@ -433,7 +451,6 @@
       renderHistory();
     });
 
-    // Clear filter
     document.getElementById('history-search')?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -441,19 +458,16 @@
       }
     });
 
-    // Load more
     document.getElementById('load-more-history')?.addEventListener('click', () => {
       filterState.showAll = true;
       renderHistoryList();
     });
 
-    // Go home from empty state
     document.getElementById('btn-go-home-empty')?.addEventListener('click', () => {
       MealPlan.navigate('home');
     });
   }
 
-  // Expose for navigation refresh
   window.renderHistory = renderHistory;
 
   document.addEventListener('DOMContentLoaded', initHistory);
