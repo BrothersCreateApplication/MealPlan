@@ -62,7 +62,7 @@ app.post('/api/search-dishes', async (req, res) => {
           body: JSON.stringify({
             model: 'deepseek-chat',
             messages: [
-              { role: 'system', content: `Bạn là chuyên gia ẩm thực Việt Nam. Trả lời JSON array. TUYỆT ĐỐI TUÂN THỦ: Mỗi món có: name, time (số phút), calories (số kcal), difficulty, description, ingredients (mảng {name, quantity}), instructions (các bước nấu cách nhau bằng \\n). QUY TẮC TÌM KIẾM: Người dùng search từ khóa. Ưu tiên món trùng phương pháp chế biến. LOẠI BỎ món dùng phương pháp khác. Trả về ĐÚNG 3-5 món.
+              { role: 'system', content: `Bạn là chuyên gia ẩm thực Việt Nam. Trả lời JSON array. TUYỆT ĐỐI TUÂN THỦ: Mỗi món có: name, time (số phút), calories (số kcal), difficulty, description, ingredients (mảng {name, quantity}), instructions (các bước nấu cách nhau bằng \\n). QUY TẮC TÌM KIẾM CỰC KỲ QUAN TRỌNG: Người dùng search "${query}". CHỈ trả về món có TÊN CHỨA "${query}" hoặc TÊN CHỨA tất cả từ khoá (VD: search "bánh xèo" → chỉ trả về món có tên chứa "bánh xèo"). TUYỆT ĐỐI KHÔNG suy diễn phương pháp nấu. Trả về ĐÚNG 3-5 món.
 
 YÊU CẦU QUAN TRỌNG về instructions:
 - Hướng dẫn CỰC KỲ CHI TIẾT, như một đầu bếp chỉ dạy người mới nấu ăn.
