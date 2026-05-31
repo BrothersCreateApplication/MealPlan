@@ -612,14 +612,24 @@
 
   function getIngredientIcon(name) {
     const map = [
-      ['thịt', 'bò', 'gà', 'heo', 'lợn', 'cá'], 'restaurant',
-      ['rau', 'xà lách', 'cải', 'bông', 'giá'], 'eco',
-      ['gia vị', 'quế', 'hồi', 'muối', 'tiêu', 'đường', 'nước mắm'], 'science',
-      ['bánh', 'phở', 'mì', 'bún', 'miến', 'cơm', 'gạo'], 'ramen_dining',
-      ['tỏi', 'hành', 'chanh', 'ớt', 'gừng', 'sả'], 'garlic',
-      ['trái cây', 'táo', 'cam', 'chuối'], 'apple',
-      ['sữa', 'trứng', 'bơ', 'phô mai'], 'egg',
-      ['dầu', 'mỡ'], 'oil_barrel'
+      ['thịt', 'bò', 'gà', 'heo', 'lợn', 'cá', 'tôm'], 'restaurant',
+      ['rau', 'xà lách', 'cải', 'bông', 'giá', 'rau thơm', 'húng', 'mùi', 'ngò'], 'eco',
+      ['muối', 'tiêu', 'đường', 'nước mắm', 'hạt nêm', 'bột ngọt', 'bột canh', 'bột nghệ'], 'science',
+      ['bánh', 'phở', 'mì', 'bún', 'miến', 'cơm', 'gạo', 'bột'], 'ramen_dining',
+      ['tỏi'], 'garlic',
+      ['hành'], 'garden',
+      ['ớt'], 'whatshot',
+      ['chanh'], 'lemon',
+      ['gừng'], 'local_fire_department',
+      ['sả'], 'grass',
+      ['trái cây', 'táo', 'cam', 'chuối', 'xoài', 'dưa'], 'apple',
+      ['sữa', 'trứng', 'bơ', 'phô mai', 'cream'], 'egg',
+      ['dầu', 'mỡ', 'bơ thực vật'], 'oil_barrel',
+      ['khoai', 'khoai tây', 'khoai lang', 'cà rốt', 'củ'], 'nutrition',
+      ['nấm'], 'rainy',
+      ['đậu', 'đậu phụ', 'tàu hũ'], 'grain',
+      ['lạc', 'đậu phộng', 'vừng', 'mè'], 'seed',
+      ['mắm', 'tương', 'xì dầu', 'dầu hào', 'dầu mè', 'tương ớt', 'tương cà', 'rượu', 'giấm'], 'science',
     ];
     const lower = name.toLowerCase();
     for (let i = 0; i < map.length; i += 2) {

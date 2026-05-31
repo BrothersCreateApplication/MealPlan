@@ -339,9 +339,6 @@
           <div class="flex-1 min-w-0 flex flex-col justify-center">
             <div class="flex items-start justify-between gap-2">
               <h4 class="font-label-md text-on-surface font-semibold">${item.dishName}</h4>
-              <button class="history-delete-btn opacity-0 group-hover:opacity-100 transition-all text-on-surface-variant hover:text-red-500 flex-shrink-0 p-0.5" data-id="${item.id}" title="Xoá">
-                <span class="material-symbols-outlined text-[16px]">close</span>
-              </button>
             </div>
             <div class="flex items-center gap-3 mt-0.5">
               <span class="text-[11px] text-on-surface-variant flex items-center gap-1">
@@ -370,52 +367,9 @@
       }
     }
 
-    // Attach delete events
-    container.querySelectorAll('.history-delete-btn').forEach(btn => {
-      btn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        const id = this.dataset.id;
-        deleteHistoryItem(id);
-      });
-    });
-  }
+	  }
 
-  // ---- Delete single history item ----
-  async function deleteHistoryItem(id) {
-    const history = MealPlan.state.history;
-    const idx = history.findIndex(h => String(h.id) === String(id));
-    if (idx === -1) return;
-
-    const item = history[idx];
-    const confirmed = await MealPlan.showConfirm(`Xoá "${item.dishName}" khỏi lịch sử?`);
-    if (!confirmed) return;
-
-    history.splice(idx, 1);
-    MealPlan.saveState();
-    renderHistory();
-    MealPlan.showToast(`Đã xoá "${item.dishName}"`, 'info');
-  }
-
-  // ---- Delete ALL history ----
-  async function deleteAllHistory() {
-    const history = MealPlan.state.history;
-    if (history.length === 0) {
-      MealPlan.showToast('Không có lịch sử để xoá.', 'info');
-      return;
-    }
-
-    const c1 = await MealPlan.showConfirm(`Xoá tất cả ${history.length} mục lịch sử? Hành động này không thể hoàn tác!`);
-    if (!c1) return;
-    const c2 = await MealPlan.showConfirm('Bạn chắc chắn muốn xoá TOÀN BỘ lịch sử nấu ăn?');
-    if (!c2) return;
-
-    MealPlan.state.history = [];
-    MealPlan.saveState();
-    renderHistory();
-    MealPlan.showToast('Đã xoá tất cả lịch sử!', 'info');
-  }
-
-  // ===================== Favorites =====================
+	  // ===================== Favorites =====================
 
   function renderFavorites() {
     const container = document.getElementById('favorite-grid');
@@ -479,10 +433,7 @@
       renderHistory();
     });
 
-    // Delete all
-    document.getElementById('btn-delete-all-history')?.addEventListener('click', deleteAllHistory);
-
-    // Enter key in search
+    // Clear filter
     document.getElementById('history-search')?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
