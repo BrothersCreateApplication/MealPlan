@@ -89,7 +89,7 @@
     if (suggestions.length === 0) {
       container.innerHTML = `
         <div class="bg-surface-container-lowest rounded-xl p-8 text-center shadow-sm border border-outline-variant/20">
-          <span class="material-symbols-outlined text-5xl text-outline mb-4">search_off</span>
+          <span class="material-symbols-outlined text-5xl text-outline mb-4">youtube_searched_for</span>
           <p class="text-on-surface-variant font-body-md">Không tìm thấy món ăn phù hợp với nguyên liệu hiện có.</p>
           <p class="text-sm text-on-surface-variant mt-2">Thử thêm nguyên liệu khác hoặc xem gợi ý ở trang chủ!</p>
         </div>`;
@@ -515,7 +515,7 @@
       if (suggestionsContainer) {
         suggestionsContainer.innerHTML = `
           <div class="bg-surface-container-lowest rounded-xl p-8 text-center shadow-sm border border-outline-variant/20">
-            <span class="material-symbols-outlined text-5xl text-outline mb-4">kitchen</span>
+            <span class="material-symbols-outlined text-5xl text-outline mb-4">fridge</span>
             <p class="text-on-surface-variant font-body-md">Thêm nguyên liệu và nhấn "Gợi ý món ăn"!</p>
           </div>`;
       }

@@ -376,7 +376,7 @@
       return `
         <div class="flex items-stretch gap-3 p-3 rounded-xl hover:bg-surface-container-low transition-all group ${idx > 0 ? 'border-t border-outline-variant/10 pt-4' : ''}">
           <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 flex items-center justify-center flex-shrink-0">
-            <span class="material-symbols-outlined text-emerald-600 text-2xl">restaurant_menu</span>
+            <span class="material-symbols-outlined text-emerald-600 text-2xl">cooking</span>
           </div>
           <div class="flex-1 min-w-0 flex flex-col justify-center">
             <div class="flex items-start justify-between gap-2">

@@ -625,9 +625,10 @@
 
   function getIngredientIcon(name) {
     const map = [
-      ['thịt', 'bò', 'gà', 'heo', 'lợn', 'cá', 'tôm'], 'restaurant',
+      ['thịt', 'bò', 'gà', 'heo', 'lợn'], 'lunch_dining',
+      ['cá', 'tôm'], 'set_meal',
       ['rau', 'xà lách', 'cải', 'bông', 'giá', 'rau thơm', 'húng', 'mùi', 'ngò'], 'eco',
-      ['muối', 'tiêu', 'đường', 'nước mắm', 'hạt nêm', 'bột ngọt', 'bột canh', 'bột nghệ'], 'science',
+      ['muối', 'tiêu', 'đường', 'nước mắm', 'hạt nêm', 'bột ngọt', 'bột canh', 'bột nghệ'], 'spa',
       ['bánh', 'phở', 'mì', 'bún', 'miến', 'cơm', 'gạo', 'bột'], 'ramen_dining',
       ['tỏi'], 'garlic',
       ['hành'], 'garden',
@@ -636,13 +637,13 @@
       ['gừng'], 'local_fire_department',
       ['sả'], 'grass',
       ['trái cây', 'táo', 'cam', 'chuối', 'xoài', 'dưa'], 'apple',
-      ['sữa', 'trứng', 'bơ', 'phô mai', 'cream'], 'egg',
+      ['sữa', 'trứng', 'bơ', 'phô mai', 'cream'], 'egg_alt',
       ['dầu', 'mỡ', 'bơ thực vật'], 'oil_barrel',
       ['khoai', 'khoai tây', 'khoai lang', 'cà rốt', 'củ'], 'nutrition',
       ['nấm'], 'rainy',
       ['đậu', 'đậu phụ', 'tàu hũ'], 'grain',
       ['lạc', 'đậu phộng', 'vừng', 'mè'], 'seed',
-      ['mắm', 'tương', 'xì dầu', 'dầu hào', 'dầu mè', 'tương ớt', 'tương cà', 'rượu', 'giấm'], 'science',
+      ['mắm', 'tương', 'xì dầu', 'dầu hào', 'dầu mè', 'tương ớt', 'tương cà', 'rượu', 'giấm'], 'spa',
     ];
     const lower = name.toLowerCase();
     for (let i = 0; i < map.length; i += 2) {

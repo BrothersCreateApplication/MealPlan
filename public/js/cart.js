@@ -13,7 +13,7 @@
     if (items.length === 0) {
       container.innerHTML = `
         <div class="bg-surface-container-lowest rounded-xl p-8 text-center shadow-sm border border-outline-variant/20">
-          <span class="material-symbols-outlined text-5xl text-outline mb-4">shopping_cart</span>
+          <span class="material-symbols-outlined text-5xl text-outline mb-4">shopping_bag</span>
           <p class="text-on-surface-variant font-body-md">Giỏ hàng trống. Thêm nguyên liệu từ trang chủ!</p>
         </div>`;
       if (neededCount) neededCount.textContent = '0';
@@ -43,7 +43,7 @@
             <div class="flex items-center bg-surface-container-high rounded-xl p-0.5 gap-0.5 shadow-inner">
               <button class="cart-toggle-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isOwned ? 'bg-surface text-on-surface shadow-sm' : 'bg-primary text-on-primary shadow-sm'}" data-id="${item.id}" data-status="needed">
                 <span class="flex items-center gap-1">
-                  <span class="material-symbols-outlined text-sm">shopping_cart</span>
+                  <span class="material-symbols-outlined text-sm">shopping_bag</span>
                   Cần mua
                 </span>
               </button>
@@ -65,13 +65,13 @@
                 data-id="${item.id}">
             </div>
             <button class="cart-remove-btn text-on-surface-variant hover:text-error transition-colors p-1" data-id="${item.id}" title="Xoá">
-              <span class="material-symbols-outlined">delete</span>
+              <span class="material-symbols-outlined">remove_circle_outline</span>
             </button>
           </div>` : `
           <div class="flex items-center justify-between mt-2 ml-[52px]">
             <span class="text-xs text-on-surface-variant italic">✓ Đã có sẵn, không cần mua</span>
             <button class="cart-remove-btn text-on-surface-variant hover:text-error transition-colors p-1" data-id="${item.id}" title="Xoá">
-              <span class="material-symbols-outlined">delete</span>
+              <span class="material-symbols-outlined">remove_circle_outline</span>
             </button>
           </div>`}
         </div>`;
@@ -141,9 +141,11 @@
 
   function getIconForItem(name) {
     const map = [
-      ['thịt', 'bò', 'gà', 'heo', 'lợn', 'cá', 'tôm'], 'restaurant',
+      ['thịt', 'bò', 'gà', 'heo', 'lợn'], 'lunch_dining',
+      ['cá', 'tôm'], 'set_meal',
       ['rau', 'xà lách', 'cải', 'bông', 'giá', 'rau thơm', 'húng', 'mùi', 'ngò'], 'eco',
-      ['muối', 'tiêu', 'đường', 'nước mắm', 'hạt nêm', 'bột ngọt', 'bột canh', 'bột nghệ'], 'science',
+      ['muối', 'tiêu', 'đường', 'nước mắm', 'hạt nêm', 'bột ngọt', 'bột canh', 'bột nghệ'], 'spa',
+      ['mắm', 'tương', 'xì dầu', 'dầu hào', 'dầu mè', 'tương ớt', 'tương cà', 'rượu', 'giấm'], 'spa',
       ['bánh', 'phở', 'mì', 'bún', 'miến', 'cơm', 'gạo', 'bột'], 'ramen_dining',
       ['tỏi'], 'garlic',
       ['hành'], 'garden',
@@ -152,13 +154,12 @@
       ['gừng'], 'local_fire_department',
       ['sả'], 'grass',
       ['trái cây', 'táo', 'cam', 'chuối', 'xoài', 'dưa'], 'apple',
-      ['sữa', 'trứng', 'bơ', 'phô mai', 'cream'], 'egg',
+      ['sữa', 'trứng', 'bơ', 'phô mai', 'cream'], 'egg_alt',
       ['dầu', 'mỡ', 'bơ thực vật'], 'oil_barrel',
       ['khoai', 'khoai tây', 'khoai lang', 'cà rốt', 'củ'], 'nutrition',
       ['nấm'], 'rainy',
       ['đậu', 'đậu phụ', 'tàu hũ'], 'grain',
       ['lạc', 'đậu phộng', 'vừng', 'mè'], 'seed',
-      ['mắm', 'tương', 'xì dầu', 'dầu hào', 'dầu mè', 'tương ớt', 'tương cà', 'rượu', 'giấm'], 'science',
     ];
 
     const lower = name.toLowerCase();
