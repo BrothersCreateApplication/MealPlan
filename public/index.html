@@ -124,10 +124,15 @@
           <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
             <span class="material-symbols-outlined text-outline">restaurant_menu</span>
           </div>
-          <input id="dish-search" class="w-full pl-10 pr-24 py-3.5 bg-surface-container-lowest border border-outline-variant rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm transition-all text-body-md" placeholder="Nhập món muốn nấu..." type="text"/>
-          <button id="btn-schedule" class="absolute inset-y-1.5 right-1.5 bg-primary text-on-primary px-4 rounded-lg font-label-md text-sm hover:opacity-90 active:scale-95 transition-all">
-            Lên lịch
-          </button>
+          <input id="dish-search" class="w-full pl-10 pr-36 py-3.5 bg-surface-container-lowest border border-outline-variant rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm transition-all text-body-md" placeholder="Nhập món muốn nấu..." type="text"/>
+          <div class="absolute inset-y-1.5 right-1.5 flex gap-1">
+            <button id="btn-camera" class="bg-surface-container-high text-on-surface-variant px-2.5 rounded-lg font-label-md text-sm hover:bg-primary-container/30 active:scale-95 transition-all flex items-center gap-1" title="Chụp ảnh món ăn">
+              <span class="material-symbols-outlined text-[18px]">photo_camera</span>
+            </button>
+            <button id="btn-schedule" class="bg-primary text-on-primary px-4 rounded-lg font-label-md text-sm hover:opacity-90 active:scale-95 transition-all">
+              Lên lịch
+            </button>
+          </div>
         </div>
         <div id="schedule-feedback" class="mt-2 text-sm text-primary font-label-md hidden"></div>
       </section>
@@ -144,6 +149,58 @@
           <!-- Rendered by JS -->
         </div>
       </section>
+    </div>
+
+    <!-- CAMERA MODAL -->
+    <div id="camera-modal" class="fixed inset-0 z-[250] bg-black/70 hidden flex flex-col animate-fade-in">
+      <div class="flex items-center justify-between p-4 bg-black/40">
+        <h2 class="text-white font-title-md flex items-center gap-2">
+          <span class="material-symbols-outlined">photo_camera</span>
+          Chụp ảnh món ăn
+        </h2>
+        <button id="camera-close" class="text-white/80 hover:text-white p-1">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="flex-1 flex items-center justify-center bg-black relative overflow-hidden">
+        <video id="camera-preview" class="w-full h-full object-cover" autoplay playsinline></video>
+        <canvas id="camera-canvas" class="hidden"></canvas>
+        <img id="camera-capture" class="w-full h-full object-contain hidden" alt="Ảnh chụp"/>
+      </div>
+      <div class="flex items-center justify-center gap-4 p-5 bg-black/40">
+        <!-- Nút chụp (chỉ hiện khi preview) -->
+        <button id="camera-shoot" class="w-16 h-16 rounded-full bg-white hover:bg-gray-100 transition-all flex items-center justify-center shadow-lg active:scale-90">
+          <span class="w-14 h-14 rounded-full border-4 border-gray-800"></span>
+        </button>
+        <!-- Nút chụp lại (chỉ hiện sau khi chụp) -->
+        <button id="camera-retake" class="hidden px-6 py-3 bg-white/20 text-white rounded-xl font-label-md hover:bg-white/30 transition-all">
+          <span class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[18px]">refresh</span>
+            Chụp lại
+          </span>
+        </button>
+        <!-- Nút xác nhận (chỉ hiện sau khi chụp) -->
+        <button id="camera-confirm" class="hidden px-6 py-3 bg-emerald-600 text-white rounded-xl font-label-md hover:bg-emerald-700 transition-all active:scale-95">
+          <span class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[18px]">check_circle</span>
+            Phân tích
+          </span>
+        </button>
+        <!-- Upload từ thư viện -->
+        <label id="camera-upload-label" class="px-5 py-3 bg-white/15 text-white/90 rounded-xl font-label-md hover:bg-white/25 transition-all cursor-pointer flex items-center gap-2">
+          <span class="material-symbols-outlined text-[18px]">photo_library</span>
+          Tải ảnh lên
+          <input type="file" id="camera-file-input" accept="image/*" class="hidden"/>
+        </label>
+      </div>
+      <!-- Loading overlay -->
+      <div id="camera-loading" class="hidden absolute inset-0 z-10 bg-black/60 flex items-center justify-center">
+        <div class="bg-surface-container-lowest rounded-2xl p-8 mx-4 text-center max-w-xs">
+          <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4"></div>
+          <p class="font-label-md text-on-surface mb-1">Đang phân tích ảnh...</p>
+          <p class="text-xs text-on-surface-variant">AI đang nhận diện món ăn</p>
+        </div>
+      </div>
     </div>
 
     <!-- PAGE: Giỏ Đi Chợ -->
@@ -169,30 +226,32 @@
         <!-- Rendered by JS -->
       </div>
       <!-- Summary Card -->
-      <div id="cart-summary-card" class="flex-shrink-0 bg-surface-container rounded-2xl p-5 shadow-lg border border-primary/10 mt-4">
-        <h2 class="font-headline-lg-mobile font-bold text-primary mb-3">Tổng quan đơn hàng</h2>
-        <div class="space-y-2 mb-4 border-b border-outline-variant pb-3">
-          <div class="flex justify-between items-center">
-            <span class="text-on-surface-variant text-sm">Tiền hàng dự kiến</span>
-            <span class="font-price-tag font-bold" id="cart-subtotal">0đ</span>
+      <div id="cart-summary-card" class="flex-shrink-0 bg-surface-container rounded-xl p-3 shadow-md border border-primary/10 mt-3">
+        <h2 class="font-label-md font-bold text-primary mb-2">Tổng quan đơn hàng</h2>
+        <div class="flex items-center gap-3 mb-2 pb-2 border-b border-outline-variant/50">
+          <div class="flex-1">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-on-surface-variant">Tiền hàng</span>
+              <span class="font-price-tag font-bold text-sm" id="cart-subtotal">0đ</span>
+            </div>
+            <div class="flex justify-between items-center text-xs text-secondary font-medium">
+              <span>Tiết kiệm</span>
+              <span class="font-price-tag text-xs" id="cart-savings">-0đ</span>
+            </div>
           </div>
-          <div class="flex justify-between items-center text-secondary font-bold">
-            <span class="text-sm">Tiết kiệm (đã có)</span>
-            <span class="font-price-tag" id="cart-savings">0đ</span>
+          <div class="text-right flex-shrink-0">
+            <div class="text-[10px] text-on-surface-variant">Tổng cộng</div>
+            <div class="font-title-md font-bold text-primary" id="cart-total">0đ</div>
           </div>
         </div>
-        <div class="flex justify-between items-end mb-4">
-          <span class="font-title-md font-semibold">Tổng cộng</span>
-          <div class="font-display-lg font-bold text-primary text-3xl" id="cart-total">0đ</div>
-        </div>
-        <div class="space-y-2">
-          <button class="w-full bg-primary text-on-primary py-3.5 rounded-xl font-title-md hover:shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2" id="cart-checkout">
-            <span class="material-symbols-outlined">check_circle</span>
-            Hoàn tất &amp; Cập nhật
+        <div class="flex gap-2">
+          <button class="flex-1 bg-primary text-on-primary py-2 rounded-lg font-label-md text-xs hover:shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-1" id="cart-checkout">
+            <span class="material-symbols-outlined text-[14px]">check_circle</span>
+            Hoàn tất
           </button>
-          <button class="w-full bg-transparent text-red-500 border-2 border-red-200 py-3 rounded-xl font-label-md hover:bg-red-50 transition-all active:scale-[0.98]" id="cart-cancel">
-            <span class="flex items-center justify-center gap-2">
-              <span class="material-symbols-outlined text-[18px]">delete_sweep</span>
+          <button class="flex-1 bg-transparent text-red-500 border border-red-200 py-2 rounded-lg font-label-md text-xs hover:bg-red-50 transition-all active:scale-[0.98]" id="cart-cancel">
+            <span class="flex items-center justify-center gap-1">
+              <span class="material-symbols-outlined text-[14px]">delete_sweep</span>
               Huỷ
             </span>
           </button>
@@ -372,6 +431,9 @@
           <button id="btn-add-ingredient" class="bg-primary-container text-on-primary-container px-4 rounded-xl font-label-md hover:opacity-80 active:scale-95 transition-all flex items-center gap-1">
             <span class="material-symbols-outlined text-xl">add</span>
             Thêm
+          </button>
+          <button id="btn-fridge-camera" class="bg-surface-container-high text-on-surface-variant px-3 rounded-xl font-label-md hover:bg-primary-container/30 active:scale-95 transition-all flex items-center" title="Chụp ảnh tủ lạnh">
+            <span class="material-symbols-outlined text-[20px]">photo_camera</span>
           </button>
         </div>
         <div class="flex gap-2 mt-3">

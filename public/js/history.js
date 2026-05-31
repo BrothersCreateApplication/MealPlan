@@ -240,19 +240,88 @@
     }
   }
 
-  // ===================== Top Items =====================
+  // ===================== Top Items (động từ lịch sử) =====================
+
+  const ITEM_ICON_MAP = [
+    [['thịt', 'bò', 'gà', 'heo', 'lợn', 'cá', 'tôm'], 'restaurant'],
+    [['rau', 'xà lách', 'cải', 'bông', 'giá', 'rau thơm', 'húng', 'mùi', 'ngò'], 'eco'],
+    [['muối', 'tiêu', 'đường', 'nước mắm', 'hạt nêm', 'bột ngọt', 'bột canh', 'bột nghệ'], 'science'],
+    [['bánh', 'phở', 'mì', 'bún', 'miến', 'cơm', 'gạo', 'bột'], 'ramen_dining'],
+    [['tỏi'], 'garlic'],
+    [['hành'], 'garden'],
+    [['ớt'], 'whatshot'],
+    [['chanh'], 'lemon'],
+    [['gừng'], 'local_fire_department'],
+    [['sả'], 'grass'],
+    [['trái cây', 'táo', 'cam', 'chuối', 'xoài', 'dưa'], 'apple'],
+    [['sữa', 'trứng', 'bơ', 'phô mai', 'cream'], 'egg'],
+    [['dầu', 'mỡ', 'bơ thực vật'], 'oil_barrel'],
+    [['khoai', 'khoai tây', 'khoai lang', 'cà rốt', 'củ'], 'nutrition'],
+    [['nấm'], 'rainy'],
+    [['đậu', 'đậu phụ', 'tàu hũ'], 'grain'],
+    [['lạc', 'đậu phộng', 'vừng', 'mè'], 'seed'],
+    [['mắm', 'tương', 'xì dầu', 'dầu hào', 'dầu mè', 'tương ớt', 'tương cà', 'rượu', 'giấm'], 'science'],
+  ];
+
+  function getItemIcon(name) {
+    const lower = name.toLowerCase();
+    for (const [keywords, icon] of ITEM_ICON_MAP) {
+      if (keywords.some(k => lower.includes(k))) return icon;
+    }
+    return 'inventory_2';
+  }
+
+  const DEFAULT_HARDCODED = [
+    { name: 'Trứng gà', icon: 'egg', count: '0 lần' },
+    { name: 'Cải xanh', icon: 'eco', count: '0 lần' },
+    { name: 'Ức gà', icon: 'nutrition', count: '0 lần' },
+    { name: 'Gạo ST25', icon: 'database', count: '0 lần' },
+  ];
+
+  function computeTopItems() {
+    const history = MealPlan.state.history || [];
+    const freq = {};
+
+    history.forEach(h => {
+      if (!h.items || !h.items.trim()) return;
+      const parts = h.items.split(',');
+      parts.forEach(p => {
+        // Format: "Tên nguyên liệu (15000đ)" or just "Tên nguyên liệu"
+        const match = p.trim().match(/^(.+?)\s*\(\d[\d.]*đ\)/);
+        if (match) {
+          const name = match[1].trim();
+          if (name) freq[name] = (freq[name] || 0) + 1;
+        } else {
+          // Fallback: lấy nguyên chuỗi trước dấu ngoặc hoặc hết
+          const name = p.trim().replace(/\s*\(.*\)\s*$/, '').trim();
+          if (name) freq[name] = (freq[name] || 0) + 1;
+        }
+      });
+    });
+
+    const entries = Object.entries(freq);
+    if (entries.length === 0) return DEFAULT_HARDCODED;
+
+    return entries
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 4)
+      .map(([name, count]) => ({
+        name,
+        icon: getItemIcon(name),
+        count: `${count} lần`
+      }));
+  }
 
   function renderTopItems() {
     const container = document.getElementById('top-items');
     if (!container) return;
 
-    const items = MealPlan.state.topItems;
-    const parseCount = (str) => parseInt(str) || 5;
-    const maxCount = Math.max(...items.map(i => parseCount(i.count)), 1);
+    const items = computeTopItems();
+    const maxCount = Math.max(...items.map(i => parseInt(i.count) || 1), 1);
 
     container.innerHTML = items.map(item => {
-      const count = parseCount(item.count);
-      const pct = Math.round((count / maxCount) * 100);
+      const countVal = parseInt(item.count) || 0;
+      const pct = Math.round((countVal / maxCount) * 100);
       return `
         <div class="bg-surface-container-low rounded-xl p-4 hover:shadow-md hover:bg-white transition-all group">
           <div class="flex flex-col items-center text-center">

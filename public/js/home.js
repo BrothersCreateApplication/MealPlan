@@ -217,22 +217,22 @@
     // Load ảnh cho món mới
     dishes.forEach(dish => { loadDishImage(dish.name); });
 
-    // Re-attach events cho các nút mới
+    // Attach events cho các nút mới — dùng MealPlan.toggleFavorite() để lưu đúng
     document.querySelectorAll('.fav-btn').forEach(btn => {
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
         const dishName = this.dataset.dish;
         const icon = this.querySelector('.material-symbols-outlined');
-        if (MealPlan.state.favorites.has(dishName)) {
-          MealPlan.state.favorites.delete(dishName);
-          icon.style.setProperty('font-variation-settings', "'FILL' 0");
-          icon.classList.add('opacity-40');
-        } else {
-          MealPlan.state.favorites.add(dishName);
+        const dish = currentDishes.find(d => d && d.name === dishName);
+        const added = MealPlan.toggleFavorite(dish || { name: dishName });
+        MealPlan.saveState();
+        if (added) {
           icon.style.setProperty('font-variation-settings', "'FILL' 1");
           icon.classList.remove('opacity-40');
+        } else {
+          icon.style.setProperty('font-variation-settings', "'FILL' 0");
+          icon.classList.add('opacity-40');
         }
-        MealPlan.saveState();
       });
     });
 
@@ -765,11 +765,15 @@
     renderDishes(dishes);
   }
 
+  // ===================== Camera / Upload =====================
+  // Dùng MealPlan.openCamera({ mode: 'dish', onResult: callback }) từ app.js
+
   // ---- Init ----
   function initHome() {
     const searchInput = document.getElementById('dish-search');
     const btnSchedule = document.getElementById('btn-schedule');
     const feedback = document.getElementById('schedule-feedback');
+    const btnCamera = document.getElementById('btn-camera');
 
     if (!searchInput || !btnSchedule) return;
 
@@ -802,6 +806,26 @@
         setTimeout(() => feedback.classList.add('hidden'), 3000);
       }
     });
+
+    // Camera button
+    if (btnCamera) {
+      btnCamera.addEventListener('click', () => {
+        MealPlan.openCamera({
+          mode: 'dish',
+          onResult: (result) => {
+            if (result.success && result.data) {
+              if (typeof showRecipeDetail === 'function') {
+                showRecipeDetail(result.data);
+              } else {
+                MealPlan.showToast(`📍 ${result.data.name}`, 'success', 4000);
+              }
+            } else {
+              MealPlan.showToast(result.error || 'Không thể nhận diện món ăn!', 'error');
+            }
+          }
+        });
+      });
+    }
   }
 
   window.renderHomeDishes = renderDishes;

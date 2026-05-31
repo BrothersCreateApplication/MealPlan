@@ -540,6 +540,24 @@
     // Xem thêm button
     document.getElementById('btn-fridge-load-more')?.addEventListener('click', handleFridgeLoadMore);
 
+    // Camera button — chụp ảnh tủ lạnh
+    document.getElementById('btn-fridge-camera')?.addEventListener('click', () => {
+      MealPlan.openCamera({
+        mode: 'fridge',
+        onResult: (result) => {
+          if (result.success && result.ingredients && result.ingredients.length > 0) {
+            // Thêm từng nguyên liệu vào danh sách
+            result.ingredients.forEach(name => addIngredient(name));
+            // Focus input
+            input.focus();
+            MealPlan.showToast(`Đã thêm ${result.ingredients.length} nguyên liệu từ ảnh!`, 'success');
+          } else {
+            MealPlan.showToast('Không thể nhận diện nguyên liệu từ ảnh!', 'error');
+          }
+        }
+      });
+    });
+
     // Show initial state
     if (suggestionsContainer) {
       suggestionsContainer.innerHTML = `

@@ -10,7 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---- Helper ----
@@ -392,6 +392,91 @@ QUY TẮC:
   }
 
   res.json({ suggestions: suggestions.slice(0, 5), fromCache: true });
+});
+
+// ---- DeepSeek Vision: phân tích ảnh món ăn / nguyên liệu ----
+app.post('/api/analyze-image', async (req, res) => {
+  const { image, mode } = req.body;
+  if (!image) return res.json({ success: false, error: 'Missing image data' });
+
+  const isFridge = mode === 'fridge';
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) {
+    return res.json({
+      success: false, error: 'API key not configured', mock: true,
+      data: isFridge
+        ? { ingredients: ['Thịt bò', 'Trứng', 'Cà rốt'] }
+        : {
+            name: 'Món ăn từ ảnh',
+            time: '20 ph', calories: '350 kcal', difficulty: 'Dễ',
+            description: 'Món ăn được phát hiện từ ảnh chụp.',
+            ingredients: [
+              { name: 'Nguyên liệu 1', quantity: '100g', price: 0 },
+              { name: 'Nguyên liệu 2', quantity: '200g', price: 0 }
+            ],
+            instructions: '1. Sơ chế nguyên liệu.\n2. Chế biến theo hướng dẫn.\n3. Trình bày và thưởng thức.'
+          }
+    });
+  }
+
+  try {
+    const prompt = isFridge
+      ? 'Phân tích ảnh chụp tủ lạnh này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "ingredients": ["tên nguyên liệu 1", "tên nguyên liệu 2", ...] }. Liệt kê TẤT CẢ nguyên liệu thực phẩm nhìn thấy được (thịt, cá, rau, củ, quả, trứng, v.v.). Bỏ qua gia vị khô, chai lọ, đồ đóng hộp. Mỗi nguyên liệu viết hoa chữ cái đầu.'
+      : 'Phân tích ảnh món ăn này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "name": "Tên món", "time": "thời gian nấu", "calories": "lượng calo", "difficulty": "Dễ/Trung bình/Khó", "description": "mô tả ngắn", "ingredients": [{ "name": "tên", "quantity": "số lượng", "price": 0 }], "instructions": "các bước nấu cách nhau bởi \\n" }. Nếu không nhận diện được món, hãy trả về món phổ biến nhất mà bạn nhìn thấy.';
+
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: image } }
+          ]
+        }],
+        temperature: 0.3,
+        max_tokens: 4000
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`DeepSeek API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+
+    // Parse JSON từ response
+    let parsed = null;
+    try {
+      parsed = JSON.parse(content);
+    } catch (e) {
+      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        try { parsed = JSON.parse(jsonMatch[1]); } catch (e2) {}
+      }
+    }
+
+    if (isFridge) {
+      if (parsed && Array.isArray(parsed.ingredients) && parsed.ingredients.length > 0) {
+        return res.json({ success: true, ingredients: parsed.ingredients });
+      }
+      return res.json({ success: false, error: 'Could not identify ingredients from image' });
+    }
+
+    if (parsed && parsed.name) {
+      return res.json({ success: true, data: parsed });
+    }
+    return res.json({ success: false, error: 'Could not recognize dish from image' });
+  } catch (err) {
+    console.error('Vision API error:', err.message);
+    res.json({ success: false, error: err.message });
+  }
 });
 
 // ---- Serve SPA ----

@@ -289,6 +289,140 @@ const MealPlan = (function() {
     });
   }
 
+  // ---- Camera: chụp ảnh món ăn hoặc tủ lạnh ----
+  // options: { onResult: function(data), mode: 'dish'|'fridge' }
+  function openCamera(options) {
+    const modal = document.getElementById('camera-modal');
+    if (!modal) return;
+
+    const video = document.getElementById('camera-preview');
+    const canvas = document.getElementById('camera-canvas');
+    const capture = document.getElementById('camera-capture');
+    const shoot = document.getElementById('camera-shoot');
+    const retake = document.getElementById('camera-retake');
+    const confirmBtn = document.getElementById('camera-confirm');
+    const uploadLabel = document.getElementById('camera-upload-label');
+    const loading = document.getElementById('camera-loading');
+
+    const mode = options?.mode || 'dish';
+
+    modal.classList.remove('hidden');
+    video.classList.remove('hidden');
+    capture.classList.add('hidden');
+    shoot.classList.remove('hidden');
+    retake.classList.add('hidden');
+    confirmBtn.classList.add('hidden');
+    uploadLabel.classList.remove('hidden');
+    loading.classList.add('hidden');
+
+    // Start camera
+    let stream = null;
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(s => {
+        stream = s;
+        video.srcObject = s;
+      })
+      .catch(() => {
+        showToast('Không thể mở camera, bạn có thể tải ảnh lên!', 'warning');
+        shoot.classList.add('hidden');
+      });
+
+    function closeModal() {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      modal.classList.add('hidden');
+    }
+    document.getElementById('camera-close').onclick = closeModal;
+    modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+
+    // Shoot
+    shoot.onclick = () => {
+      if (!video.videoWidth) return;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      capture.src = dataUrl;
+      video.classList.add('hidden');
+      shoot.classList.add('hidden');
+      capture.classList.remove('hidden');
+      retake.classList.remove('hidden');
+      confirmBtn.classList.remove('hidden');
+      uploadLabel.classList.add('hidden');
+    };
+
+    // Retake
+    retake.onclick = () => {
+      video.classList.remove('hidden');
+      capture.classList.add('hidden');
+      shoot.classList.remove('hidden');
+      retake.classList.add('hidden');
+      confirmBtn.classList.add('hidden');
+      uploadLabel.classList.remove('hidden');
+    };
+
+    // Confirm → analyze
+    const analyze = (imageDataUrl) => {
+      loading.classList.remove('hidden');
+      if (stream) stream.getTracks().forEach(t => t.stop());
+
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        const max = 800;
+        if (w > max || h > max) {
+          const ratio = Math.min(max / w, max / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const compressed = canvas.toDataURL('image/jpeg', 0.7);
+
+        fetch('/api/analyze-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: compressed, mode })
+        })
+        .then(r => r.json())
+        .then(result => {
+          loading.classList.add('hidden');
+          modal.classList.add('hidden');
+          closeModal();
+          if (options?.onResult) {
+            options.onResult(result);
+          }
+        })
+        .catch(() => {
+          loading.classList.add('hidden');
+          showToast('Lỗi kết nối!', 'error');
+        });
+      };
+      img.src = imageDataUrl;
+    };
+
+    confirmBtn.onclick = () => analyze(capture.src);
+
+    // Upload from file
+    document.getElementById('camera-file-input').onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target.result;
+        capture.src = dataUrl;
+        video.classList.add('hidden');
+        shoot.classList.add('hidden');
+        capture.classList.remove('hidden');
+        retake.classList.remove('hidden');
+        confirmBtn.classList.remove('hidden');
+        uploadLabel.classList.add('hidden');
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    };
+  }
+
   // ---- Init ----
   function init() {
     loadState();
@@ -331,7 +465,8 @@ const MealPlan = (function() {
     loadState,
     toggleFavorite,
     isFavorite,
-    removeFavorite
+    removeFavorite,
+    openCamera
   };
 })();
 
