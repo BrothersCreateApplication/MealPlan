@@ -51,7 +51,7 @@ app.post('/api/search-dishes', async (req, res) => {
   if (apiKey) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+      const timeout = setTimeout(() => controller.abort(), 12000);
       const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -61,11 +61,11 @@ app.post('/api/search-dishes', async (req, res) => {
         body: JSON.stringify({
           model: 'deepseek-chat',
           messages: [
-            { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name, quantity}], instructions(\\n cách bước). Tìm "${query}". LUẬT NGHIÊM NGẶT: Chỉ trả món có tên chứa "${query}" — VD tìm "bánh xèo" CHỈ được trả món có "bánh xèo" trong tên, KHÔNG trả "bánh tráng", "bánh canh", "bánh mì". Nếu DB chưa có, hãy tạo món "${query}" đúng tên. Trả 6-10 món. Instructions: 6-10 bước: lửa to/nhỏ, thời gian, kiểm tra chín, mẹo.` },
+            { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước). Tìm "${query}". LUẬT: Chỉ trả món có tên chứa "${query}" — VD tìm "bánh canh" thì trả "bánh canh cá lóc", "bánh canh tôm", "bánh canh giò heo"... Nếu DB chưa có, tạo các biến thể của "${query}". Trả 6-10 món. Instructions: ngắn gọn, đủ bước.` },
             { role: 'user', content: `Tìm món: ${query}` }
           ],
           temperature: 0.7,
-          max_tokens: 2000
+          max_tokens: 3000
         }),
         signal: controller.signal
       });
