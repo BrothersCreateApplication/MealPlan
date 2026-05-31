@@ -239,12 +239,12 @@ app.get('/api/youtube-video', async (req, res) => {
 
   try {
     const ytSearch = require('yt-search');
-    const query = `cÃ¡ch náº¥u ${dish} | ${dish} recipe vietnamese`;
+    const query = `cÃ¡ch náº¥u ${dish} cÃ¡ch lÃ m ${dish} hÆ°á»›ng dáº«n náº¥u`;
     const result = await ytSearch({ query, pageStart: 1, pageEnd: 1 });
     const videos = result?.videos || [];
     // Æ¯u tiÃªn video tiáº¿ng Viá»‡t (cÃ³ tá»« "cÃ¡ch náº¥u", "cÃ¡ch lÃ m" trong title)
     const findBest = videos.find(v =>
-      /cÃ¡ch (náº¥u|lÃ m)|hÆ°á»›ng dáº«n|recipe|vietnamese/i.test(v.title)
+      /cÃ¡ch (náº¥u|lÃ m)|hÆ°á»›ng dáº«n|cÃ´ng thá»©c|mÃ³n/i.test(v.title)
     ) || videos[0];
     res.json({ videoId: findBest?.videoId || null, title: findBest?.title || '' });
   } catch (err) {
