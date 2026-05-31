@@ -63,8 +63,7 @@ app.post('/api/search-dishes', async (req, res) => {
           body: JSON.stringify({
             model: 'deepseek-chat',
             messages: [
-              { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name, quantity}], instructions(\\n cách bước). Người dùng tìm "${query}". Trả về các món ăn LIÊN QUAN đến "${query}" — ưu tiên món có tên chứa từ khoá, có thể thêm món cùng chủ đề. 3-5 món.
-Instructions: 6-10 bước: lửa to/nhỏ, thời gian, kiểm tra chín, mẹo.` },
+              { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name, quantity}], instructions(\\n cách bước). Tìm "${query}". QUY TẮC: CHỈ trả về món có TÊN chứa "${query}" — VD tìm "bánh xèo" thì CHỈ trả "Bánh xèo", không trả các món khác có chữ "bánh". Nếu không có món nào khớp chính xác, hãy mô tả món "${query}" như một công thức nấu ăn hoàn chỉnh. Trả 3-5 món. Instructions: 6-10 bước: lửa to/nhỏ, thời gian, kiểm tra chín, mẹo.` },
               { role: 'user', content: `Tìm món: ${query}` }
             ],
             temperature: 0.7,
@@ -96,30 +95,47 @@ Instructions: 6-10 bước: lửa to/nhỏ, thời gian, kiểm tra chín, mẹo
     }
   }
 
-  // 3. Gộp DB + AI, loại bỏ trùng tên
-  const seen = new Set(dishes.map(d => d.name?.toLowerCase()));
-  for (const aiDish of aiDishesResult) {
-    if (!seen.has(aiDish.name?.toLowerCase())) {
-      dishes.push(aiDish);
-      seen.add(aiDish.name?.toLowerCase());
-    }
+  // 3. Gộp DB + AI, loại bỏ trùng tên, ưu tiên AND-match lên đầu
+  const seen = new Set();
+  const merged = [];
+
+  // Helper: thêm món nếu chưa có
+  function addIfNew(dish) {
+    if (!dish || !dish.name) return;
+    const key = dish.name.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(dish);
   }
 
+  // Thêm DB results trước
+  for (const d of dishes) addIfNew(d);
+  // Thêm AI results sau
+  for (const d of aiDishesResult) addIfNew(d);
+
+  // Sắp xếp: món chứa tất cả keywords (AND) lên đầu
+  merged.sort((a, b) => {
+    const aAll = words.every(k => a.name.toLowerCase().includes(k));
+    const bAll = words.every(k => b.name.toLowerCase().includes(k));
+    if (aAll !== bAll) return aAll ? -1 : 1;
+    return 0;
+  });
+
   // 4. Fallback cuối — nếu vẫn không có gì
-  if (dishes.length < 3) {
+  if (merged.length < 3) {
     const all = await db.getAllDishes();
     for (const d of all) {
       if (!d.name) continue;
       if (seen.has(d.name.toLowerCase())) continue;
       const text = d.name.toLowerCase();
       if (words.some(w => text.includes(w))) {
-        dishes.push(d);
+        merged.push(d);
         seen.add(d.name.toLowerCase());
       }
     }
   }
 
-  res.json({ dishes: dishes.slice(0, 5), fromCache: dishes.length > 0 });
+  res.json({ dishes: merged.slice(0, 5), fromCache: merged.length > 0 });
 });
 
 // ---- Random dishes ----

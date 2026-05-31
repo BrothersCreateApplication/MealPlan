@@ -71,21 +71,38 @@ async function searchDishes(keywords) {
   const client = getClient();
   if (!client || !keywords || keywords.length === 0) return getAllDishes();
 
-  // Dùng OR: chỉ cần 1 keyword khớp là được
-  const conditions = keywords.map(k => `name.ilike.%${k}%`);
-  const filterStr = conditions.join(',');
-
+  // Lấy toàn bộ dishes, filter + sort client-side
+  // Ưu tiên: món chứa tất cả keywords (AND) lên trước, OR-only sau
   const { data, error } = await client
     .from('dishes')
     .select('*, dish_ingredients(*)')
-    .or(filterStr)
     .order('name')
-    .limit(20);
+    .limit(50);
+
   if (error) {
     console.error('[Supabase] searchDishes error:', error.message);
     return [];
   }
-  return normalizeDishes(data);
+
+  let dishes = normalizeDishes(data);
+  if (!keywords || keywords.length === 0) return dishes;
+
+  // Lọc và sắp xếp
+  const result = dishes.filter(d => {
+    if (!d.name) return false;
+    const name = d.name.toLowerCase();
+    return keywords.some(k => name.includes(k));
+  });
+
+  // Sắp xếp: món chứa tất cả keywords lên đầu
+  result.sort((a, b) => {
+    const aAll = keywords.every(k => a.name.toLowerCase().includes(k));
+    const bAll = keywords.every(k => b.name.toLowerCase().includes(k));
+    if (aAll !== bAll) return aAll ? -1 : 1;
+    return 0;
+  });
+
+  return result;
 }
 
 async function getRandomDishes(count = 3) {
