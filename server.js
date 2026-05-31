@@ -96,7 +96,7 @@ app.post('/api/search-dishes', async (req, res) => {
     }
   }
 
-  // 3. Ghép kết quả theo thứ tự ưu tiên: exact > AND > OR > AI > fallback
+  // 3. Ghép kết quả theo thứ tự ưu tiên: exact > AND > AI > OR > fallback
   const seen = new Set();
   const merged = [];
 
@@ -115,17 +115,17 @@ app.post('/api/search-dishes', async (req, res) => {
     }
   }
 
-  // Bước 1: Exact-match (chứa full cụm từ)
+  // Bước 1: Exact-match (chứa full cụm từ "bánh xèo")
   addBatch(exactMatch);
 
-  // Bước 2: AND-match (chứa tất cả từ)
+  // Bước 2: AND-match (chứa tất cả từ "bánh" + "xèo")
   if (merged.length < 3) addBatch(andMatch);
 
-  // Bước 3: OR-match (chứa ít nhất 1 từ) — chỉ nếu chưa đủ
-  if (merged.length < 3) addBatch(orMatch);
-
-  // Bước 4: AI results
+  // Bước 3: AI results (bổ sung món chính xác từ DeepSeek)
   if (merged.length < 3) addBatch(aiDishesResult);
+
+  // Bước 4: OR-match (chứa 1 từ) — chỉ khi chưa đủ
+  if (merged.length < 3) addBatch(orMatch);
 
   // Bước 5: Fallback cuối
   if (merged.length < 3) {
