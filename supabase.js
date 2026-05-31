@@ -24,6 +24,21 @@ function getClient() {
   return supabase;
 }
 
+// ---- Normalize: map dish_ingredients → ingredients cho frontend ----
+function normalizeDish(dish) {
+  if (!dish) return dish;
+  const d = { ...dish };
+  if (d.dish_ingredients && !d.ingredients) {
+    d.ingredients = d.dish_ingredients;
+  }
+  delete d.dish_ingredients;
+  return d;
+}
+
+function normalizeDishes(dishes) {
+  return (dishes || []).map(normalizeDish);
+}
+
 // ---- Dishes CRUD ----
 
 async function getAllDishes() {
@@ -37,7 +52,7 @@ async function getAllDishes() {
     console.error('[Supabase] getAllDishes error:', error.message);
     return [];
   }
-  return data || [];
+  return normalizeDishes(data);
 }
 
 async function getDishByName(name) {
@@ -49,25 +64,28 @@ async function getDishByName(name) {
     .eq('name', name)
     .single();
   if (error) return null;
-  return data;
+  return normalizeDish(data);
 }
 
 async function searchDishes(keywords) {
   const client = getClient();
   if (!client || !keywords || keywords.length === 0) return getAllDishes();
 
-  const conditions = keywords.map(k => `name.ilike.%${k}%`);
-  const { data, error } = await client
+  let query = client
     .from('dishes')
-    .select('*, dish_ingredients(*)')
-    .or(conditions.join(','))
-    .order('name')
-    .limit(20);
+    .select('*, dish_ingredients(*)');
+
+  // Dùng AND: mỗi keyword phải xuất hiện trong name
+  keywords.forEach(k => {
+    query = query.filter('name', 'ilike', `%${k}%`);
+  });
+
+  const { data, error } = await query.order('name').limit(20);
   if (error) {
     console.error('[Supabase] searchDishes error:', error.message);
     return [];
   }
-  return data || [];
+  return normalizeDishes(data);
 }
 
 async function getRandomDishes(count = 3) {
@@ -88,9 +106,9 @@ async function getRandomDishes(count = 3) {
     }
     // Shuffle client-side
     const shuffled = (d || []).sort(() => Math.random() - 0.5).slice(0, count);
-    return shuffled;
+    return normalizeDishes(shuffled);
   }
-  return data || [];
+  return normalizeDishes(data);
 }
 
 async function addDish(dish) {
@@ -211,7 +229,7 @@ async function suggestDishesByIngredients(availableIngredients, limit = 5) {
   const normalizedAvailable = availableIngredients.map(i => removeAccents(i.toLowerCase().trim()));
 
   const scored = allDishes.map(dish => {
-    const dishIngs = dish.dish_ingredients || [];
+    const dishIngs = dish.ingredients || [];
     if (dishIngs.length === 0) return null;
 
     const results = dishIngs.map(ing => {

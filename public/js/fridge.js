@@ -235,7 +235,7 @@
     // Get visual
     const lower = dish.name.toLowerCase();
     const visuals = {
-      'cá': { gradient: 'bg-gradient-to-br from-blue-400/30 to-teal-300/30', emoji: '🐟' },
+      'cà': { gradient: 'bg-gradient-to-br from-blue-400/30 to-teal-300/30', emoji: '🐟' },
       'tôm': { gradient: 'bg-gradient-to-br from-pink-400/30 to-orange-300/30', emoji: '🦐' },
       'gà': { gradient: 'bg-gradient-to-br from-amber-400/30 to-yellow-300/30', emoji: '🍗' },
       'bò': { gradient: 'bg-gradient-to-br from-red-500/30 to-orange-400/30', emoji: '🥩' },
@@ -271,11 +271,11 @@
       }).join('<li class="my-2 border-t border-outline-variant/20"></li>');
 
     const overlay = document.createElement('div');
-    overlay.className = 'recipe-overlay fixed inset-0 z-[200] bg-black/50 flex items-end md:items-center justify-center animate-fade-in';
+    overlay.className = 'recipe-overlay fixed inset-0 z-[200] bg-black/50 flex md:items-center justify-center animate-fade-in';
     overlay.innerHTML = `
-      <div class="bg-surface-container-lowest w-full md:max-w-lg md:rounded-2xl md:mx-4 max-h-[85vh] overflow-y-auto rounded-t-2xl shadow-2xl animate-slide-up pb-8">
-        <div class="relative h-48 flex items-center justify-center overflow-hidden ${gradient}">
-          <span class="text-7xl">${emoji}</span>
+      <div class="bg-surface-container-lowest w-full h-full md:h-auto md:max-h-[85vh] md:max-w-lg md:rounded-2xl md:mx-4 shadow-2xl flex flex-col animate-slide-up">
+        <div class="relative h-36 md:h-48 flex items-center justify-center overflow-hidden flex-shrink-0 ${gradient}">
+          <span class="text-6xl md:text-7xl">${emoji}</span>
           <button class="absolute top-4 right-4 bg-black/30 backdrop-blur-md text-white p-2 rounded-full hover:bg-black/50 transition-all" id="recipe-close">
             <span class="material-symbols-outlined">close</span>
           </button>
@@ -286,61 +286,67 @@
           </div>
         </div>
 
-        <div class="p-6">
-          <div class="flex items-center gap-2 mb-1">
-            <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">${dish.name}</h2>
-            ${dish.difficulty ? `<span class="bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-full text-xs font-semibold">${dish.difficulty}</span>` : ''}
-          </div>
-          <div class="flex items-center gap-gutter-md mb-4">
-            <span class="flex items-center gap-1 text-on-surface-variant font-label-md">
-              <span class="material-symbols-outlined text-[18px]">schedule</span> ${dish.time || '--'}
-            </span>
-            <span class="flex items-center gap-1 text-on-surface-variant font-label-md">
-              <span class="material-symbols-outlined text-[18px]">local_fire_department</span> ${dish.calories || '--'}
-            </span>
-          </div>
+        <!-- Scrollable body -->
+        <div class="flex-1 overflow-y-auto md:overflow-y-visible">
+          <div class="p-5 md:p-6">
+            <div class="flex items-center gap-2 mb-1">
+              <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">${dish.name}</h2>
+              ${dish.difficulty ? `<span class="bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-full text-xs font-semibold">${dish.difficulty}</span>` : ''}
+            </div>
+            <div class="flex items-center gap-gutter-md mb-4">
+              <span class="flex items-center gap-1 text-on-surface-variant font-label-md">
+                <span class="material-symbols-outlined text-[18px]">schedule</span> ${dish.time || '--'}
+              </span>
+              <span class="flex items-center gap-1 text-on-surface-variant font-label-md">
+                <span class="material-symbols-outlined text-[18px]">local_fire_department</span> ${dish.calories || '--'}
+              </span>
+            </div>
 
-          ${dish.description ? `<p class="text-body-md text-on-surface-variant mb-5">${dish.description}</p>` : ''}
+            ${dish.description ? `<p class="text-body-md text-on-surface-variant mb-5">${dish.description}</p>` : ''}
 
-          <!-- Ingredients with availability markers -->
-          <div class="mb-5">
-            <h3 class="font-title-md flex items-center gap-2 text-primary mb-3">
-              <span class="material-symbols-outlined">shopping_basket</span>
-              Nguyên liệu
-            </h3>
-            <div class="bg-surface-container-low rounded-xl divide-y divide-outline-variant/20 overflow-hidden">
-              ${(dish.ingredients || []).map(ing => {
-                const isAvail = availableNames.some(a => ing.name.toLowerCase().includes(a) || a.includes(ing.name.toLowerCase()));
-                return `
-                  <div class="flex items-center justify-between px-4 py-2.5 ${isAvail ? '' : 'opacity-60'}">
-                    <div class="flex items-center gap-3">
-                      ${isAvail
-                        ? `<span class="material-symbols-outlined text-primary text-[18px]">check_circle</span>`
-                        : `<span class="material-symbols-outlined text-outline text-[18px]">radio_button_unchecked</span>`
-                      }
-                      <span class="font-label-md text-on-surface">${ing.name}</span>
-                      ${isAvail ? '<span class="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">Có sẵn</span>' : ''}
+            <!-- Ingredients with availability markers -->
+            <div class="mb-5">
+              <h3 class="font-title-md flex items-center gap-2 text-primary mb-3">
+                <span class="material-symbols-outlined">shopping_basket</span>
+                Nguyên liệu
+              </h3>
+              <div class="bg-surface-container-low rounded-xl divide-y divide-outline-variant/20 overflow-hidden">
+                ${(dish.ingredients || []).map(ing => {
+                  const isAvail = availableNames.some(a => ing.name.toLowerCase().includes(a) || a.includes(ing.name.toLowerCase()));
+                  return `
+                    <div class="flex items-center justify-between px-4 py-2.5 ${isAvail ? '' : 'opacity-60'}">
+                      <div class="flex items-center gap-3">
+                        ${isAvail
+                          ? `<span class="material-symbols-outlined text-primary text-[18px]">check_circle</span>`
+                          : `<span class="material-symbols-outlined text-outline text-[18px]">radio_button_unchecked</span>`
+                        }
+                        <span class="font-label-md text-on-surface">${ing.name}</span>
+                        ${isAvail ? '<span class="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">Có sẵn</span>' : ''}
+                      </div>
+                      <span class="text-on-surface-variant font-body-md">${ing.quantity}</span>
                     </div>
-                    <span class="text-on-surface-variant font-body-md">${ing.quantity}</span>
-                  </div>
-                `;
-              }).join('')}
+                  `;
+                }).join('')}
+              </div>
+            </div>
+
+            <!-- Instructions with internal scroll -->
+            <div>
+              <h3 class="font-title-md flex items-center gap-2 text-secondary mb-3">
+                <span class="material-symbols-outlined">menu_book</span>
+                Cách nấu
+              </h3>
+              <div class="bg-surface-container-low rounded-xl px-5 py-4 max-h-[40vh] overflow-y-auto">
+                <ul class="space-y-2 list-none">
+                  ${steps || '<li class="text-on-surface-variant italic">Không có hướng dẫn chi tiết</li>'}
+                </ul>
+              </div>
             </div>
           </div>
+        </div>
 
-          <!-- Instructions -->
-          <div class="mb-6">
-            <h3 class="font-title-md flex items-center gap-2 text-secondary mb-3">
-              <span class="material-symbols-outlined">menu_book</span>
-              Cách nấu
-            </h3>
-            <div class="bg-surface-container-low rounded-xl px-5 py-4">
-              <ul class="space-y-2 list-none">
-                ${steps || '<li class="text-on-surface-variant italic">Không có hướng dẫn chi tiết</li>'}
-              </ul>
-            </div>
-          </div>
-
+        <!-- Sticky bottom buttons -->
+        <div class="flex-shrink-0 p-4 md:p-6 border-t border-outline-variant/20 bg-surface-container-lowest">
           <div class="flex gap-gutter-md">
             <button class="suggestion-overlay-cook flex-1 bg-primary text-on-primary py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg">
               <span class="material-symbols-outlined">cooking</span>
