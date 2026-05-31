@@ -51,7 +51,7 @@ app.post('/api/search-dishes', async (req, res) => {
   if (apiKey) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
+      const timeout = setTimeout(() => controller.abort(), 20000);
       const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
         headers: {

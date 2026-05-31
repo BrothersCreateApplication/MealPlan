@@ -786,7 +786,8 @@
       grid.innerHTML = `
         <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p class="text-on-surface-variant font-body-md">Đang tìm kiếm gợi ý cho "${query}"...</p>
+          <p class="text-on-surface-variant font-body-md">🔍 Đang tìm kiếm gợi ý cho "${query}"...</p>
+          <p class="text-xs text-on-surface-variant mt-2">Đang tra cứu cơ sở dữ liệu và AI để có kết quả chính xác nhất — vui lòng đợi trong giây lát</p>
         </div>`;
     }
 
