@@ -548,9 +548,10 @@
           if (result.success && result.ingredients && result.ingredients.length > 0) {
             // Thêm từng nguyên liệu vào danh sách
             result.ingredients.forEach(name => addIngredient(name));
-            // Focus input
             input.focus();
             MealPlan.showToast(`Đã thêm ${result.ingredients.length} nguyên liệu từ ảnh!`, 'success');
+            // Tự động gợi ý món ngay sau khi có nguyên liệu
+            setTimeout(handleSuggest, 500);
           } else {
             MealPlan.showToast('Không thể nhận diện nguyên liệu từ ảnh!', 'error');
           }
