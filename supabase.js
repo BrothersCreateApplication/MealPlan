@@ -71,16 +71,16 @@ async function searchDishes(keywords) {
   const client = getClient();
   if (!client || !keywords || keywords.length === 0) return getAllDishes();
 
-  let query = client
+  // Dùng OR: chỉ cần 1 keyword khớp là được
+  const conditions = keywords.map(k => `name.ilike.%${k}%`);
+  const filterStr = conditions.join(',');
+
+  const { data, error } = await client
     .from('dishes')
-    .select('*, dish_ingredients(*)');
-
-  // Dùng AND: mỗi keyword phải xuất hiện trong name
-  keywords.forEach(k => {
-    query = query.filter('name', 'ilike', `%${k}%`);
-  });
-
-  const { data, error } = await query.order('name').limit(20);
+    .select('*, dish_ingredients(*)')
+    .or(filterStr)
+    .order('name')
+    .limit(20);
   if (error) {
     console.error('[Supabase] searchDishes error:', error.message);
     return [];

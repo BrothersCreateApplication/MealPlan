@@ -43,10 +43,11 @@ app.post('/api/search-dishes', async (req, res) => {
   const q = query.trim().toLowerCase();
   const words = q.split(/\s+/).filter(w => w.length > 0);
 
-  // 1. Tìm trong Supabase trước
+  // 1. Tìm trong Supabase trước (OR — chỉ cần 1 từ khớp)
   let dishes = await db.searchDishes(words);
+  let aiDishesResult = [];
 
-  // 2. Nếu không đủ (dưới 3 món), gọi DeepSeek
+  // 2. Nếu không đủ (dưới 3 món), gọi DeepSeek để bổ sung
   if (dishes.length < 3) {
     const apiKey = process.env.DEEPSEEK_API_KEY;
     if (apiKey) {
@@ -62,17 +63,12 @@ app.post('/api/search-dishes', async (req, res) => {
           body: JSON.stringify({
             model: 'deepseek-chat',
             messages: [
-              { role: 'system', content: `Bạn là chuyên gia ẩm thực Việt Nam. Trả lời JSON array. TUYỆT ĐỐI TUÂN THỦ: Mỗi món có: name, time (số phút), calories (số kcal), difficulty, description, ingredients (mảng {name, quantity}), instructions (các bước nấu cách nhau bằng \\n). QUY TẮC TÌM KIẾM CỰC KỲ QUAN TRỌNG: Người dùng search "${query}". CHỈ trả về món có TÊN CHỨA "${query}" hoặc TÊN CHỨA tất cả từ khoá (VD: search "bánh xèo" → chỉ trả về món có tên chứa "bánh xèo"). TUYỆT ĐỐI KHÔNG suy diễn phương pháp nấu. Trả về ĐÚNG 3-5 món.
-
-YÊU CẦU QUAN TRỌNG về instructions:
-- Hướng dẫn CỰC KỲ CHI TIẾT, như một đầu bếp chỉ dạy người mới nấu ăn.
-- Mỗi bước phải rõ ràng, bao gồm: lửa to/nhỏ, thời gian chính xác (phút), cách kiểm tra độ chín, mẹo nhỏ.
-- instructions gồm 6-10 bước, mỗi bước một dòng xuống dòng \\n.
-- KÈM THEO mẹo và lưu ý ở cuối.` },
+              { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name, quantity}], instructions(\\n cách bước). Người dùng tìm "${query}". Trả về các món ăn LIÊN QUAN đến "${query}" — ưu tiên món có tên chứa từ khoá, có thể thêm món cùng chủ đề. 3-5 món.
+Instructions: 6-10 bước: lửa to/nhỏ, thời gian, kiểm tra chín, mẹo.` },
               { role: 'user', content: `Tìm món: ${query}` }
             ],
             temperature: 0.7,
-            max_tokens: 4000
+            max_tokens: 1500
           }),
           signal: controller.signal
         });
@@ -84,17 +80,13 @@ YÊU CẦU QUAN TRỌNG về instructions:
           if (content) {
             const parsed = JSON.parse(content);
             const aiDishes = Array.isArray(parsed) ? parsed : [parsed];
+            aiDishesResult = aiDishes.map(normalizeDish);
 
-            const normalized = aiDishes.map(normalizeDish);
-            const saveResults = await db.addNewDishes(normalized);
+            // Lưu vào DB cho lần sau
+            const saveResults = await db.addNewDishes(aiDishesResult);
             const inserted = saveResults.filter(r => r && r.action === 'inserted');
             if (inserted.length > 0) {
               console.log(`[DeepSeek] Saved ${inserted.length} new dishes to Supabase from search: "${query}"`);
-            }
-
-            dishes = await db.searchDishes(words);
-            if (dishes.length < 3) {
-              dishes = normalized;
             }
           }
         }
@@ -104,16 +96,26 @@ YÊU CẦU QUAN TRỌNG về instructions:
     }
   }
 
-  // 3. Fallback
+  // 3. Gộp DB + AI, loại bỏ trùng tên
+  const seen = new Set(dishes.map(d => d.name?.toLowerCase()));
+  for (const aiDish of aiDishesResult) {
+    if (!seen.has(aiDish.name?.toLowerCase())) {
+      dishes.push(aiDish);
+      seen.add(aiDish.name?.toLowerCase());
+    }
+  }
+
+  // 4. Fallback cuối — nếu vẫn không có gì
   if (dishes.length < 3) {
-    dishes = await db.searchDishes(words);
-    if (dishes.length < 3) {
-      const all = await db.getAllDishes();
-      dishes = all.filter(d => {
-        if (!d.name) return false;
-        const text = d.name.toLowerCase();
-        return words.every(w => text.includes(w));
-      });
+    const all = await db.getAllDishes();
+    for (const d of all) {
+      if (!d.name) continue;
+      if (seen.has(d.name.toLowerCase())) continue;
+      const text = d.name.toLowerCase();
+      if (words.some(w => text.includes(w))) {
+        dishes.push(d);
+        seen.add(d.name.toLowerCase());
+      }
     }
   }
 
@@ -142,11 +144,11 @@ app.post('/api/random-dishes', async (req, res) => {
         body: JSON.stringify({
           model: 'deepseek-chat',
           messages: [
-            { role: 'system', content: 'Bạn là chuyên gia ẩm thực Việt Nam. Trả lời JSON array. Mỗi món có: name, time (số phút), calories (số kcal), difficulty, description, ingredients (mảng {name, quantity}), instructions. Gợi ý 3 món ăn Việt Nam ngẫu nhiên, đa dạng.\n\nYÊU CẦU QUAN TRỌNG về instructions:\n- Hướng dẫn CỰC KỲ CHI TIẾT, như đầu bếp chỉ người mới nấu.\n- Mỗi bước có: lửa to/nhỏ, thời gian (phút), kiểm tra độ chín, mẹo nhỏ.\n- instructions gồm 6-10 bước, cách nhau bằng \\n.\n- KÈM MẸO và lưu ý ở cuối.' },
+            { role: 'system', content: 'JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name, quantity}], instructions(\\n cách bước). Gợi ý 3 món Việt ngẫu nhiên. Instructions: 6-10 bước, lửa to/nhỏ, thời gian, mẹo.' },
             { role: 'user', content: 'Gợi ý 3 món ăn ngẫu nhiên cho hôm nay' }
           ],
           temperature: 0.8,
-          max_tokens: 4000
+          max_tokens: 1500
         }),
         signal: controller.signal
       });
@@ -338,20 +340,11 @@ app.post('/api/suggest-by-ingredients', async (req, res) => {
           body: JSON.stringify({
             model: 'deepseek-chat',
             messages: [
-              { role: 'system', content: `Bạn là chuyên gia ẩm thực Việt Nam. Trả lời JSON array.
-TUYỆT ĐỐI TUÂN THỦ format mỗi món:
-{ "name": "tên món", "time": 30, "calories": 350, "difficulty": "Dễ", "description": "mô tả", "ingredients": [{ "name": "nguyên liệu", "quantity": "số lượng" }], "instructions": "bước 1\\nbước 2\\nbước 3" }
-
-QUY TẮC:
-- Người dùng có các nguyên liệu: ${ingsStr}
-- Gợi ý 3-4 món có thể nấu từ các nguyên liệu này, chỉ cần mua thêm tối đa 1-2 gia vị/nguyên liệu phụ thông dụng.
-- Ưu tiên món Việt Nam phổ biến trong mâm cơm hàng ngày.
-- Mỗi món phải ghi ĐẦY ĐỦ nguyên liệu (kể cả cái đã có + cái cần mua thêm).
-- time là số phút (number), calories là số kcal (number).` },
+              { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước). Có nguyên liệu: ${ingsStr}. Gợi ý 3-4 món nấu được, chỉ thêm 1-2 gia vị. Ghi ĐẦY ĐỦ nguyên liệu. time, calories là number.` },
               { role: 'user', content: `Tôi có các nguyên liệu: ${ingsStr}. Gợi ý tôi nấu món gì?` }
             ],
             temperature: 0.7,
-            max_tokens: 4000
+            max_tokens: 1500
           }),
           signal: controller.signal
         });
