@@ -289,7 +289,8 @@ const MealPlan = (function() {
     });
   }
 
-  // ---- Camera: chụp ảnh món ăn hoặc tủ lạnh ----
+
+  // ---- Camera: chụp ảnh món ăn hoặc tủ lạnh (dùng Gemini Flash-Lite) ----
   // options: { onResult: function(data), mode: 'dish'|'fridge' }
   function openCamera(options) {
     const modal = document.getElementById('camera-modal');
@@ -360,7 +361,7 @@ const MealPlan = (function() {
       uploadLabel.classList.remove('hidden');
     };
 
-    // Confirm → analyze
+    // Confirm → analyze with Gemini
     const analyze = (imageDataUrl) => {
       loading.classList.remove('hidden');
       if (stream) stream.getTracks().forEach(t => t.stop());
@@ -422,6 +423,7 @@ const MealPlan = (function() {
       e.target.value = '';
     };
   }
+
 
   // ---- Init ----
   function init() {

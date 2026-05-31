@@ -399,20 +399,19 @@ QUY TẮC:
   res.json({ suggestions: suggestions.slice(0, 5), fromCache: true });
 });
 
-// ---- Image analysis API (dùng Google Gemini Flash — free, hỗ trợ vision) ----
-// DeepSeek không hỗ trợ vision/image_url, nên dùng Gemini làm vision backend
+
+// ---- Image analysis API (dùng Gemini Flash-Lite) ----
 app.post('/api/analyze-image', async (req, res) => {
   const { image, mode } = req.body;
   if (!image) return res.json({ success: false, error: 'Missing image data' });
 
   const isFridge = mode === 'fridge';
-  const geminiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
 
-  if (!geminiKey) {
-    // Fallback: nếu không có Gemini key, trả về hướng dẫn
+  if (!apiKey) {
     return res.json({
       success: false,
-      error: 'Thiếu GEMINI_API_KEY. Lấy key free tại https://aistudio.google.com/apikei (không cần credit card)',
+      error: 'Thiếu GEMINI_API_KEY. Xem hướng dẫn trong file .env.example',
       needsApiKey: true
     });
   }
@@ -420,89 +419,49 @@ app.post('/api/analyze-image', async (req, res) => {
   try {
     const prompt = isFridge
       ? 'Phân tích ảnh chụp tủ lạnh này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "ingredients": ["tên nguyên liệu 1", "tên nguyên liệu 2", ...] }. Liệt kê TẤT CẢ nguyên liệu thực phẩm nhìn thấy được (thịt, cá, rau, củ, quả, trứng, v.v.). Bỏ qua gia vị khô, chai lọ, đồ đóng hộp. Mỗi nguyên liệu viết hoa chữ cái đầu. Nếu không thấy nguyên liệu nào, trả về { "ingredients": [] }'
-      : 'Phân tích ảnh món ăn này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "name": "Tên món", "time": "thời gian nấu", "calories": "lượng calo", "difficulty": "Dễ/Trung bình/Khó", "description": "mô tả ngắn", "ingredients": [{ "name": "tên", "quantity": "số lượng", "price": 0 }], "instructions": "các bước nấu cách nhau bởi \\n" }. Nếu không nhận diện được món, hãy trả về món phổ biến nhất mà bạn nhìn thấy.';
+      : 'Phân tích ảnh món ăn này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "name": "Tên món", "time": "thời gian nấu (có đơn vị)", "calories": "lượng calo (có đơn vị)", "difficulty": "Dễ/Trung bình/Khó", "description": "mô tả ngắn", "ingredients": [{"name": "tên nguyên liệu", "quantity": "số lượng", "price": 0}], "instructions": "bước 1\\nbước 2\\nbước 3" }. Nếu không nhận diện được món, hãy trả về món ăn bất kỳ nhìn thấy trong ảnh.';
 
-    // Google Gemini API: base64 image trong nội dung gửi đi
-    // Strip data:image/...;base64, prefix để lấy raw base64
+    // Extract base64 data (remove data:image/...;base64, prefix)
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
 
-    let response = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const body = {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         contents: [{
           parts: [
             { text: prompt },
-            {
-              inline_data: {
-                mime_type: 'image/jpeg',
-                data: base64Data
-              }
-            }
+            { inline_data: { mime_type: 'image/jpeg', data: base64Data } }
           ]
         }],
         generationConfig: {
           temperature: 0.2,
-          maxOutputTokens: 4096
+          maxOutputTokens: 4000
         }
-      };
+      })
+    });
 
-      response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        }
-      );
-
-      if (response.ok) break;
-
+    if (!response.ok) {
       const errText = await response.text().catch(() => '');
-      console.error(`[Gemini] HTTP ${response.status} (attempt ${attempt + 1}): ${errText}`);
+      console.error(`[Gemini Vision] HTTP ${response.status}: ${errText.slice(0, 200)}`);
 
-      // Nếu 429 (rate limit) hoặc 503 (quá tải) — retry
-      if (response.status === 429 || response.status === 503) {
-        if (attempt < 2) {
-          const waitMs = 3000 * (attempt + 1);
-          await new Promise(r => setTimeout(r, waitMs));
-          continue;
-        }
-        // Hết retry — trả lỗi
-        return res.json({
-          success: false,
-          error: 'Gemini đang quá tải (HTTP 429). Vui lòng đợi 30 giây rồi thử lại!',
-          rateLimited: true
-        });
-      }
-
-      // Lỗi 400 hoặc khác — log body đầy đủ, dừng luôn
-      if (response.status !== 429 && response.status !== 503) {
-        const errJson = tryParseJSON(errText);
-        console.error(`[Gemini] Error details: ${JSON.stringify(errJson || errText).slice(0, 500)}`);
-        return res.json({
-          success: false,
-          error: `Gemini API lỗi: ${errJson?.error?.message || errText.slice(0, 200) || `HTTP ${response.status}`}`
-        });
-      }
-    }
-
-    if (!response || !response.ok) {
       return res.json({
         success: false,
-        error: `Gemini API lỗi (HTTP ${response.status}). Vui lòng kiểm tra GEMINI_API_KEY hoặc thử lại sau.`,
-        fallback: true
+        error: `Lỗi Gemini API (${response.status}). ${errText.slice(0, 100)}`
       });
     }
 
     const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     // Parse JSON từ response
     let parsed = null;
     try {
-      parsed = JSON.parse(text);
+      // Loại bỏ markdown code block nếu có
+      const clean = content.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
+      parsed = JSON.parse(clean);
     } catch (e) {
-      const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (jsonMatch) {
         try { parsed = JSON.parse(jsonMatch[1]); } catch (e2) {}
       }
@@ -518,9 +477,9 @@ app.post('/api/analyze-image', async (req, res) => {
     if (parsed && parsed.name) {
       return res.json({ success: true, data: parsed });
     }
-    return res.json({ success: false, error: 'Không nhận diện được món ăn từ ảnh.' });
+    return res.json({ success: false, error: 'Không nhận diện được món ăn từ ảnh.', raw: content });
   } catch (err) {
-    console.error('[Gemini] Error:', err.message);
+    console.error('[Gemini Vision] Error:', err.message);
     res.json({ success: false, error: err.message });
   }
 });
