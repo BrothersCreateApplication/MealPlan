@@ -9,6 +9,11 @@ const db = require('./supabase');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ---- Helper: parse JSON safely ----
+function tryParseJSON(str) {
+  try { return JSON.parse(str); } catch (e) { return null; }
+}
+
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -422,61 +427,69 @@ app.post('/api/analyze-image', async (req, res) => {
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
 
     let response = null;
-    // Retry tối đa 2 lần nếu bị 429 (rate limit)
     for (let attempt = 0; attempt < 3; attempt++) {
+      const body = {
+        contents: [{
+          parts: [
+            { text: prompt },
+            {
+              inline_data: {
+                mime_type: 'image/jpeg',
+                data: base64Data
+              }
+            }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 4096
+        }
+      };
+
       response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: prompt },
-                {
-                  inline_data: {
-                    mime_type: 'image/jpeg',
-                    data: base64Data
-                  }
-                }
-              ]
-            }],
-            generationConfig: {
-              temperature: 0.2,
-              maxOutputTokens: 4096,
-              responseMimeType: 'application/json'
-            }
-          })
+          body: JSON.stringify(body)
         }
       );
 
       if (response.ok) break;
 
       const errText = await response.text().catch(() => '');
-      console.error(`[Gemini] HTTP ${response.status} (attempt ${attempt + 1}): ${errText.slice(0, 200)}`);
+      console.error(`[Gemini] HTTP ${response.status} (attempt ${attempt + 1}): ${errText}`);
 
-      if (response.status === 429) {
-        // Rate limit — đợi rồi thử lại
+      // Nếu 429 (rate limit) hoặc 503 (quá tải) — retry
+      if (response.status === 429 || response.status === 503) {
         if (attempt < 2) {
-          const waitMs = 2000 * (attempt + 1); // 2s → 4s
+          const waitMs = 3000 * (attempt + 1);
           await new Promise(r => setTimeout(r, waitMs));
           continue;
         }
+        // Hết retry — trả lỗi
         return res.json({
           success: false,
-          error: 'Phân tích ảnh tạm thời bị giới hạn (429). Vui lòng đợi 30 giây rồi thử lại!',
+          error: 'Gemini đang quá tải (HTTP 429). Vui lòng đợi 30 giây rồi thử lại!',
           rateLimited: true
         });
       }
 
-      // Lỗi khác không retry
-      break;
+      // Lỗi 400 hoặc khác — log body đầy đủ, dừng luôn
+      if (response.status !== 429 && response.status !== 503) {
+        const errJson = tryParseJSON(errText);
+        console.error(`[Gemini] Error details: ${JSON.stringify(errJson || errText).slice(0, 500)}`);
+        return res.json({
+          success: false,
+          error: `Gemini API lỗi: ${errJson?.error?.message || errText.slice(0, 200) || `HTTP ${response.status}`}`
+        });
+      }
     }
 
     if (!response || !response.ok) {
       return res.json({
         success: false,
-        error: `Gemini API lỗi (HTTP ${response.status}). Kiểm tra GEMINI_API_KEY hoặc thử lại sau.`,
+        error: `Gemini API lỗi (HTTP ${response.status}). Vui lòng kiểm tra GEMINI_API_KEY hoặc thử lại sau.`,
         fallback: true
       });
     }
