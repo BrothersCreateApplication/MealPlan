@@ -133,9 +133,7 @@
         const s = suggestions[idx];
         if (s && s.dish) {
           const ings = s.dish.ingredients || [];
-          if (ings.length > 0) {
-            MealPlan.addToCart(ings);
-          }
+          MealPlan.setCart(ings);
           MealPlan.state.currentMealName = s.dish.name;
           MealPlan.saveState();
           MealPlan.navigate('cart');
@@ -372,9 +370,7 @@
     // Cook handler
     overlay.querySelector('.suggestion-overlay-cook')?.addEventListener('click', () => {
       const ings = dish.ingredients || [];
-      if (ings.length > 0) {
-        MealPlan.addToCart(ings);
-      }
+      MealPlan.setCart(ings);
       MealPlan.state.currentMealName = dish.name;
       MealPlan.saveState();
       overlay.remove();

@@ -104,6 +104,20 @@ const MealPlan = (function() {
     updateFooterCart();
   }
 
+  // ---- Thay thế toàn bộ giỏ hàng (dùng khi chọn món mới) ----
+  function setCart(items) {
+    state.cart = items.map(item => ({
+      id: Date.now() + Math.random(),
+      name: item.name,
+      quantity: item.quantity || '1',
+      price: item.price || 0,
+      status: 'needed',
+      image: item.image || ''
+    }));
+    saveState();
+    updateFooterCart();
+  }
+
   function removeFromCart(id) {
     state.cart = state.cart.filter(c => c.id !== id);
     saveState();
@@ -268,6 +282,7 @@ const MealPlan = (function() {
     init,
     chatWithAI,
     addToCart,
+    setCart,
     removeFromCart,
     toggleCartItemStatus,
     updateCartItemPrice,

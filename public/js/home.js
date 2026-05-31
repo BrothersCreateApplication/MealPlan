@@ -2,6 +2,9 @@
 
 (function() {
   let currentDishes = []; // cache for detail button by index
+  let isSearchMode = false;
+  let lastSearchQuery = '';
+  let isLoadingMore = false;
 
   // ---- Dish image helpers ----
   const dishVisuals = {
@@ -64,6 +67,8 @@
   async function loadRandomDishes() {
     const grid = document.getElementById('dish-grid');
     if (!grid) return;
+    isSearchMode = false;
+    lastSearchQuery = '';
 
     grid.innerHTML = `
       <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
@@ -85,6 +90,153 @@
     }
 
     renderDishes(dishes);
+  }
+
+  // ---- Load thêm món ----
+  async function loadMoreDishes() {
+    if (isLoadingMore) return;
+    isLoadingMore = true;
+
+    const btn = document.getElementById('btn-load-more');
+    if (btn) {
+      btn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">refresh</span> Đang tải...';
+      btn.disabled = true;
+    }
+
+    let newDishes = [];
+    try {
+      if (isSearchMode && lastSearchQuery) {
+        // Gọi lại API search với cùng query
+        const res = await fetch('/api/search-dishes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: lastSearchQuery })
+        });
+        const data = await res.json();
+        if (data.dishes) newDishes = data.dishes;
+      } else {
+        const res = await fetch('/api/random-dishes', { method: 'POST' });
+        const data = await res.json();
+        if (data.dishes) newDishes = data.dishes;
+      }
+    } catch (e) {
+      console.warn('Load more error:', e);
+      newDishes = getSampleDishes();
+    }
+
+    if (newDishes.length === 0) {
+      newDishes = getSampleDishes();
+    }
+
+    // Lọc trùng với món đã có
+    const existingNames = new Set(currentDishes.map(d => d.name));
+    const uniqueNew = newDishes.filter(d => !existingNames.has(d.name));
+
+    if (uniqueNew.length === 0) {
+      MealPlan.showToast('Đã hiển thị tất cả món!', 'info');
+      if (btn) {
+        btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">refresh</span> Xem thêm';
+        btn.disabled = false;
+      }
+      isLoadingMore = false;
+      return;
+    }
+
+    // Append vào grid
+    appendDishes(uniqueNew);
+    currentDishes = [...currentDishes, ...uniqueNew];
+
+    if (btn) {
+      btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">refresh</span> Xem thêm';
+      btn.disabled = false;
+    }
+    isLoadingMore = false;
+  }
+
+  // ---- Append dish cards (cho Xem thêm) ----
+  function appendDishes(dishes) {
+    const grid = document.getElementById('dish-grid');
+    if (!grid) return;
+
+    const startIdx = currentDishes.length;
+    const html = dishes.map((dish, i) => {
+      const idx = startIdx + i;
+      const { gradient, emoji } = getDishVisual(dish.name);
+      return `
+      <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high">
+        <div class="relative h-48 overflow-hidden">
+          <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
+            <span class="text-6xl">${emoji}</span>
+          </div>
+          <div class="absolute top-3 right-3">
+            <button class="fav-btn bg-white/80 backdrop-blur-md p-1.5 rounded-full shadow-sm" data-dish="${dish.name}">
+              <span class="material-symbols-outlined text-secondary ${MealPlan.state.favorites.has(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.state.favorites.has(dish.name) ? '1' : '0'};">favorite</span>
+            </button>
+          </div>
+        </div>
+        <div class="p-4">
+          <h4 class="font-title-md text-on-surface mb-2">${dish.name}</h4>
+          <div class="flex items-center gap-gutter-md mb-3">
+            <div class="flex items-center gap-1 text-on-surface-variant font-label-md">
+              <span class="material-symbols-outlined text-[18px]">schedule</span>
+              ${dish.time || '--'}
+            </div>
+            <div class="flex items-center gap-1 text-on-surface-variant font-label-md">
+              <span class="material-symbols-outlined text-[18px]">local_fire_department</span>
+              ${dish.calories || '--'}
+            </div>
+            ${dish.difficulty ? `
+            <div class="flex items-center gap-1 text-on-surface-variant font-label-md">
+              <span class="material-symbols-outlined text-[18px]">signal_cellular_alt</span>
+              ${dish.difficulty}
+            </div>` : ''}
+          </div>
+          ${dish.description ? `<p class="text-body-md text-on-surface-variant mb-3 line-clamp-2">${dish.description}</p>` : ''}
+          <button class="detail-btn w-full flex items-center justify-center gap-2 bg-surface-container-high text-primary font-label-md px-4 py-2.5 rounded-lg hover:bg-primary-container/30 active:scale-[0.98] transition-all" data-idx="${idx}" data-dish-name="${dish.name}">
+            <span class="material-symbols-outlined text-[18px]">article</span>
+            Xem Chi tiết
+          </button>
+        </div>
+      </div>`;
+    }).join('');
+
+    grid.insertAdjacentHTML('beforeend', html);
+
+    // Load ảnh cho món mới
+    dishes.forEach(dish => { loadDishImage(dish.name); });
+
+    // Re-attach events cho các nút mới
+    document.querySelectorAll('.fav-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const dishName = this.dataset.dish;
+        const icon = this.querySelector('.material-symbols-outlined');
+        if (MealPlan.state.favorites.has(dishName)) {
+          MealPlan.state.favorites.delete(dishName);
+          icon.style.setProperty('font-variation-settings', "'FILL' 0");
+          icon.classList.add('opacity-40');
+        } else {
+          MealPlan.state.favorites.add(dishName);
+          icon.style.setProperty('font-variation-settings', "'FILL' 1");
+          icon.classList.remove('opacity-40');
+        }
+        MealPlan.saveState();
+      });
+    });
+
+    document.querySelectorAll('.detail-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const idx = parseInt(this.dataset.idx);
+        let dish = currentDishes[idx];
+        if (!dish) {
+          const name = this.dataset.dishName;
+          dish = currentDishes.find(d => d && d.name === name);
+        }
+        if (dish) showRecipeDetail(dish);
+        else MealPlan.showToast('Không thể hiển thị chi tiết món ăn!', 'error');
+      });
+    });
   }
 
   // ---- Sample fallback ----
@@ -446,12 +598,10 @@
       if (e.target === overlay) overlay.remove();
     });
 
-    // Nấu Ăn handler
+    // Nấu Ăn handler — thay thế giỏ hàng cũ
     overlay.querySelector('#recipe-cook-btn')?.addEventListener('click', () => {
       const ings = dish.ingredients || [];
-      if (ings.length > 0) {
-        MealPlan.addToCart(ings);
-      }
+      MealPlan.setCart(ings);
       MealPlan.state.currentMealName = dish.name;
       MealPlan.saveState();
       overlay.remove();
@@ -548,6 +698,9 @@
       return;
     }
 
+    isSearchMode = true;
+    lastSearchQuery = query;
+
     const grid = document.getElementById('dish-grid');
     if (grid) {
       grid.innerHTML = `
@@ -599,6 +752,9 @@
 
     // Auto-load random dishes on page load
     loadRandomDishes();
+
+    // Xem thêm button
+    document.getElementById('btn-load-more')?.addEventListener('click', loadMoreDishes);
 
     // Live search on Enter
     searchInput.addEventListener('keydown', async (e) => {
