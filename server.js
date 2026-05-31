@@ -47,9 +47,9 @@ app.post('/api/search-dishes', async (req, res) => {
   const { exactMatch, andMatch, orMatch } = await db.searchDishes(words, q);
   let aiDishesResult = [];
 
-  // Nếu chưa đủ 3 món exact + AND, gọi DeepSeek để bổ sung
+  // Nếu chưa đủ 6 món exact + AND, gọi DeepSeek để bổ sung
   const dbExactCount = exactMatch.length + andMatch.length;
-  if (dbExactCount < 3) {
+  if (dbExactCount < 6) {
     const apiKey = process.env.DEEPSEEK_API_KEY;
     if (apiKey) {
       try {
@@ -64,7 +64,7 @@ app.post('/api/search-dishes', async (req, res) => {
           body: JSON.stringify({
             model: 'deepseek-chat',
             messages: [
-              { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name, quantity}], instructions(\\n cách bước). Tìm "${query}". QUY TẮC: CHỈ trả về món có TÊN chứa "${query}" — VD tìm "bánh xèo" thì CHỈ trả "Bánh xèo", không trả các món khác có chữ "bánh". Nếu không có món nào khớp chính xác, hãy mô tả món "${query}" như một công thức nấu ăn hoàn chỉnh. Trả 3-5 món. Instructions: 6-10 bước: lửa to/nhỏ, thời gian, kiểm tra chín, mẹo.` },
+              { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name, quantity}], instructions(\\n cách bước). Tìm "${query}". QUY TẮC: CHỈ trả về món có TÊN chứa "${query}" — VD tìm "bánh xèo" thì CHỈ trả "Bánh xèo", không trả các món khác có chữ "bánh". Nếu không có món nào khớp chính xác, hãy mô tả món "${query}" như một công thức nấu ăn hoàn chỉnh. Trả 6-10 món. Instructions: 6-10 bước: lửa to/nhỏ, thời gian, kiểm tra chín, mẹo.` },
               { role: 'user', content: `Tìm món: ${query}` }
             ],
             temperature: 0.7,
@@ -96,7 +96,7 @@ app.post('/api/search-dishes', async (req, res) => {
     }
   }
 
-  // 3. Ghép kết quả theo thứ tự ưu tiên: exact > AND > AI > OR > fallback
+  // 3. Ghép kết quả: exact + AND + AI là chính xác, OR chỉ thêm nếu AI không chạy
   const seen = new Set();
   const merged = [];
 
@@ -108,30 +108,31 @@ app.post('/api/search-dishes', async (req, res) => {
     merged.push(dish);
   }
 
-  function addBatch(arr, limit = 5) {
+  function addBatch(arr, limit = 10) {
     for (const d of arr) {
       if (merged.length >= limit) break;
       addIfNew(d);
     }
   }
 
-  // Bước 1: Exact-match (chứa full cụm từ "bánh xèo")
+  // Bước 1: Exact-match (chứa full cụm từ)
   addBatch(exactMatch);
 
-  // Bước 2: AND-match (chứa tất cả từ "bánh" + "xèo")
-  if (merged.length < 3) addBatch(andMatch);
+  // Bước 2: AND-match (chứa tất cả từ)
+  if (merged.length < 6) addBatch(andMatch);
 
-  // Bước 3: AI results (bổ sung món chính xác từ DeepSeek)
-  if (merged.length < 3) addBatch(aiDishesResult);
+  // Bước 3: AI results — đã có AI thì không dùng OR-match nữa
+  const aiHadResults = aiDishesResult.length > 0;
+  if (merged.length < 6) addBatch(aiDishesResult);
 
-  // Bước 4: OR-match (chứa 1 từ) — chỉ khi chưa đủ
-  if (merged.length < 3) addBatch(orMatch);
+  // Bước 4: OR-match — chỉ nếu AI không trả gì
+  if (!aiHadResults && merged.length < 6) addBatch(orMatch);
 
-  // Bước 5: Fallback cuối
-  if (merged.length < 3) {
+  // Bước 5: Fallback cuối — chỉ nếu AI không trả gì
+  if (!aiHadResults && merged.length < 6) {
     const all = await db.getAllDishes();
     for (const d of all) {
-      if (merged.length >= 5) break;
+      if (merged.length >= 10) break;
       if (!d.name) continue;
       if (seen.has(d.name.toLowerCase())) continue;
       const text = d.name.toLowerCase();
@@ -142,7 +143,7 @@ app.post('/api/search-dishes', async (req, res) => {
     }
   }
 
-  res.json({ dishes: merged.slice(0, 5), fromCache: merged.length > 0 });
+  res.json({ dishes: merged.slice(0, 10), fromCache: merged.length > 0 });
 });
 
 // ---- Random dishes ----

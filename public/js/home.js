@@ -754,20 +754,20 @@
         }
       });
 
-      const result = [...priority1, ...priority2].slice(0, 5);
+      const result = [...priority1, ...priority2].slice(0, 10);
 
       if (result.length === 0) {
         return dishes.filter(d => {
           if (!d || !d.name) return false;
           const dName = d.name.toLowerCase();
           return mainIngredient.split(/\s+/).some(w => w.length > 1 && dName.includes(w));
-        }).slice(0, 3);
+        }).slice(0, 6);
       }
 
       return result;
     } catch (e) {
       console.warn('filterByPriority error:', e);
-      return dishes.slice(0, 5); // fallback: show first 5
+      return dishes.slice(0, 10); // fallback: show first 10
     }
   }
 
