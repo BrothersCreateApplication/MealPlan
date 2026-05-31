@@ -69,7 +69,7 @@ async function getDishByName(name) {
 
 async function searchDishes(keywords, fullQuery) {
   const client = getClient();
-  if (!client || !keywords || keywords.length === 0) return { exactMatch: [], andMatch: [], orMatch: [] };
+  if (!client || !keywords || keywords.length === 0) return { exactMatch: [], andMatch: [], partialMatch: [] };
 
   const { data, error } = await client
     .from('dishes')
@@ -79,15 +79,15 @@ async function searchDishes(keywords, fullQuery) {
 
   if (error) {
     console.error('[Supabase] searchDishes error:', error.message);
-    return { exactMatch: [], andMatch: [], orMatch: [] };
+    return { exactMatch: [], andMatch: [], partialMatch: [] };
   }
 
   let dishes = normalizeDishes(data);
 
-  // Phân loại 3 cấp độ ưu tiên:
-  // 1. Exact-match: tên món chứa full cụm từ (VD: "thịt luộc" → "Thịt luộc", "Thịt luộc cuốn bánh tráng")
-  // 2. AND-match: tên món chứa tất cả từ (VD: "thịt" + "luộc")
-  // 3. OR-match: tên món chứa ít nhất 1 từ
+  // Phân loại 3 cấp độ:
+  // 1. Exact-match: tên chứa full cụm từ (VD: "thịt heo luộc" → "Thịt heo luộc")
+  // 2. AND-match: tên chứa tất cả từ (VD: "thịt"+"heo"+"luộc")
+  // 3. Partial-match: chứa ≥ 2 từ (VD: "thịt"+"luộc", "heo"+"luộc") — không chứa riêng lẻ 1 từ
   const exactMatch = dishes.filter(d => {
     if (!d.name) return false;
     return d.name.toLowerCase().includes(fullQuery);
@@ -104,14 +104,18 @@ async function searchDishes(keywords, fullQuery) {
 
   const seenAnd = new Set([...seenExact, ...andMatch.map(d => d.name?.toLowerCase())]);
 
-  const orMatch = dishes.filter(d => {
+  // Partial-match: cần match ít nhất 2 từ (với query ≥ 3 từ), hoặc match hết (với query 2 từ)
+  // Mục đích: "thịt heo luộc" không ra "bông cải luộc" (chỉ match 1/3)
+  const minMatch = Math.max(2, Math.ceil(keywords.length * 0.66));
+  const partialMatch = dishes.filter(d => {
     if (!d.name) return false;
     if (seenAnd.has(d.name.toLowerCase())) return false;
     const name = d.name.toLowerCase();
-    return keywords.some(k => name.includes(k));
+    const matchCount = keywords.filter(k => name.includes(k)).length;
+    return matchCount >= minMatch;
   });
 
-  return { exactMatch, andMatch, orMatch };
+  return { exactMatch, andMatch, partialMatch };
 }
 
 async function getRandomDishes(count = 3) {

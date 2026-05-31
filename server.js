@@ -44,14 +44,16 @@ app.post('/api/search-dishes', async (req, res) => {
   const words = q.split(/\s+/).filter(w => w.length > 0);
 
   // 1. Tìm trong Supabase trước — 3 cấp độ: exact > AND > OR
-  const { exactMatch, andMatch, orMatch } = await db.searchDishes(words, q);
+  const { exactMatch, andMatch, partialMatch } = await db.searchDishes(words, q);
   let aiDishesResult = [];
 
   // Nếu chưa đủ 6 món exact + AND, gọi DeepSeek để bổ sung
   const dbExactCount = exactMatch.length + andMatch.length;
+  let aiAttempted = false;
   if (dbExactCount < 6) {
     const apiKey = process.env.DEEPSEEK_API_KEY;
     if (apiKey) {
+      aiAttempted = true;
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 8000);
@@ -121,15 +123,14 @@ app.post('/api/search-dishes', async (req, res) => {
   // Bước 2: AND-match (chứa tất cả từ)
   if (merged.length < 6) addBatch(andMatch);
 
-  // Bước 3: AI results — đã có AI thì không dùng OR-match nữa
-  const aiHadResults = aiDishesResult.length > 0;
+  // Bước 3: AI results — đã attempt AI thì không dùng OR-match nữa
   if (merged.length < 6) addBatch(aiDishesResult);
 
-  // Bước 4: OR-match — chỉ nếu AI không trả gì
-  if (!aiHadResults && merged.length < 6) addBatch(orMatch);
+  // Bước 4: Partial-match (match ≥ 2 từ — chỉ query 3+ từ mới có)
+  if (merged.length < 6) addBatch(partialMatch);
 
-  // Bước 5: Fallback cuối — chỉ nếu AI không trả gì
-  if (!aiHadResults && merged.length < 6) {
+  // Bước 5: Fallback cuối — OR lỏng
+  if (!aiAttempted && merged.length < 6) {
     const all = await db.getAllDishes();
     for (const d of all) {
       if (merged.length >= 10) break;
