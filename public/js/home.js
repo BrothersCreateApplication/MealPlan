@@ -7,23 +7,35 @@
   let isLoadingMore = false;
 
   // ---- Dish image helpers ----
-  const dishVisuals = {
-    'cá': { gradient: 'bg-gradient-to-br from-blue-400/30 to-teal-300/30', emoji: '🐟' },
-    'tôm': { gradient: 'bg-gradient-to-br from-pink-400/30 to-orange-300/30', emoji: '🦐' },
-    'gà': { gradient: 'bg-gradient-to-br from-amber-400/30 to-yellow-300/30', emoji: '🍗' },
-    'bò': { gradient: 'bg-gradient-to-br from-red-500/30 to-orange-400/30', emoji: '🥩' },
-    'heo': { gradient: 'bg-gradient-to-br from-rose-400/30 to-pink-300/30', emoji: '🐷' },
-    'lợn': { gradient: 'bg-gradient-to-br from-rose-400/30 to-pink-300/30', emoji: '🐷' },
-    'rau': { gradient: 'bg-gradient-to-br from-green-400/30 to-emerald-300/30', emoji: '🥬' },
-    'canh': { gradient: 'bg-gradient-to-br from-teal-400/30 to-cyan-300/30', emoji: '🥣' },
-    'salad': { gradient: 'bg-gradient-to-br from-lime-400/30 to-green-300/30', emoji: '🥗' },
-    'phở': { gradient: 'bg-gradient-to-br from-amber-500/30 to-orange-400/30', emoji: '🍜' },
-    'mì': { gradient: 'bg-gradient-to-br from-yellow-500/30 to-orange-400/30', emoji: '🍝' },
-    'bánh': { gradient: 'bg-gradient-to-br from-purple-400/30 to-fuchsia-300/30', emoji: '🥟' },
-    'cơm': { gradient: 'bg-gradient-to-br from-orange-400/30 to-yellow-300/30', emoji: '🍚' },
-    'chả': { gradient: 'bg-gradient-to-br from-red-400/30 to-amber-300/30', emoji: '🥓' },
-    'trứng': { gradient: 'bg-gradient-to-br from-yellow-300/30 to-amber-200/30', emoji: '🥚' },
-  };
+  // Sắp xếp keyword dài nhất trước để ưu tiên khớp chính xác hơn
+  const dishVisuals = (() => {
+    const map = {
+      'salad': { gradient: 'bg-gradient-to-br from-lime-400/30 to-green-300/30', emoji: '🥗' },
+      'phở': { gradient: 'bg-gradient-to-br from-amber-500/30 to-orange-400/30', emoji: '🍜' },
+      'bánh': { gradient: 'bg-gradient-to-br from-purple-400/30 to-fuchsia-300/30', emoji: '🥟' },
+      'trứng': { gradient: 'bg-gradient-to-br from-yellow-300/30 to-amber-200/30', emoji: '🥚' },
+      'cơm': { gradient: 'bg-gradient-to-br from-orange-400/30 to-yellow-300/30', emoji: '🍚' },
+      'canh': { gradient: 'bg-gradient-to-br from-teal-400/30 to-cyan-300/30', emoji: '🥣' },
+      'nướng': { gradient: 'bg-gradient-to-br from-red-500/30 to-orange-400/30', emoji: '🔥' },
+      'chiên': { gradient: 'bg-gradient-to-br from-amber-400/30 to-yellow-300/30', emoji: '🍳' },
+      'xào': { gradient: 'bg-gradient-to-br from-orange-400/30 to-yellow-300/30', emoji: '🥘' },
+      'kho': { gradient: 'bg-gradient-to-br from-amber-500/30 to-orange-400/30', emoji: '🍲' },
+      'luộc': { gradient: 'bg-gradient-to-br from-teal-400/30 to-cyan-300/30', emoji: '🥟' },
+      'rau': { gradient: 'bg-gradient-to-br from-green-400/30 to-emerald-300/30', emoji: '🥬' },
+      'tôm': { gradient: 'bg-gradient-to-br from-pink-400/30 to-orange-300/30', emoji: '🦐' },
+      'cá': { gradient: 'bg-gradient-to-br from-blue-400/30 to-teal-300/30', emoji: '🐟' },
+      'gà': { gradient: 'bg-gradient-to-br from-amber-400/30 to-yellow-300/30', emoji: '🍗' },
+      'bò': { gradient: 'bg-gradient-to-br from-red-500/30 to-orange-400/30', emoji: '🥩' },
+      'heo': { gradient: 'bg-gradient-to-br from-rose-400/30 to-pink-300/30', emoji: '🐷' },
+      'lợn': { gradient: 'bg-gradient-to-br from-rose-400/30 to-pink-300/30', emoji: '🐷' },
+      'chả': { gradient: 'bg-gradient-to-br from-red-400/30 to-amber-300/30', emoji: '🥓' },
+      'mì': { gradient: 'bg-gradient-to-br from-yellow-500/30 to-orange-400/30', emoji: '🍝' },
+    };
+    // Sắp xếp key dài nhất lên đầu để ưu tiên khớp chính xác
+    return Object.fromEntries(
+      Object.entries(map).sort(([a], [b]) => b.length - a.length)
+    );
+  })();
   const defaultVisual = { gradient: 'bg-gradient-to-br from-primary/10 to-primary-container/20', emoji: '🍽️' };
 
   function getDishVisual(name) {
