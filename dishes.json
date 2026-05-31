@@ -1,0 +1,532 @@
+[
+  {
+    "name": "Thịt Ba Chỉ Luộc",
+    "time": "25 ph",
+    "calories": "350 kcal",
+    "difficulty": "Dễ",
+    "description": "Thịt ba chỉ luộc chín tới, thái lát mỏng, chấm nước mắm tỏi ớt.",
+    "ingredients": [
+      {
+        "name": "Thịt ba chỉ",
+        "quantity": "300g",
+        "price": 0
+      },
+      {
+        "name": "Muối",
+        "quantity": "1 thìa",
+        "price": 0
+      },
+      {
+        "name": "Sả",
+        "quantity": "2 cây",
+        "price": 0
+      }
+    ],
+    "instructions": "1. Thịt ba chỉ rửa sạch.\n2. Luộc thịt với nước lạnh, thêm sả và muối.\n3. Luộc lửa vừa 20 phút.\n4. Vớt ra thái lát mỏng."
+  },
+  {
+    "name": "Thịt Luộc Cuốn Bánh Tráng",
+    "time": "30 ph",
+    "calories": "420 kcal",
+    "difficulty": "Trung bình",
+    "description": "Thịt luộc thái mỏng cuốn bánh tráng với rau sống.",
+    "ingredients": [
+      {
+        "name": "Thịt ba chỉ",
+        "quantity": "300g",
+        "price": 0
+      },
+      {
+        "name": "Bánh tráng",
+        "quantity": "10 cái",
+        "price": 0
+      },
+      {
+        "name": "Rau sống",
+        "quantity": "200g",
+        "price": 0
+      }
+    ],
+    "instructions": "1. Thịt luộc chín, thái lát.\n2. Bánh tráng nhúng nước.\n3. Xếp rau và thịt cuốn chặt."
+  },
+  {
+    "name": "Salad Thịt Luộc Rau Củ",
+    "time": "15 ph",
+    "calories": "280 kcal",
+    "difficulty": "Dễ",
+    "description": "Salad thịt luộc thái sợi trộn rau củ.",
+    "ingredients": [
+      {
+        "name": "Thịt ba chỉ luộc",
+        "quantity": "200g",
+        "price": 0
+      },
+      {
+        "name": "Xà lách",
+        "quantity": "100g",
+        "price": 0
+      },
+      {
+        "name": "Cà rốt",
+        "quantity": "1 củ",
+        "price": 0
+      }
+    ],
+    "instructions": "1. Thịt luộc thái sợi.\n2. Rau củ thái sợi.\n3. Trộn đều với sốt dầu giấm."
+  },
+  {
+    "name": "Gà Chiên Giòn",
+    "time": "30 ph",
+    "calories": "580 kcal",
+    "difficulty": "Trung bình",
+    "description": "Gà chiên giòn rụm, thích hợp bữa tối cuối tuần.",
+    "ingredients": [
+      {
+        "name": "Đùi gà",
+        "quantity": "4 cái",
+        "price": 0
+      },
+      {
+        "name": "Bột chiên giòn",
+        "quantity": "200g",
+        "price": 0
+      }
+    ],
+    "instructions": "1. Gà ướp gia vị 15 phút.\n2. Lăn qua bột chiên.\n3. Chiên ngập dầu lửa vừa 12 phút."
+  },
+  {
+    "name": "Cá Hấp Xì Dầu",
+    "time": "20 ph",
+    "calories": "320 kcal",
+    "difficulty": "Dễ",
+    "description": "Cá hấp xì dầu, gừng và hành lá.",
+    "ingredients": [
+      {
+        "name": "Cá chép",
+        "quantity": "1 con",
+        "price": 0
+      },
+      {
+        "name": "Xì dầu",
+        "quantity": "3 thìa",
+        "price": 0
+      },
+      {
+        "name": "Gừng",
+        "quantity": "1 nhánh",
+        "price": 0
+      }
+    ],
+    "instructions": "1. Cá làm sạch, khứa vài đường.\n2. Xếp gừng, hành lên cá.\n3. Hấp cách thủy 15 phút."
+  },
+  {
+    "name": "Bò Xào Súp Lơ",
+    "time": "15 ph",
+    "calories": "480 kcal",
+    "difficulty": "Dễ",
+    "description": "Thịt bò xào nhanh với súp lơ xanh.",
+    "ingredients": [
+      {
+        "name": "Thịt bò thăn",
+        "quantity": "200g",
+        "price": 0
+      },
+      {
+        "name": "Súp lơ xanh",
+        "quantity": "200g",
+        "price": 0
+      },
+      {
+        "name": "Tỏi",
+        "quantity": "3 tép",
+        "price": 0
+      }
+    ],
+    "instructions": "1. Thịt bò thái lát, ướp gia vị.\n2. Phi tỏi, xào bò lửa lớn 2 phút.\n3. Cho súp lơ vào đảo đều."
+  },
+  {
+    "name": "Thịt Kho Tàu",
+    "time": "60 ph",
+    "calories": "520 kcal",
+    "difficulty": "Trung bình",
+    "description": "Thịt kho nước dừa và trứng cút.",
+    "ingredients": [
+      {
+        "name": "Thịt ba chỉ",
+        "quantity": "300g",
+        "price": 0
+      },
+      {
+        "name": "Trứng cút",
+        "quantity": "10 quả",
+        "price": 0
+      },
+      {
+        "name": "Nước dừa",
+        "quantity": "200ml",
+        "price": 0
+      }
+    ],
+    "instructions": "1. Thịt thái miếng, ướp gia vị.\n2. Phi thơm hành, xào thịt săn.\n3. Đổ nước dừa, kho lửa nhỏ 45 phút."
+  },
+  {
+    "name": "Canh Chua Cá Lóc",
+    "time": "30 ph",
+    "calories": "380 kcal",
+    "difficulty": "Trung bình",
+    "description": "Canh chua ngọt thanh với cá lóc tươi.",
+    "ingredients": [
+      {
+        "name": "Cá lóc",
+        "quantity": "300g",
+        "price": 0
+      },
+      {
+        "name": "Me",
+        "quantity": "50g",
+        "price": 0
+      },
+      {
+        "name": "Đậu bắp",
+        "quantity": "100g",
+        "price": 0
+      },
+      {
+        "name": "Giá đỗ",
+        "quantity": "100g",
+        "price": 0
+      }
+    ],
+    "instructions": "1. Cá lóc làm sạch, cắt khúc.\n2. Me ngâm nước ấm, bỏ hạt.\n3. Nấu sôi, cho cá vào.\n4. Thêm me, đậu bắp, giá đỗ."
+  },
+  {
+    "name": "Thịt kho tàu",
+    "time": 90,
+    "calories": 350,
+    "difficulty": "Trung bình",
+    "description": "Món thịt heo kho với trứng cút, nước dừa, thơm ngon đậm đà, thường ăn kèm cơm trắng.",
+    "ingredients": [
+      {
+        "name": "Thịt ba chỉ",
+        "quantity": "500g"
+      },
+      {
+        "name": "Trứng cút",
+        "quantity": "10 quả"
+      },
+      {
+        "name": "Nước dừa tươi",
+        "quantity": "200ml"
+      },
+      {
+        "name": "Hành tím",
+        "quantity": "2 củ"
+      },
+      {
+        "name": "Nước mắm",
+        "quantity": "3 muỗng canh"
+      },
+      {
+        "name": "Đường",
+        "quantity": "2 muỗng canh"
+      },
+      {
+        "name": "Tiêu",
+        "quantity": "1/2 muỗng cà phê"
+      }
+    ],
+    "instructions": "Thái thịt miếng vuông 3cm, ướp với nước mắm, đường, tiêu, hành tím băm trong 20 phút.\nLuộc trứng cút, bóc vỏ.\nCho thịt vào nồi, đảo săn, thêm nước dừa, đun sôi.\nHạ lửa nhỏ, kho 60 phút đến khi thịt mềm, nước keo lại.\nThêm trứng cút, kho thêm 10 phút, nêm lại gia vị."
+  },
+  {
+    "name": "Thịt nướng sả",
+    "time": 60,
+    "calories": 280,
+    "difficulty": "Dễ",
+    "description": "Thịt heo thái lát mỏng, ướp sả băm và gia vị, nướng trên than hồng hoặc chảo, thơm lừng.",
+    "ingredients": [
+      {
+        "name": "Thịt heo (thăn hoặc ba chỉ)",
+        "quantity": "400g"
+      },
+      {
+        "name": "Sả",
+        "quantity": "3 cây"
+      },
+      {
+        "name": "Tỏi",
+        "quantity": "3 tép"
+      },
+      {
+        "name": "Nước mắm",
+        "quantity": "2 muỗng canh"
+      },
+      {
+        "name": "Dầu hào",
+        "quantity": "1 muỗng canh"
+      },
+      {
+        "name": "Đường",
+        "quantity": "1 muỗng canh"
+      },
+      {
+        "name": "Dầu ăn",
+        "quantity": "1 muỗng canh"
+      }
+    ],
+    "instructions": "Thái thịt lát mỏng 0.5cm.\nBăm nhỏ sả và tỏi, trộn với nước mắm, dầu hào, đường, dầu ăn làm nước ướp.\nƯớp thịt 30 phút.\nNướng thịt trên vỉ than hoặc chảo chống dính lửa vừa, mỗi mặt 3-4 phút đến khi chín vàng."
+  },
+  {
+    "name": "Thịt rang cháy cạnh",
+    "time": 25,
+    "calories": 320,
+    "difficulty": "Dễ",
+    "description": "Thịt ba chỉ thái miếng, rang giòn cạnh với nước mắm và đường, ăn kèm dưa chuột.",
+    "ingredients": [
+      {
+        "name": "Thịt ba chỉ",
+        "quantity": "300g"
+      },
+      {
+        "name": "Nước mắm",
+        "quantity": "2 muỗng canh"
+      },
+      {
+        "name": "Đường",
+        "quantity": "1.5 muỗng canh"
+      },
+      {
+        "name": "Hành tím",
+        "quantity": "1 củ"
+      },
+      {
+        "name": "Dầu ăn",
+        "quantity": "1 muỗng canh"
+      }
+    ],
+    "instructions": "Thái thịt miếng mỏng 0.5cm.\nPhi hành tím băm với dầu ăn, cho thịt vào rang lửa lớn 5 phút đến khi cháy cạnh.\nHạ lửa nhỏ, thêm nước mắm và đường, đảo đều 5 phút đến khi thịt bóng vàng.\nTắt bếp, thêm tiêu, dùng nóng."
+  },
+  {
+    "name": "Thịt bò xào rau cần",
+    "time": 20,
+    "calories": 250,
+    "difficulty": "Dễ",
+    "description": "Thịt bò thái mỏng xào nhanh với rau cần, tỏi, giữ độ giòn ngọt.",
+    "ingredients": [
+      {
+        "name": "Thịt bò (thăn)",
+        "quantity": "200g"
+      },
+      {
+        "name": "Rau cần",
+        "quantity": "200g"
+      },
+      {
+        "name": "Tỏi",
+        "quantity": "3 tép"
+      },
+      {
+        "name": "Nước mắm",
+        "quantity": "1 muỗng canh"
+      },
+      {
+        "name": "Dầu ăn",
+        "quantity": "1 muỗng canh"
+      },
+      {
+        "name": "Tiêu",
+        "quantity": "1/4 muỗng cà phê"
+      }
+    ],
+    "instructions": "Thái thịt bò lát mỏng, ướp với nước mắm, tiêu 10 phút.\nRửa sạch rau cần, cắt khúc 5cm.\nPhi tỏi băm với dầu ăn, cho thịt bò vào xào lửa lớn 2 phút, trút ra đĩa.\nXào rau cần 1 phút, cho thịt bò vào đảo đều, tắt bếp."
+  },
+  {
+    "name": "Thịt heo luộc",
+    "time": 30,
+    "calories": 250,
+    "difficulty": "Dễ",
+    "description": "Thịt heo luộc chín tới, thái lát mỏng, chấm cùng nước mắm tỏi ớt hoặc mắm nêm, ăn kèm rau sống.",
+    "ingredients": [
+      {
+        "name": "Thịt ba chỉ hoặc thịt thăn heo",
+        "quantity": "500g"
+      },
+      {
+        "name": "Muối",
+        "quantity": "1 muỗng cà phê"
+      },
+      {
+        "name": "Hành tím",
+        "quantity": "2 củ"
+      },
+      {
+        "name": "Nước lọc",
+        "quantity": "1 lít"
+      }
+    ],
+    "instructions": "Rửa sạch thịt heo, để ráo.\nCho nước vào nồi, thêm muối và hành tím đập dập, đun sôi.\nThả thịt vào nồi, luộc lửa vừa khoảng 20-25 phút cho đến khi chín.\nVớt thịt ra, ngâm vào tô nước đá lạnh 5 phút để thịt giòn và nguội nhanh.\nThái thịt thành lát mỏng vừa ăn, bày ra đĩa."
+  },
+  {
+    "name": "Thịt gà luộc",
+    "time": 40,
+    "calories": 220,
+    "difficulty": "Dễ",
+    "description": "Gà luộc da vàng óng, thịt chín mềm, chấm muối tiêu chanh hoặc nước mắm gừng.",
+    "ingredients": [
+      {
+        "name": "Gà ta",
+        "quantity": "1 con (khoảng 1.2kg)"
+      },
+      {
+        "name": "Muối",
+        "quantity": "1 muỗng canh"
+      },
+      {
+        "name": "Gừng",
+        "quantity": "1 nhánh nhỏ"
+      },
+      {
+        "name": "Hành tím",
+        "quantity": "3 củ"
+      },
+      {
+        "name": "Nước lọc",
+        "quantity": "1.5 lít"
+      }
+    ],
+    "instructions": "Làm sạch gà, xát muối trong và ngoài da, rửa lại với nước.\nCho nước vào nồi, thêm gừng đập dập và hành tím, đun sôi.\nThả gà vào nồi, luộc lửa lớn 10 phút, sau đó hạ lửa vừa luộc thêm 20-25 phút.\nTắt bếp, đậy nắp ủ 5 phút cho gà chín đều.\nVớt gà ra, nhúng vào nước đá lạnh 5 phút, để ráo, chặt miếng vừa ăn."
+  },
+  {
+    "name": "Tôm luộc",
+    "time": 15,
+    "calories": 100,
+    "difficulty": "Dễ",
+    "description": "Tôm luộc chín đỏ tươi, ngọt thịt, chấm muối tiêu chanh hoặc nước mắm ớt.",
+    "ingredients": [
+      {
+        "name": "Tôm sú hoặc tôm thẻ",
+        "quantity": "500g"
+      },
+      {
+        "name": "Muối",
+        "quantity": "1 muỗng cà phê"
+      },
+      {
+        "name": "Sả",
+        "quantity": "2 cây"
+      },
+      {
+        "name": "Nước lọc",
+        "quantity": "500ml"
+      }
+    ],
+    "instructions": "Rửa sạch tôm, cắt bỏ râu và chỉ lưng nếu muốn.\nĐun sôi nước với muối và sả đập dập.\nThả tôm vào nồi, luộc lửa lớn 3-5 phút đến khi tôm chuyển màu đỏ và nổi lên.\nVớt tôm ra, để nguội bớt, bày ra đĩa."
+  },
+  {
+    "name": "Rau củ luộc",
+    "time": 20,
+    "calories": 80,
+    "difficulty": "Dễ",
+    "description": "Rau củ luộc giòn ngọt, ăn kèm muối vừng hoặc chấm nước mắm tỏi.",
+    "ingredients": [
+      {
+        "name": "Bông cải xanh",
+        "quantity": "200g"
+      },
+      {
+        "name": "Cà rốt",
+        "quantity": "1 củ"
+      },
+      {
+        "name": "Đậu que",
+        "quantity": "100g"
+      },
+      {
+        "name": "Muối",
+        "quantity": "1 muỗng cà phê"
+      },
+      {
+        "name": "Nước lọc",
+        "quantity": "1 lít"
+      }
+    ],
+    "instructions": "Rửa sạch rau củ, cắt bông cải thành miếng vừa ăn, cà rốt thái lát, đậu que cắt khúc.\nĐun sôi nước với muối.\nCho cà rốt và đậu que vào luộc trước 3 phút, sau đó thêm bông cải xanh luộc thêm 2-3 phút.\nVớt rau củ ra, ngâm vào nước đá lạnh 2 phút để giữ màu và độ giòn.\nVớt ra để ráo, bày ra đĩa."
+  },
+  {
+    "name": "Thịt bò luộc",
+    "time": 40,
+    "calories": 180,
+    "difficulty": "Trung bình",
+    "description": "Thịt bò luộc mềm, thơm, thường ăn kèm với rau sống và nước mắm pha chua ngọt.",
+    "ingredients": [
+      {
+        "name": "Thịt bò thăn",
+        "quantity": "400g"
+      },
+      {
+        "name": "Sả",
+        "quantity": "3 cây"
+      },
+      {
+        "name": "Muối",
+        "quantity": "1 thìa cà phê"
+      },
+      {
+        "name": "Nước mắm",
+        "quantity": "2 thìa canh"
+      }
+    ],
+    "instructions": "Thịt bò rửa sạch, thái miếng dày 2-3cm.\nĐun sôi nước với sả đập dập và muối.\nThả thịt bò vào, luộc lửa nhỏ 20-25 phút.\nVớt ra, để nguội, thái lát mỏng.\nXếp thịt ra đĩa, dùng kèm nước mắm pha tỏi ớt và rau thơm."
+  },
+  {
+    "name": "Thịt vịt luộc",
+    "time": 55,
+    "calories": 220,
+    "difficulty": "Trung bình",
+    "description": "Thịt vịt luộc thơm ngon, da giòn, thường ăn với mắm gừng hoặc nước chấm chua ngọt.",
+    "ingredients": [
+      {
+        "name": "Vịt",
+        "quantity": "1 con (khoảng 1.5kg)"
+      },
+      {
+        "name": "Gừng",
+        "quantity": "1 nhánh lớn"
+      },
+      {
+        "name": "Rượu trắng",
+        "quantity": "2 thìa canh"
+      },
+      {
+        "name": "Muối",
+        "quantity": "1 thìa cà phê"
+      }
+    ],
+    "instructions": "Làm sạch vịt, xát muối và rượu trắng để khử mùi, rửa lại.\nCho nước ngập vịt vào nồi, thêm gừng đập dập, muối.\nĐun sôi, hạ lửa nhỏ luộc 40-45 phút.\nVớt vịt ra, ngâm nước lạnh 10 phút.\nChặt miếng vừa ăn, dùng nóng với mắm gừng."
+  },
+  {
+    "name": "Thịt lợn luộc cuốn bánh tráng",
+    "time": 30,
+    "calories": 300,
+    "difficulty": "Dễ",
+    "description": "Thịt lợn luộc thái mỏng, cuốn với bánh tráng, rau sống, chấm nước mắm chua ngọt.",
+    "ingredients": [
+      {
+        "name": "Thịt ba chỉ",
+        "quantity": "300g"
+      },
+      {
+        "name": "Bánh tráng",
+        "quantity": "10 cái"
+      },
+      {
+        "name": "Rau sống (xà lách, húng quế)",
+        "quantity": "1 bó"
+      },
+      {
+        "name": "Nước mắm",
+        "quantity": "3 thìa canh"
+      }
+    ],
+    "instructions": "Luộc thịt ba chỉ như công thức thịt heo luộc, thái lát mỏng.\nRửa sạch rau sống, để ráo.\nNhúng bánh tráng qua nước, trải ra, xếp thịt và rau lên, cuốn chặt.\nPha nước mắm chua ngọt (nước mắm, đường, chanh, tỏi ớt).\nDùng cuốn thịt chấm nước mắm."
+  }
+]
