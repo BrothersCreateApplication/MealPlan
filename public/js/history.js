@@ -77,9 +77,20 @@
 
   async function renderHistory() {
     const history = MealPlan.state.history || [];
-    const isEmpty = history.length === 0;
+    const favorites = MealPlan.state.favorites || [];
+    const isEmpty = history.length === 0 && favorites.length === 0;
 
     toggleEmptyState(isEmpty);
+
+    if (history.length === 0 && favorites.length > 0) {
+      // Có favorites nhưng chưa có history — chỉ hiện favorites
+      document.querySelectorAll('#page-history .max-w-4xl > div:not(#history-empty-state):not(#favorites-section):not(h1):not(p)').forEach(s => s.classList.add('hidden'));
+      document.querySelector('#page-history .max-w-4xl > h1')?.classList.remove('hidden');
+      document.querySelector('#page-history .max-w-4xl > p')?.classList.remove('hidden');
+      renderFavorites();
+      return;
+    }
+
     if (isEmpty) return;
 
     await loadAIInsights();
@@ -93,7 +104,8 @@
   // ---- Empty State toggle ----
   function toggleEmptyState(isEmpty) {
     const emptyEl = document.getElementById('history-empty-state');
-    const sections = document.querySelectorAll('#page-history > .max-w-4xl > div:not(#history-empty-state):not(h1):not(p)');
+    // Only hide history-dependent sections, NOT favorites
+    const sections = document.querySelectorAll('#page-history .max-w-4xl > div:not(#history-empty-state):not(#favorites-section):not(h1):not(p)');
 
     if (isEmpty) {
       emptyEl?.classList.remove('hidden');
