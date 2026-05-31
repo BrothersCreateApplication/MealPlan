@@ -510,7 +510,7 @@
       .split('\n')
       .filter(s => s.trim())
       .map((s, i) => {
-        const clean = s.replace(/^\d+[\.\s)]+\s*/, '');
+        const clean = s.replace(/^(Bước|Step)\s*\d+[:\s)]*\s*/i, '').replace(/^\d+[\.\s)]+\s*/, '');
         return `<li class="flex gap-3">
           <div class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-on-primary text-xs font-bold flex-shrink-0 mt-0.5">${i + 1}</div>
           <div class="flex-1 pt-0.5">
