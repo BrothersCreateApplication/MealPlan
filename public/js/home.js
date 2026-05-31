@@ -796,7 +796,7 @@
       const res = await fetch('/api/search-dishes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, region: MealPlan.state.region })
+        body: JSON.stringify({ query })
       });
       const data = await res.json();
       if (data.dishes) dishes = data.dishes;

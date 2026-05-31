@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
-  <title>🍳 MealPlan - Hôm Nay Nấu Gì?</title>
+  <title>🥘 Vào Bếp - Hôm Nay Nấu Gì?</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍳</text></svg>">
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet"/>
@@ -105,12 +105,10 @@
 <body class="bg-background text-on-surface min-h-screen">
   <!-- Top Header Bar -->
   <header class="bg-surface shadow-sm sticky top-0 z-50">
-    <nav class="flex justify-between items-center w-full px-4 py-3">
-      <div class="font-headline-lg text-primary font-bold text-lg">🍳 MealPlan</div>
-      <div class="flex items-center gap-2">
-        <button class="p-2 rounded-full hover:bg-surface-container-high transition-colors">
-          <span class="material-symbols-outlined text-primary">emoji_food_beverage</span>
-        </button>
+    <nav class="flex items-center justify-center w-full px-4 py-3">
+      <div class="font-headline-lg text-primary font-bold text-xl flex items-center gap-2">
+        <span>🥘</span>
+        <span>Vào Bếp</span>
       </div>
     </nav>
   </header>
@@ -136,17 +134,6 @@
           </div>
         </div>
         <div id="schedule-feedback" class="mt-2 text-sm text-primary font-label-md hidden"></div>
-      </section>
-
-      <!-- Region Picker - Trang Chủ -->
-      <section class="mb-5">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="material-symbols-outlined text-outline text-[18px]">map</span>
-          <span class="text-sm font-label-md text-on-surface-variant">Khẩu vị:</span>
-        </div>
-        <div id="region-picker-home" class="flex flex-wrap gap-2">
-          <!-- Rendered by JS -->
-        </div>
       </section>
 
       <section>
@@ -427,17 +414,6 @@
       <div class="mb-5">
         <h1 class="font-headline-lg text-on-surface mb-1 text-2xl font-bold">Tủ Lạnh Có Gì?</h1>
         <p class="text-on-surface-variant text-sm">Nhập nguyên liệu bạn đang có, tôi sẽ gợi ý món ăn!</p>
-      </div>
-
-      <!-- Region Picker - Tủ Lạnh -->
-      <div class="mb-4">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="material-symbols-outlined text-outline text-[18px]">map</span>
-          <span class="text-sm font-label-md text-on-surface-variant">Khẩu vị:</span>
-        </div>
-        <div id="region-picker-fridge" class="flex flex-wrap gap-2">
-          <!-- Rendered by JS -->
-        </div>
       </div>
 
       <!-- Tag input -->

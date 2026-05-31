@@ -3,21 +3,12 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-// ---- Database: dùng Supabase (không SQLite) ----
+// ---- Database: dÃ¹ng Supabase (khÃ´ng SQLite) ----
 const db = require('./supabase');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ---- Region prompt helper ----
-function getRegionPrompt(region) {
-  const prompts = {
-    'bac': 'QUAN TRỌNG: Nấu theo phong cách ẩm thực Miền Bắc. Đặc điểm: thanh đạm, ít cay, dùng nước mắm nhạt, ít đường, nhiều rau thơm (mùi tàu, húng láng), nước dùng trong. Điều chỉnh nguyên liệu, gia vị và cách nấu phù hợp.',
-    'trung': 'QUAN TRỌNG: Nấu theo phong cách ẩm thực Miền Trung. Đặc điểm: cay, mặn, đậm đà gia vị, dùng nhiều ớt, nhiều nước mắm mặn, màu sắc đậm. Điều chỉnh nguyên liệu, gia vị và cách nấu phù hợp.',
-    'nam': 'QUAN TRỌNG: Nấu theo phong cách ẩm thực Miền Nam. Đặc điểm: ngọt, dùng nhiều đường, nước cốt dừa, nhiều rau sống ăn kèm, nước mắm ngọt. Điều chỉnh nguyên liệu, gia vị và cách nấu phù hợp.',
-  };
-  return prompts[region] || 'Gợi ý món ăn phổ biến nhất cho mọi vùng miền.';
-}
 
 // ---- Helper: parse JSON safely ----
 function tryParseJSON(str) {
@@ -31,7 +22,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ---- Helper ----
 function normalizeDish(dish) {
   return {
-    name: dish.name || 'Món ăn',
+    name: dish.name || 'MÃ³n Äƒn',
     time: dish.time ? String(dish.time).includes('ph') ? String(dish.time) : String(dish.time) + ' ph' : '',
     calories: dish.calories ? String(dish.calories).includes('kcal') ? String(dish.calories) : String(dish.calories) + ' kcal' : '',
     difficulty: dish.difficulty || '',
@@ -45,25 +36,24 @@ function normalizeDish(dish) {
   };
 }
 
-// ---- Search dishes: DB trước, DeepSeek nếu món mới ----
+// ---- Search dishes: DB trÆ°á»›c, DeepSeek náº¿u mÃ³n má»›i ----
 app.post('/api/search-dishes', async (req, res) => {
-  const { query, region } = req.body;
+  const { query } = req.body;
   if (!query) return res.json({ dishes: [] });
 
   const q = query.trim().toLowerCase();
   const words = q.split(/\s+/).filter(w => w.length > 0);
 
-  // 1. Tìm trong Supabase trước
+  // 1. TÃ¬m trong Supabase trÆ°á»›c
   let dishes = await db.searchDishes(words);
 
-  // 2. Nếu không đủ (dưới 3 món), gọi DeepSeek
+  // 2. Náº¿u khÃ´ng Ä‘á»§ (dÆ°á»›i 3 mÃ³n), gá»i DeepSeek
   if (dishes.length < 3) {
     const apiKey = process.env.DEEPSEEK_API_KEY;
     if (apiKey) {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 8000);
-        const regionPrompt = getRegionPrompt(region);
         const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -73,14 +63,14 @@ app.post('/api/search-dishes', async (req, res) => {
           body: JSON.stringify({
             model: 'deepseek-chat',
             messages: [
-              { role: 'system', content: `Bạn là chuyên gia ẩm thực Việt Nam. Trả lời JSON array. TUYỆT ĐỐI TUÂN THỦ: Mỗi món có: name, time (số phút), calories (số kcal), difficulty, description, ingredients (mảng {name, quantity}), instructions (các bước nấu cách nhau bằng \\n). QUY TẮC TÌM KIẾM: Người dùng search từ khóa. Ưu tiên món trùng phương pháp chế biến. LOẠI BỎ món dùng phương pháp khác. Trả về ĐÚNG 3-5 món. ${regionPrompt}
+              { role: 'system', content: `Báº¡n lÃ  chuyÃªn gia áº©m thá»±c Viá»‡t Nam. Tráº£ lá»i JSON array. TUYá»†T Äá»I TUÃ‚N THá»¦: Má»—i mÃ³n cÃ³: name, time (sá»‘ phÃºt), calories (sá»‘ kcal), difficulty, description, ingredients (máº£ng {name, quantity}), instructions (cÃ¡c bÆ°á»›c náº¥u cÃ¡ch nhau báº±ng \\n). QUY Táº®C TÃŒM KIáº¾M: NgÆ°á»i dÃ¹ng search tá»« khÃ³a. Æ¯u tiÃªn mÃ³n trÃ¹ng phÆ°Æ¡ng phÃ¡p cháº¿ biáº¿n. LOáº I Bá»Ž mÃ³n dÃ¹ng phÆ°Æ¡ng phÃ¡p khÃ¡c. Tráº£ vá» ÄÃšNG 3-5 mÃ³n.
 
-YÊU CẦU QUAN TRỌNG về instructions:
-- Hướng dẫn CỰC KỲ CHI TIẾT, như một đầu bếp chỉ dạy người mới nấu ăn.
-- Mỗi bước phải rõ ràng, bao gồm: lửa to/nhỏ, thời gian chính xác (phút), cách kiểm tra độ chín, mẹo nhỏ.
-- instructions gồm 6-10 bước, mỗi bước một dòng xuống dòng \\n.
-- KÈM THEO mẹo và lưu ý ở cuối.` },
-              { role: 'user', content: `Tìm món: ${query}` }
+YÃŠU Cáº¦U QUAN TRá»ŒNG vá» instructions:
+- HÆ°á»›ng dáº«n Cá»°C Ká»² CHI TIáº¾T, nhÆ° má»™t Ä‘áº§u báº¿p chá»‰ dáº¡y ngÆ°á»i má»›i náº¥u Äƒn.
+- Má»—i bÆ°á»›c pháº£i rÃµ rÃ ng, bao gá»“m: lá»­a to/nhá», thá»i gian chÃ­nh xÃ¡c (phÃºt), cÃ¡ch kiá»ƒm tra Ä‘á»™ chÃ­n, máº¹o nhá».
+- instructions gá»“m 6-10 bÆ°á»›c, má»—i bÆ°á»›c má»™t dÃ²ng xuá»‘ng dÃ²ng \\n.
+- KÃˆM THEO máº¹o vÃ  lÆ°u Ã½ á»Ÿ cuá»‘i.` },
+              { role: 'user', content: `TÃ¬m mÃ³n: ${query}` }
             ],
             temperature: 0.7,
             max_tokens: 4000
@@ -153,8 +143,8 @@ app.post('/api/random-dishes', async (req, res) => {
         body: JSON.stringify({
           model: 'deepseek-chat',
           messages: [
-            { role: 'system', content: 'Bạn là chuyên gia ẩm thực Việt Nam. Trả lời JSON array. Mỗi món có: name, time (số phút), calories (số kcal), difficulty, description, ingredients (mảng {name, quantity}), instructions. Gợi ý 3 món ăn Việt Nam ngẫu nhiên, đa dạng.\n\nYÊU CẦU QUAN TRỌNG về instructions:\n- Hướng dẫn CỰC KỲ CHI TIẾT, như đầu bếp chỉ người mới nấu.\n- Mỗi bước có: lửa to/nhỏ, thời gian (phút), kiểm tra độ chín, mẹo nhỏ.\n- instructions gồm 6-10 bước, cách nhau bằng \\n.\n- KÈM MẸO và lưu ý ở cuối.' },
-            { role: 'user', content: 'Gợi ý 3 món ăn ngẫu nhiên cho hôm nay' }
+            { role: 'system', content: 'Báº¡n lÃ  chuyÃªn gia áº©m thá»±c Viá»‡t Nam. Tráº£ lá»i JSON array. Má»—i mÃ³n cÃ³: name, time (sá»‘ phÃºt), calories (sá»‘ kcal), difficulty, description, ingredients (máº£ng {name, quantity}), instructions. Gá»£i Ã½ 3 mÃ³n Äƒn Viá»‡t Nam ngáº«u nhiÃªn, Ä‘a dáº¡ng.\n\nYÃŠU Cáº¦U QUAN TRá»ŒNG vá» instructions:\n- HÆ°á»›ng dáº«n Cá»°C Ká»² CHI TIáº¾T, nhÆ° Ä‘áº§u báº¿p chá»‰ ngÆ°á»i má»›i náº¥u.\n- Má»—i bÆ°á»›c cÃ³: lá»­a to/nhá», thá»i gian (phÃºt), kiá»ƒm tra Ä‘á»™ chÃ­n, máº¹o nhá».\n- instructions gá»“m 6-10 bÆ°á»›c, cÃ¡ch nhau báº±ng \\n.\n- KÃˆM Máº¸O vÃ  lÆ°u Ã½ á»Ÿ cuá»‘i.' },
+            { role: 'user', content: 'Gá»£i Ã½ 3 mÃ³n Äƒn ngáº«u nhiÃªn cho hÃ´m nay' }
           ],
           temperature: 0.8,
           max_tokens: 4000
@@ -249,12 +239,12 @@ app.get('/api/youtube-video', async (req, res) => {
 
   try {
     const ytSearch = require('yt-search');
-    const query = `cách nấu ${dish} | ${dish} recipe vietnamese`;
+    const query = `cÃ¡ch náº¥u ${dish} | ${dish} recipe vietnamese`;
     const result = await ytSearch({ query, pageStart: 1, pageEnd: 1 });
     const videos = result?.videos || [];
-    // Ưu tiên video tiếng Việt (có từ "cách nấu", "cách làm" trong title)
+    // Æ¯u tiÃªn video tiáº¿ng Viá»‡t (cÃ³ tá»« "cÃ¡ch náº¥u", "cÃ¡ch lÃ m" trong title)
     const findBest = videos.find(v =>
-      /cách (nấu|làm)|hướng dẫn|recipe|vietnamese/i.test(v.title)
+      /cÃ¡ch (náº¥u|lÃ m)|hÆ°á»›ng dáº«n|recipe|vietnamese/i.test(v.title)
     ) || videos[0];
     res.json({ videoId: findBest?.videoId || null, title: findBest?.title || '' });
   } catch (err) {
@@ -317,27 +307,26 @@ app.get('/api/dish-names', async (req, res) => {
   res.json({ names });
 });
 
-// ===================== Gợi ý món theo nguyên liệu (Tủ Lạnh) =====================
+// ===================== Gá»£i Ã½ mÃ³n theo nguyÃªn liá»‡u (Tá»§ Láº¡nh) =====================
 
 app.post('/api/suggest-by-ingredients', async (req, res) => {
-  const { ingredients, forceAI, region } = req.body;
+  const { ingredients, forceAI } = req.body;
   if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
     return res.json({ suggestions: [], fromCache: true });
   }
 
-  // 1. Tìm trong DB trước (trừ khi forceAI)
+  // 1. TÃ¬m trong DB trÆ°á»›c (trá»« khi forceAI)
   let suggestions = [];
   if (!forceAI) {
     suggestions = await db.suggestDishesByIngredients(ingredients);
   }
 
-  // 2. Nếu forceAI hoặc không đủ gợi ý (dưới 3), gọi DeepSeek
+  // 2. Náº¿u forceAI hoáº·c khÃ´ng Ä‘á»§ gá»£i Ã½ (dÆ°á»›i 3), gá»i DeepSeek
   if (forceAI || suggestions.length < 3) {
     const apiKey = process.env.DEEPSEEK_API_KEY;
     if (apiKey) {
       try {
         const ingsStr = ingredients.join(', ');
-        const regionPrompt = getRegionPrompt(region);
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 10000);
         const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -349,18 +338,18 @@ app.post('/api/suggest-by-ingredients', async (req, res) => {
           body: JSON.stringify({
             model: 'deepseek-chat',
             messages: [
-              { role: 'system', content: `Bạn là chuyên gia ẩm thực Việt Nam. Trả lời JSON array.
-TUYỆT ĐỐI TUÂN THỦ format mỗi món:
-{ "name": "tên món", "time": 30, "calories": 350, "difficulty": "Dễ", "description": "mô tả", "ingredients": [{ "name": "nguyên liệu", "quantity": "số lượng" }], "instructions": "bước 1\\nbước 2\\nbước 3" }
+              { role: 'system', content: `Báº¡n lÃ  chuyÃªn gia áº©m thá»±c Viá»‡t Nam. Tráº£ lá»i JSON array.
+TUYá»†T Äá»I TUÃ‚N THá»¦ format má»—i mÃ³n:
+{ "name": "tÃªn mÃ³n", "time": 30, "calories": 350, "difficulty": "Dá»…", "description": "mÃ´ táº£", "ingredients": [{ "name": "nguyÃªn liá»‡u", "quantity": "sá»‘ lÆ°á»£ng" }], "instructions": "bÆ°á»›c 1\\nbÆ°á»›c 2\\nbÆ°á»›c 3" }
 
-QUY TẮC:
-- Người dùng có các nguyên liệu: ${ingsStr}
-- Gợi ý 3-4 món có thể nấu từ các nguyên liệu này, chỉ cần mua thêm tối đa 1-2 gia vị/nguyên liệu phụ thông dụng.
-- Ưu tiên món Việt Nam phổ biến trong mâm cơm hàng ngày.
-- Mỗi món phải ghi ĐẦY ĐỦ nguyên liệu (kể cả cái đã có + cái cần mua thêm).
-- time là số phút (number), calories là số kcal (number).
-${regionPrompt}` },
-              { role: 'user', content: `Tôi có các nguyên liệu: ${ingsStr}. Gợi ý tôi nấu món gì?` }
+QUY Táº®C:
+- NgÆ°á»i dÃ¹ng cÃ³ cÃ¡c nguyÃªn liá»‡u: ${ingsStr}
+- Gá»£i Ã½ 3-4 mÃ³n cÃ³ thá»ƒ náº¥u tá»« cÃ¡c nguyÃªn liá»‡u nÃ y, chá»‰ cáº§n mua thÃªm tá»‘i Ä‘a 1-2 gia vá»‹/nguyÃªn liá»‡u phá»¥ thÃ´ng dá»¥ng.
+- Æ¯u tiÃªn mÃ³n Viá»‡t Nam phá»• biáº¿n trong mÃ¢m cÆ¡m hÃ ng ngÃ y.
+- Má»—i mÃ³n pháº£i ghi Äáº¦Y Äá»¦ nguyÃªn liá»‡u (ká»ƒ cáº£ cÃ¡i Ä‘Ã£ cÃ³ + cÃ¡i cáº§n mua thÃªm).
+- time lÃ  sá»‘ phÃºt (number), calories lÃ  sá»‘ kcal (number).
+	` },
+              { role: 'user', content: `TÃ´i cÃ³ cÃ¡c nguyÃªn liá»‡u: ${ingsStr}. Gá»£i Ã½ tÃ´i náº¥u mÃ³n gÃ¬?` }
             ],
             temperature: 0.7,
             max_tokens: 4000
@@ -430,7 +419,7 @@ ${regionPrompt}` },
       }
     }
 
-    // Fallback: nếu forceAI mà DeepSeek không trả về gì, lấy từ DB
+    // Fallback: náº¿u forceAI mÃ  DeepSeek khÃ´ng tráº£ vá» gÃ¬, láº¥y tá»« DB
     if (forceAI && suggestions.length === 0) {
       suggestions = await db.suggestDishesByIngredients(ingredients);
     }
@@ -440,27 +429,26 @@ ${regionPrompt}` },
 });
 
 
-// ---- Image analysis API (dùng Gemini Flash-Lite) ----
+// ---- Image analysis API (dÃ¹ng Gemini Flash-Lite) ----
 app.post('/api/analyze-image', async (req, res) => {
   const { image, mode } = req.body;
   if (!image) return res.json({ success: false, error: 'Missing image data' });
 
   const isFridge = mode === 'fridge';
   const apiKey = process.env.GEMINI_API_KEY;
-  const regionPrompt = getRegionPrompt(req.body.region);
 
   if (!apiKey) {
     return res.json({
       success: false,
-      error: 'Thiếu GEMINI_API_KEY. Xem hướng dẫn trong file .env.example',
+      error: 'Thiáº¿u GEMINI_API_KEY. Xem hÆ°á»›ng dáº«n trong file .env.example',
       needsApiKey: true
     });
   }
 
   try {
     const prompt = isFridge
-      ? 'Phân tích ảnh chụp tủ lạnh này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "ingredients": ["tên nguyên liệu 1", "tên nguyên liệu 2", ...] }. Liệt kê TẤT CẢ nguyên liệu thực phẩm nhìn thấy được (thịt, cá, rau, củ, quả, trứng, v.v.). Bỏ qua gia vị khô, chai lọ, đồ đóng hộp. Mỗi nguyên liệu viết hoa chữ cái đầu. Nếu không thấy nguyên liệu nào, trả về { "ingredients": [] }'
-      : 'Phân tích ảnh món ăn này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "name": "Tên món", "time": "thời gian nấu (có đơn vị)", "calories": "lượng calo (có đơn vị)", "difficulty": "Dễ/Trung bình/Khó", "description": "mô tả ngắn", "ingredients": [{"name": "tên nguyên liệu", "quantity": "số lượng", "price": 0}], "instructions": "bước 1\\nbước 2\\nbước 3\\n..." }. Nếu không nhận diện được món, hãy trả về món ăn bất kỳ nhìn thấy trong ảnh.\n\nYÊU CẦU QUAN TRỌNG về instructions: hướng dẫn CHI TIẾT với 6-10 bước, mỗi bước ghi rõ lửa to/nhỏ, thời gian chính xác (phút), kiểm tra độ chín, kèm mẹo nhỏ và lưu ý ở cuối.\n\n' + regionPrompt;
+      ? 'PhÃ¢n tÃ­ch áº£nh chá»¥p tá»§ láº¡nh nÃ y. Tráº£ vá» JSON há»£p lá»‡ (khÃ´ng markdown, khÃ´ng code block) vá»›i format: { "ingredients": ["tÃªn nguyÃªn liá»‡u 1", "tÃªn nguyÃªn liá»‡u 2", ...] }. Liá»‡t kÃª Táº¤T Cáº¢ nguyÃªn liá»‡u thá»±c pháº©m nhÃ¬n tháº¥y Ä‘Æ°á»£c (thá»‹t, cÃ¡, rau, cá»§, quáº£, trá»©ng, v.v.). Bá» qua gia vá»‹ khÃ´, chai lá», Ä‘á»“ Ä‘Ã³ng há»™p. Má»—i nguyÃªn liá»‡u viáº¿t hoa chá»¯ cÃ¡i Ä‘áº§u. Náº¿u khÃ´ng tháº¥y nguyÃªn liá»‡u nÃ o, tráº£ vá» { "ingredients": [] }'
+      : 'PhÃ¢n tÃ­ch áº£nh mÃ³n Äƒn nÃ y. Tráº£ vá» JSON há»£p lá»‡ (khÃ´ng markdown, khÃ´ng code block) vá»›i format: { "name": "TÃªn mÃ³n", "time": "thá»i gian náº¥u (cÃ³ Ä‘Æ¡n vá»‹)", "calories": "lÆ°á»£ng calo (cÃ³ Ä‘Æ¡n vá»‹)", "difficulty": "Dá»…/Trung bÃ¬nh/KhÃ³", "description": "mÃ´ táº£ ngáº¯n", "ingredients": [{"name": "tÃªn nguyÃªn liá»‡u", "quantity": "sá»‘ lÆ°á»£ng", "price": 0}], "instructions": "bÆ°á»›c 1\\nbÆ°á»›c 2\\nbÆ°á»›c 3\\n..." }. Náº¿u khÃ´ng nháº­n diá»‡n Ä‘Æ°á»£c mÃ³n, hÃ£y tráº£ vá» mÃ³n Äƒn báº¥t ká»³ nhÃ¬n tháº¥y trong áº£nh.\n\nYÃŠU Cáº¦U QUAN TRá»ŒNG vá» instructions: hÆ°á»›ng dáº«n CHI TIáº¾T vá»›i 6-10 bÆ°á»›c, má»—i bÆ°á»›c ghi rÃµ lá»­a to/nhá», thá»i gian chÃ­nh xÃ¡c (phÃºt), kiá»ƒm tra Ä‘á»™ chÃ­n, kÃ¨m máº¹o nhá» vÃ  lÆ°u Ã½ á»Ÿ cuá»‘i.'
 
     // Extract base64 data (remove data:image/...;base64, prefix)
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
@@ -488,17 +476,17 @@ app.post('/api/analyze-image', async (req, res) => {
 
       return res.json({
         success: false,
-        error: `Lỗi Gemini API (${response.status}). ${errText.slice(0, 100)}`
+        error: `Lá»—i Gemini API (${response.status}). ${errText.slice(0, 100)}`
       });
     }
 
     const data = await response.json();
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // Parse JSON từ response
+    // Parse JSON tá»« response
     let parsed = null;
     try {
-      // Loại bỏ markdown code block nếu có
+      // Loáº¡i bá» markdown code block náº¿u cÃ³
       const clean = content.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
       parsed = JSON.parse(clean);
     } catch (e) {
@@ -512,13 +500,13 @@ app.post('/api/analyze-image', async (req, res) => {
       if (parsed && Array.isArray(parsed.ingredients) && parsed.ingredients.length > 0) {
         return res.json({ success: true, ingredients: parsed.ingredients });
       }
-      return res.json({ success: false, error: 'Không nhận diện được nguyên liệu từ ảnh.' });
+      return res.json({ success: false, error: 'KhÃ´ng nháº­n diá»‡n Ä‘Æ°á»£c nguyÃªn liá»‡u tá»« áº£nh.' });
     }
 
     if (parsed && parsed.name) {
       return res.json({ success: true, data: parsed });
     }
-    return res.json({ success: false, error: 'Không nhận diện được món ăn từ ảnh.', raw: content });
+    return res.json({ success: false, error: 'KhÃ´ng nháº­n diá»‡n Ä‘Æ°á»£c mÃ³n Äƒn tá»« áº£nh.', raw: content });
   } catch (err) {
     console.error('[Gemini Vision] Error:', err.message);
     res.json({ success: false, error: err.message });
@@ -531,34 +519,34 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`MealPlan server running at http://localhost:${PORT}`);
+  console.log(`Vào Bếp server running at http://localhost:${PORT}`);
 });
 
 // ---- Mock responses ----
 function getMockResponse(messages) {
   const lastUserMsg = messages?.filter(m => m.role === 'user').pop()?.content || '';
 
-  if (lastUserMsg.toLowerCase().includes('thay thế') || lastUserMsg.includes('substitute')) {
+  if (lastUserMsg.toLowerCase().includes('thay tháº¿') || lastUserMsg.includes('substitute')) {
     return {
       choices: [{
         message: {
           content: JSON.stringify([
-            { original: 'Thịt nạm bò', substitute: 'Gầu bò', note: 'Gầu sẽ giòn hơn nhưng béo hơn 15%' },
-            { original: 'Bánh phở tươi', substitute: 'Bánh phở khô', note: 'Dễ bảo quản hơn, cần ngâm nước 15p' }
+            { original: 'Thá»‹t náº¡m bÃ²', substitute: 'Gáº§u bÃ²', note: 'Gáº§u sáº½ giÃ²n hÆ¡n nhÆ°ng bÃ©o hÆ¡n 15%' },
+            { original: 'BÃ¡nh phá»Ÿ tÆ°Æ¡i', substitute: 'BÃ¡nh phá»Ÿ khÃ´', note: 'Dá»… báº£o quáº£n hÆ¡n, cáº§n ngÃ¢m nÆ°á»›c 15p' }
           ])
         }
       }]
     };
   }
 
-  if (lastUserMsg.toLowerCase().includes('phân tích') || lastUserMsg.includes('thói quen')) {
+  if (lastUserMsg.toLowerCase().includes('phÃ¢n tÃ­ch') || lastUserMsg.includes('thÃ³i quen')) {
     return {
       choices: [{
         message: {
           content: JSON.stringify({
-            insight: 'Dựa trên thói quen của bạn, MealPlan đề xuất giảm 15% lượng thịt đỏ và tăng cường rau xanh vào tối Thứ Năm.',
+            insight: 'Dá»±a trÃªn thÃ³i quen cá»§a báº¡n, MealPlan Ä‘á» xuáº¥t giáº£m 15% lÆ°á»£ng thá»‹t Ä‘á» vÃ  tÄƒng cÆ°á»ng rau xanh vÃ o tá»‘i Thá»© NÄƒm.',
             trend: '+12%',
-            suggestion: 'Tăng cường rau xanh vào bữa tối'
+            suggestion: 'TÄƒng cÆ°á»ng rau xanh vÃ o bá»¯a tá»‘i'
           })
         }
       }]
@@ -570,41 +558,41 @@ function getMockResponse(messages) {
       message: {
         content: JSON.stringify([
           {
-            name: 'Salad Cá Hồi Áp Chảo',
-            time: '20 ph', calories: '450 kcal', difficulty: 'Dễ',
-            description: 'Món salad tươi mát kết hợp cá hồi áp chảo giòn bên ngoài, mềm bên trong cùng rau xà lách và bơ.',
+            name: 'Salad CÃ¡ Há»“i Ãp Cháº£o',
+            time: '20 ph', calories: '450 kcal', difficulty: 'Dá»…',
+            description: 'MÃ³n salad tÆ°Æ¡i mÃ¡t káº¿t há»£p cÃ¡ há»“i Ã¡p cháº£o giÃ²n bÃªn ngoÃ i, má»m bÃªn trong cÃ¹ng rau xÃ  lÃ¡ch vÃ  bÆ¡.',
             ingredients: [
-              { name: 'Cá hồi phi lê', quantity: '200g', price: 0 },
-              { name: 'Xà lách', quantity: '100g', price: 0 },
-              { name: 'Cà chua bi', quantity: '100g', price: 0 },
-              { name: 'Bơ', quantity: '1 quả', price: 0 },
-              { name: 'Sốt mè rang', quantity: '30ml', price: 0 }
+              { name: 'CÃ¡ há»“i phi lÃª', quantity: '200g', price: 0 },
+              { name: 'XÃ  lÃ¡ch', quantity: '100g', price: 0 },
+              { name: 'CÃ  chua bi', quantity: '100g', price: 0 },
+              { name: 'BÆ¡', quantity: '1 quáº£', price: 0 },
+              { name: 'Sá»‘t mÃ¨ rang', quantity: '30ml', price: 0 }
             ],
-            instructions: '1. Cá hồi rửa sạch, thấm khô bằng khăn giấy. Ướp đều 2 mặt với 1/2 thìa muối, 1/2 thìa tiêu, 1 thìa dầu oliu. Để thấm 10 phút.\n2. Bắc chảo chống dính lên bếp, cho 1 thìa dầu oliu, lửa vừa-lớn. Đợi dầu nóng già (thấy khói nhẹ).\n3. Cho cá hồi vào áp chảo, mặt da xuống trước. Chiên 3-4 phút lửa vừa đến khi da vàng giòn.\n4. Lật mặt cá, chiên thêm 2-3 phút (tuỳ độ dày). Thịt cá chín tới sẽ dễ dàng tách thành từng múi.\n5. Xà lách rửa sạch, ngâm nước muối 5 phút, để ráo. Cà chua bi bổ đôi. Bơ thái lát mỏng.\n6. Xếp rau ra đĩa lớn, đặt cá hồi lên trên. Rưới sốt mè rang hoặc sốt dầu giấm.\n💡 Mẹo: Không chiên cá quá lâu - cá hồi sẽ bị khô. Thịt còn hơi hồng ở trung tâm là ngon nhất. Có thể thay sốt mè rang bằng sốt chanh dây hoặc tương ớt Hàn Quốc.'
+            instructions: '1. CÃ¡ há»“i rá»­a sáº¡ch, tháº¥m khÃ´ báº±ng khÄƒn giáº¥y. Æ¯á»›p Ä‘á»u 2 máº·t vá»›i 1/2 thÃ¬a muá»‘i, 1/2 thÃ¬a tiÃªu, 1 thÃ¬a dáº§u oliu. Äá»ƒ tháº¥m 10 phÃºt.\n2. Báº¯c cháº£o chá»‘ng dÃ­nh lÃªn báº¿p, cho 1 thÃ¬a dáº§u oliu, lá»­a vá»«a-lá»›n. Äá»£i dáº§u nÃ³ng giÃ  (tháº¥y khÃ³i nháº¹).\n3. Cho cÃ¡ há»“i vÃ o Ã¡p cháº£o, máº·t da xuá»‘ng trÆ°á»›c. ChiÃªn 3-4 phÃºt lá»­a vá»«a Ä‘áº¿n khi da vÃ ng giÃ²n.\n4. Láº­t máº·t cÃ¡, chiÃªn thÃªm 2-3 phÃºt (tuá»³ Ä‘á»™ dÃ y). Thá»‹t cÃ¡ chÃ­n tá»›i sáº½ dá»… dÃ ng tÃ¡ch thÃ nh tá»«ng mÃºi.\n5. XÃ  lÃ¡ch rá»­a sáº¡ch, ngÃ¢m nÆ°á»›c muá»‘i 5 phÃºt, Ä‘á»ƒ rÃ¡o. CÃ  chua bi bá»• Ä‘Ã´i. BÆ¡ thÃ¡i lÃ¡t má»ng.\n6. Xáº¿p rau ra Ä‘Ä©a lá»›n, Ä‘áº·t cÃ¡ há»“i lÃªn trÃªn. RÆ°á»›i sá»‘t mÃ¨ rang hoáº·c sá»‘t dáº§u giáº¥m.\nðŸ’¡ Máº¹o: KhÃ´ng chiÃªn cÃ¡ quÃ¡ lÃ¢u - cÃ¡ há»“i sáº½ bá»‹ khÃ´. Thá»‹t cÃ²n hÆ¡i há»“ng á»Ÿ trung tÃ¢m lÃ  ngon nháº¥t. CÃ³ thá»ƒ thay sá»‘t mÃ¨ rang báº±ng sá»‘t chanh dÃ¢y hoáº·c tÆ°Æ¡ng á»›t HÃ n Quá»‘c.'
           },
           {
-            name: 'Bò Xào Bông Cải Xanh',
-            time: '15 ph', calories: '520 kcal', difficulty: 'Dễ',
-            description: 'Thịt bò mềm ngọt kết hợp bông cải xanh giòn, thích hợp cho bữa tối nhanh gọn.',
+            name: 'BÃ² XÃ o BÃ´ng Cáº£i Xanh',
+            time: '15 ph', calories: '520 kcal', difficulty: 'Dá»…',
+            description: 'Thá»‹t bÃ² má»m ngá»t káº¿t há»£p bÃ´ng cáº£i xanh giÃ²n, thÃ­ch há»£p cho bá»¯a tá»‘i nhanh gá»n.',
             ingredients: [
-              { name: 'Thịt bò thăn', quantity: '200g', price: 0 },
-              { name: 'Bông cải xanh', quantity: '200g', price: 0 },
-              { name: 'Ớt chuông', quantity: '1 quả', price: 0 },
-              { name: 'Tỏi', quantity: '3 tép', price: 0 }
+              { name: 'Thá»‹t bÃ² thÄƒn', quantity: '200g', price: 0 },
+              { name: 'BÃ´ng cáº£i xanh', quantity: '200g', price: 0 },
+              { name: 'á»št chuÃ´ng', quantity: '1 quáº£', price: 0 },
+              { name: 'Tá»i', quantity: '3 tÃ©p', price: 0 }
             ],
-            instructions: '1. Thịt bò thái lát mỏng, ướp với dầu hào, tiêu 5 phút.\n2. Bông cải tách nhỏ, luộc sơ 2 phút.\n3. Phi tỏi thơm, xào bò lửa lớn 2 phút, cho bông cải vào đảo đều.\n4. Nêm nếm gia vị, tắt bếp, thêm ớt chuông thái sợi.'
+            instructions: '1. Thá»‹t bÃ² thÃ¡i lÃ¡t má»ng, Æ°á»›p vá»›i dáº§u hÃ o, tiÃªu 5 phÃºt.\n2. BÃ´ng cáº£i tÃ¡ch nhá», luá»™c sÆ¡ 2 phÃºt.\n3. Phi tá»i thÆ¡m, xÃ o bÃ² lá»­a lá»›n 2 phÃºt, cho bÃ´ng cáº£i vÃ o Ä‘áº£o Ä‘á»u.\n4. NÃªm náº¿m gia vá»‹, táº¯t báº¿p, thÃªm á»›t chuÃ´ng thÃ¡i sá»£i.'
           },
           {
-            name: 'Canh Chua Cá Lóc',
-            time: '30 ph', calories: '380 kcal', difficulty: 'Trung bình',
-            description: 'Canh chua ngọt thanh với cá lóc tươi, đậu bắp và giá đỗ — món ăn dân dã khó cưỡng.',
+            name: 'Canh Chua CÃ¡ LÃ³c',
+            time: '30 ph', calories: '380 kcal', difficulty: 'Trung bÃ¬nh',
+            description: 'Canh chua ngá»t thanh vá»›i cÃ¡ lÃ³c tÆ°Æ¡i, Ä‘áº­u báº¯p vÃ  giÃ¡ Ä‘á»— â€” mÃ³n Äƒn dÃ¢n dÃ£ khÃ³ cÆ°á»¡ng.',
             ingredients: [
-              { name: 'Cá lóc', quantity: '300g', price: 0 },
+              { name: 'CÃ¡ lÃ³c', quantity: '300g', price: 0 },
               { name: 'Me', quantity: '50g', price: 0 },
-              { name: 'Đậu bắp', quantity: '100g', price: 0 },
-              { name: 'Giá đỗ', quantity: '100g', price: 0 }
+              { name: 'Äáº­u báº¯p', quantity: '100g', price: 0 },
+              { name: 'GiÃ¡ Ä‘á»—', quantity: '100g', price: 0 }
             ],
-            instructions: '1. Cá lóc làm sạch, cắt khúc, rửa với muối.\n2. Me ngâm nước ấm, bỏ hạt, lấy nước cốt.\n3. Nấu nước sôi, cho cá vào, hớt bọt.\n4. Thêm me, đậu bắp, giá đỗ, nêm nước mắm, đường.\n5. Tắt bếp, thêm rau thơm.'
+            instructions: '1. CÃ¡ lÃ³c lÃ m sáº¡ch, cáº¯t khÃºc, rá»­a vá»›i muá»‘i.\n2. Me ngÃ¢m nÆ°á»›c áº¥m, bá» háº¡t, láº¥y nÆ°á»›c cá»‘t.\n3. Náº¥u nÆ°á»›c sÃ´i, cho cÃ¡ vÃ o, há»›t bá»t.\n4. ThÃªm me, Ä‘áº­u báº¯p, giÃ¡ Ä‘á»—, nÃªm nÆ°á»›c máº¯m, Ä‘Æ°á»ng.\n5. Táº¯t báº¿p, thÃªm rau thÆ¡m.'
           }
         ])
       }
@@ -614,3 +602,4 @@ function getMockResponse(messages) {
 
 // Export for Vercel
 module.exports = app;
+
