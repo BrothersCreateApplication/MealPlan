@@ -91,24 +91,18 @@ async function searchDishes(keywords) {
 async function getRandomDishes(count = 3) {
   const client = getClient();
   if (!client) return [];
-  const { data, error } = await client
-    .rpc('get_random_dishes', { limit_count: count });
-  if (error) {
-    // Fallback: order by random()
-    const { data: d, error: e } = await client
-      .from('dishes')
-      .select('*, dish_ingredients(*)')
-      .limit(count)
-      .order('id', { ascending: true });
-    if (e) {
-      console.error('[Supabase] getRandomDishes error:', e.message);
-      return [];
-    }
-    // Shuffle client-side
-    const shuffled = (d || []).sort(() => Math.random() - 0.5).slice(0, count);
-    return normalizeDishes(shuffled);
+
+  // Dùng fallback: lấy danh sách dishes + ingredients, shuffle client-side
+  const { data: d, error: e } = await client
+    .from('dishes')
+    .select('*, dish_ingredients(*)');
+  if (e) {
+    console.error('[Supabase] getRandomDishes error:', e.message);
+    return [];
   }
-  return normalizeDishes(data);
+  // Shuffle client-side và lấy count món
+  const shuffled = (d || []).sort(() => Math.random() - 0.5).slice(0, count);
+  return normalizeDishes(shuffled);
 }
 
 async function addDish(dish) {
