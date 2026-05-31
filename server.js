@@ -421,38 +421,62 @@ app.post('/api/analyze-image', async (req, res) => {
     // Strip data:image/...;base64, prefix để lấy raw base64
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: prompt },
-              {
-                inline_data: {
-                  mime_type: 'image/jpeg',
-                  data: base64Data
+    let response = null;
+    // Retry tối đa 2 lần nếu bị 429 (rate limit)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: 'image/jpeg',
+                    data: base64Data
+                  }
                 }
-              }
-            ]
-          }],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 4096,
-            responseMimeType: 'application/json'
-          }
-        })
-      }
-    );
+              ]
+            }],
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 4096,
+              responseMimeType: 'application/json'
+            }
+          })
+        }
+      );
 
-    if (!response.ok) {
+      if (response.ok) break;
+
       const errText = await response.text().catch(() => '');
-      console.error(`[Gemini] HTTP ${response.status}: ${errText.slice(0, 200)}`);
+      console.error(`[Gemini] HTTP ${response.status} (attempt ${attempt + 1}): ${errText.slice(0, 200)}`);
+
+      if (response.status === 429) {
+        // Rate limit — đợi rồi thử lại
+        if (attempt < 2) {
+          const waitMs = 2000 * (attempt + 1); // 2s → 4s
+          await new Promise(r => setTimeout(r, waitMs));
+          continue;
+        }
+        return res.json({
+          success: false,
+          error: 'Phân tích ảnh tạm thời bị giới hạn (429). Vui lòng đợi 30 giây rồi thử lại!',
+          rateLimited: true
+        });
+      }
+
+      // Lỗi khác không retry
+      break;
+    }
+
+    if (!response || !response.ok) {
       return res.json({
         success: false,
-        error: `Gemini API lỗi (HTTP ${response.status}). Vui lòng kiểm tra GEMINI_API_KEY.`,
+        error: `Gemini API lỗi (HTTP ${response.status}). Kiểm tra GEMINI_API_KEY hoặc thử lại sau.`,
         fallback: true
       });
     }
