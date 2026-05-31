@@ -277,16 +277,19 @@ app.get('/api/dish-names', async (req, res) => {
 // ===================== Gợi ý món theo nguyên liệu (Tủ Lạnh) =====================
 
 app.post('/api/suggest-by-ingredients', async (req, res) => {
-  const { ingredients } = req.body;
+  const { ingredients, forceAI } = req.body;
   if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
     return res.json({ suggestions: [], fromCache: true });
   }
 
-  // 1. Tìm trong DB trước
-  let suggestions = await db.suggestDishesByIngredients(ingredients);
+  // 1. Tìm trong DB trước (trừ khi forceAI)
+  let suggestions = [];
+  if (!forceAI) {
+    suggestions = await db.suggestDishesByIngredients(ingredients);
+  }
 
-  // 2. Nếu không đủ gợi ý (dưới 3), gọi DeepSeek
-  if (suggestions.length < 3) {
+  // 2. Nếu forceAI hoặc không đủ gợi ý (dưới 3), gọi DeepSeek
+  if (forceAI || suggestions.length < 3) {
     const apiKey = process.env.DEEPSEEK_API_KEY;
     if (apiKey) {
       try {
@@ -380,6 +383,11 @@ QUY TẮC:
       } catch (e) {
         console.error('DeepSeek suggestion error:', e.message);
       }
+    }
+
+    // Fallback: nếu forceAI mà DeepSeek không trả về gì, lấy từ DB
+    if (forceAI && suggestions.length === 0) {
+      suggestions = await db.suggestDishesByIngredients(ingredients);
     }
   }
 

@@ -27,6 +27,9 @@ body {
 .page.active {
   display: block;
 }
+.page.active.flex {
+  display: flex;
+}
 
 @keyframes fadeIn {
   from {

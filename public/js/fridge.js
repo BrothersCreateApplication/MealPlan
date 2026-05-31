@@ -116,7 +116,7 @@
       const res = await fetch('/api/suggest-by-ingredients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ingredients: state.ingredients })
+        body: JSON.stringify({ ingredients: state.ingredients, forceAI: true })
       });
       const data = await res.json();
       if (data.suggestions) newSuggestions = data.suggestions;
