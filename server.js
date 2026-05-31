@@ -394,69 +394,78 @@ QUY TẮC:
   res.json({ suggestions: suggestions.slice(0, 5), fromCache: true });
 });
 
-// ---- DeepSeek Vision: phân tích ảnh món ăn / nguyên liệu ----
+// ---- Image analysis API (dùng Google Gemini Flash — free, hỗ trợ vision) ----
+// DeepSeek không hỗ trợ vision/image_url, nên dùng Gemini làm vision backend
 app.post('/api/analyze-image', async (req, res) => {
   const { image, mode } = req.body;
   if (!image) return res.json({ success: false, error: 'Missing image data' });
 
   const isFridge = mode === 'fridge';
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
+  const geminiKey = process.env.GEMINI_API_KEY;
+
+  if (!geminiKey) {
+    // Fallback: nếu không có Gemini key, trả về hướng dẫn
     return res.json({
-      success: false, error: 'API key not configured', mock: true,
-      data: isFridge
-        ? { ingredients: ['Thịt bò', 'Trứng', 'Cà rốt'] }
-        : {
-            name: 'Món ăn từ ảnh',
-            time: '20 ph', calories: '350 kcal', difficulty: 'Dễ',
-            description: 'Món ăn được phát hiện từ ảnh chụp.',
-            ingredients: [
-              { name: 'Nguyên liệu 1', quantity: '100g', price: 0 },
-              { name: 'Nguyên liệu 2', quantity: '200g', price: 0 }
-            ],
-            instructions: '1. Sơ chế nguyên liệu.\n2. Chế biến theo hướng dẫn.\n3. Trình bày và thưởng thức.'
-          }
+      success: false,
+      error: 'Thiếu GEMINI_API_KEY. Lấy key free tại https://aistudio.google.com/apikei (không cần credit card)',
+      needsApiKey: true
     });
   }
 
   try {
     const prompt = isFridge
-      ? 'Phân tích ảnh chụp tủ lạnh này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "ingredients": ["tên nguyên liệu 1", "tên nguyên liệu 2", ...] }. Liệt kê TẤT CẢ nguyên liệu thực phẩm nhìn thấy được (thịt, cá, rau, củ, quả, trứng, v.v.). Bỏ qua gia vị khô, chai lọ, đồ đóng hộp. Mỗi nguyên liệu viết hoa chữ cái đầu.'
+      ? 'Phân tích ảnh chụp tủ lạnh này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "ingredients": ["tên nguyên liệu 1", "tên nguyên liệu 2", ...] }. Liệt kê TẤT CẢ nguyên liệu thực phẩm nhìn thấy được (thịt, cá, rau, củ, quả, trứng, v.v.). Bỏ qua gia vị khô, chai lọ, đồ đóng hộp. Mỗi nguyên liệu viết hoa chữ cái đầu. Nếu không thấy nguyên liệu nào, trả về { "ingredients": [] }'
       : 'Phân tích ảnh món ăn này. Trả về JSON hợp lệ (không markdown, không code block) với format: { "name": "Tên món", "time": "thời gian nấu", "calories": "lượng calo", "difficulty": "Dễ/Trung bình/Khó", "description": "mô tả ngắn", "ingredients": [{ "name": "tên", "quantity": "số lượng", "price": 0 }], "instructions": "các bước nấu cách nhau bởi \\n" }. Nếu không nhận diện được món, hãy trả về món phổ biến nhất mà bạn nhìn thấy.';
 
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: image } }
-          ]
-        }],
-        temperature: 0.3,
-        max_tokens: 4000
-      })
-    });
+    // Google Gemini API: base64 image trong nội dung gửi đi
+    // Strip data:image/...;base64, prefix để lấy raw base64
+    const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              {
+                inline_data: {
+                  mime_type: 'image/jpeg',
+                  data: base64Data
+                }
+              }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 4096,
+            responseMimeType: 'application/json'
+          }
+        })
+      }
+    );
 
     if (!response.ok) {
-      throw new Error(`DeepSeek API error: ${response.status}`);
+      const errText = await response.text().catch(() => '');
+      console.error(`[Gemini] HTTP ${response.status}: ${errText.slice(0, 200)}`);
+      return res.json({
+        success: false,
+        error: `Gemini API lỗi (HTTP ${response.status}). Vui lòng kiểm tra GEMINI_API_KEY.`,
+        fallback: true
+      });
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '';
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     // Parse JSON từ response
     let parsed = null;
     try {
-      parsed = JSON.parse(content);
+      parsed = JSON.parse(text);
     } catch (e) {
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+      const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (jsonMatch) {
         try { parsed = JSON.parse(jsonMatch[1]); } catch (e2) {}
       }
@@ -466,15 +475,15 @@ app.post('/api/analyze-image', async (req, res) => {
       if (parsed && Array.isArray(parsed.ingredients) && parsed.ingredients.length > 0) {
         return res.json({ success: true, ingredients: parsed.ingredients });
       }
-      return res.json({ success: false, error: 'Could not identify ingredients from image' });
+      return res.json({ success: false, error: 'Không nhận diện được nguyên liệu từ ảnh.' });
     }
 
     if (parsed && parsed.name) {
       return res.json({ success: true, data: parsed });
     }
-    return res.json({ success: false, error: 'Could not recognize dish from image' });
+    return res.json({ success: false, error: 'Không nhận diện được món ăn từ ảnh.' });
   } catch (err) {
-    console.error('Vision API error:', err.message);
+    console.error('[Gemini] Error:', err.message);
     res.json({ success: false, error: err.message });
   }
 });
