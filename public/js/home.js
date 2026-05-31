@@ -756,11 +756,11 @@
 
       const result = [...priority1, ...priority2].slice(0, 10);
 
+      // Fallback: chỉ lấy món có tên chứa chính xác cụm từ gốc
       if (result.length === 0) {
         return dishes.filter(d => {
           if (!d || !d.name) return false;
-          const dName = d.name.toLowerCase();
-          return mainIngredient.split(/\s+/).some(w => w.length > 1 && dName.includes(w));
+          return d.name.toLowerCase().includes(lower);
         }).slice(0, 6);
       }
 
@@ -814,7 +814,7 @@
       const sample = getSampleDishes();
       dishes = filterByPriority(sample, query);
       if (dishes.length === 0) dishes = sample.filter(d =>
-        d.ingredients.some(i => query.toLowerCase().includes(i.name.toLowerCase()))
+        d.name && d.name.toLowerCase().includes(query.toLowerCase())
       );
       if (dishes.length === 0) dishes = sample.slice(0, 3);
     }

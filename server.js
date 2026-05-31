@@ -61,7 +61,7 @@ app.post('/api/search-dishes', async (req, res) => {
         body: JSON.stringify({
           model: 'deepseek-chat',
           messages: [
-            { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name, quantity}], instructions(\\n cách bước). Người dùng tìm "${query}". QUAN TRỌNG: CHỈ trả về món có tên chứa "${query}" hoặc biến thể gần giống (VD: "thịt heo luộc" → "Thịt heo luộc", "Thịt heo luộc mắm tôm", "Thịt ba chỉ luộc"). KHÔNG trả món chỉ có 1 từ trùng. Trả 6-10 món. Instructions: 6-10 bước: lửa to/nhỏ, thời gian, kiểm tra chín, mẹo.` },
+            { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name, quantity}], instructions(\\n cách bước). Tìm "${query}". LUẬT NGHIÊM NGẶT: Chỉ trả món có tên chứa "${query}" — VD tìm "bánh xèo" CHỈ được trả món có "bánh xèo" trong tên, KHÔNG trả "bánh tráng", "bánh canh", "bánh mì". Nếu DB chưa có, hãy tạo món "${query}" đúng tên. Trả 6-10 món. Instructions: 6-10 bước: lửa to/nhỏ, thời gian, kiểm tra chín, mẹo.` },
             { role: 'user', content: `Tìm món: ${query}` }
           ],
           temperature: 0.7,
