@@ -41,64 +41,58 @@ app.post('/api/search-dishes', async (req, res) => {
   if (!query) return res.json({ dishes: [] });
 
   const q = query.trim().toLowerCase();
-  const words = q.split(/\s+/).filter(w => w.length > 0);
 
-  // 1. Tìm trong Supabase trước — 3 cấp độ: exact > AND > OR
-  const { exactMatch, andMatch, partialMatch } = await db.searchDishes(words, q);
-  let aiDishesResult = [];
+  // 1. Lấy món chứa chính xác cụm từ từ DB
+  const { exactMatch } = await db.searchDishes(q);
+  let aiDishes = [];
 
-  // Nếu chưa đủ 6 món exact + AND, gọi DeepSeek để bổ sung
-  const dbExactCount = exactMatch.length + andMatch.length;
-  let aiAttempted = false;
-  if (dbExactCount < 6) {
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    if (apiKey) {
-      aiAttempted = true;
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
-        const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: 'deepseek-chat',
-            messages: [
-              { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name, quantity}], instructions(\\n cách bước). Tìm "${query}". QUY TẮC: CHỈ trả về món có TÊN chứa "${query}" — VD tìm "bánh xèo" thì CHỈ trả "Bánh xèo", không trả các món khác có chữ "bánh". Nếu không có món nào khớp chính xác, hãy mô tả món "${query}" như một công thức nấu ăn hoàn chỉnh. Trả 6-10 món. Instructions: 6-10 bước: lửa to/nhỏ, thời gian, kiểm tra chín, mẹo.` },
-              { role: 'user', content: `Tìm món: ${query}` }
-            ],
-            temperature: 0.7,
-            max_tokens: 1500
-          }),
-          signal: controller.signal
-        });
-        clearTimeout(timeout);
+  // 2. Luôn gọi AI để có kết quả chính xác + gần giống
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (apiKey) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name, quantity}], instructions(\\n cách bước). Người dùng tìm "${query}". QUAN TRỌNG: CHỈ trả về món có tên chứa "${query}" hoặc biến thể gần giống (VD: "thịt heo luộc" → "Thịt heo luộc", "Thịt heo luộc mắm tôm", "Thịt ba chỉ luộc"). KHÔNG trả món chỉ có 1 từ trùng. Trả 6-10 món. Instructions: 6-10 bước: lửa to/nhỏ, thời gian, kiểm tra chín, mẹo.` },
+            { role: 'user', content: `Tìm món: ${query}` }
+          ],
+          temperature: 0.7,
+          max_tokens: 2000
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
 
-        if (response.ok) {
-          const data = await response.json();
-          const content = data?.choices?.[0]?.message?.content;
-          if (content) {
-            const parsed = JSON.parse(content);
-            const aiDishes = Array.isArray(parsed) ? parsed : [parsed];
-            aiDishesResult = aiDishes.map(normalizeDish);
+      if (response.ok) {
+        const data = await response.json();
+        const content = data?.choices?.[0]?.message?.content;
+        if (content) {
+          const parsed = JSON.parse(content);
+          const aiRaw = Array.isArray(parsed) ? parsed : [parsed];
+          aiDishes = aiRaw.map(normalizeDish);
 
-            // Lưu vào DB cho lần sau
-            const saveResults = await db.addNewDishes(aiDishesResult);
-            const inserted = saveResults.filter(r => r && r.action === 'inserted');
-            if (inserted.length > 0) {
-              console.log(`[DeepSeek] Saved ${inserted.length} new dishes to Supabase from search: "${query}"`);
-            }
+          // Lưu vào DB cho lần sau
+          const saveResults = await db.addNewDishes(aiDishes);
+          const inserted = saveResults.filter(r => r && r.action === 'inserted');
+          if (inserted.length > 0) {
+            console.log(`[DeepSeek] Saved ${inserted.length} new dishes to Supabase from search: "${query}"`);
           }
         }
-      } catch (e) {
-        console.error('DeepSeek search error:', e.message);
       }
+    } catch (e) {
+      console.error('DeepSeek search error:', e.message);
     }
   }
 
-  // 3. Ghép kết quả: exact + AND + AI là chính xác, OR chỉ thêm nếu AI không chạy
+  // 3. Gộp DB + AI, loại trùng tên
   const seen = new Set();
   const merged = [];
 
@@ -110,41 +104,12 @@ app.post('/api/search-dishes', async (req, res) => {
     merged.push(dish);
   }
 
-  function addBatch(arr, limit = 10) {
-    for (const d of arr) {
-      if (merged.length >= limit) break;
-      addIfNew(d);
-    }
-  }
+  // DB exact lên trước
+  for (const d of exactMatch) addIfNew(d);
+  // AI bổ sung sau
+  for (const d of aiDishes) addIfNew(d);
 
-  // Bước 1: Exact-match (chứa full cụm từ)
-  addBatch(exactMatch);
-
-  // Bước 2: AND-match (chứa tất cả từ)
-  if (merged.length < 6) addBatch(andMatch);
-
-  // Bước 3: AI results — đã attempt AI thì không dùng OR-match nữa
-  if (merged.length < 6) addBatch(aiDishesResult);
-
-  // Bước 4: Partial-match (match ≥ 2 từ — chỉ query 3+ từ mới có)
-  if (merged.length < 6) addBatch(partialMatch);
-
-  // Bước 5: Fallback cuối — OR lỏng
-  if (!aiAttempted && merged.length < 6) {
-    const all = await db.getAllDishes();
-    for (const d of all) {
-      if (merged.length >= 10) break;
-      if (!d.name) continue;
-      if (seen.has(d.name.toLowerCase())) continue;
-      const text = d.name.toLowerCase();
-      if (words.some(w => text.includes(w))) {
-        merged.push(d);
-        seen.add(d.name.toLowerCase());
-      }
-    }
-  }
-
-  res.json({ dishes: merged.slice(0, 10), fromCache: merged.length > 0 });
+  res.json({ dishes: merged.slice(0, 10), fromCache: exactMatch.length > 0 });
 });
 
 // ---- Random dishes ----
