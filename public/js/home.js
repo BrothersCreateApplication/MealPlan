@@ -1534,7 +1534,7 @@
     list.appendChild(card);
   }
 
-  // ---- Gọi API đề xuất (SSE stream) ----
+  // ---- Gọi API đề xuất (đơn giản: POST → AI trả về → hiển thị) ----
   async function handleBodyRecommend() {
     const gender = document.querySelector('input[name="body-gender"]:checked')?.value || 'male';
     const age = parseInt(document.getElementById('body-age')?.value || '30');
@@ -1542,7 +1542,6 @@
     const height = parseInt(document.getElementById('body-height')?.value || '165');
     const goal = document.querySelector('input[name="body-goal"]:checked')?.value || 'maintain';
 
-    // Validate
     if (!age || age < 10 || age > 120 || !weight || weight < 20 || !height || height < 80) {
       MealPlan.showToast('Vui lòng nhập thông tin hợp lệ!', 'warning');
       return;
@@ -1566,66 +1565,38 @@
     const metrics = calculateBodyMetrics(gender, age, weight, height, goal);
     renderBodyMetrics(metrics);
 
-    // Gọi API đề xuất (SSE stream)
+    // Gọi API đơn giản: POST → chờ → hiển thị
     try {
-      const res = await fetch(`/api/recommend-by-body-stream?gender=${gender}&age=${age}&weight=${weight}&height=${height}&goal=${goal}&bmi=${metrics.bmi}&bmr=${metrics.bmr}&tdee=${metrics.tdee}&calTarget=${metrics.calTarget}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const res = await fetch('/api/recommend-by-body', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gender, age, weight, height, goal,
+          bmi: metrics.bmi, bmr: metrics.bmr, tdee: metrics.tdee, calTarget: metrics.calTarget
+        })
+      });
+      const data = await res.json();
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let seenNames = new Set();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        const events = buffer.split('\n\n');
-        buffer = events.pop() || '';
-
-        for (const event of events) {
-          const match = event.match(/^data: (.+)/m);
-          if (!match) continue;
-
-          try {
-            const payload = JSON.parse(match[1]);
-
-            if (payload.type === 'dish') {
-              const dish = payload.dish;
-              if (dish && dish.name) {
-                const key = dish.name.toLowerCase();
-                if (!seenNames.has(key)) {
-                  seenNames.add(key);
-                  appendBodyDish({ dish, matchPercent: payload.matchPercent || null });
-                }
-              }
-            } else if (payload.type === 'done') {
-              // Remove loading if no dishes came
-              const list = document.getElementById('body-dishes-list');
-              if (list && list.querySelector('.animate-spin')) {
-                list.innerHTML = '<div class="bg-surface-container-low rounded-xl p-6 text-center"><span class="material-symbols-outlined text-3xl text-outline mb-2">search_off</span><p class="text-sm text-on-surface-variant">Không tìm thấy món ăn phù hợp</p></div>';
-              }
-            }
-          } catch (e) { /* skip parse error */ }
+      if (data.success && data.dishes && data.dishes.length > 0) {
+        // Xoá loading, append từng món
+        const list = document.getElementById('body-dishes-list');
+        if (list) {
+          const spinner = list.querySelector('.animate-spin');
+          if (spinner) spinner.parentElement.remove();
+        }
+        data.dishes.forEach(d => appendBodyDish(d));
+      } else {
+        // Không có món
+        const list = document.getElementById('body-dishes-list');
+        if (list) {
+          list.innerHTML = '<div class="bg-surface-container-low rounded-xl p-6 text-center"><span class="material-symbols-outlined text-3xl text-outline mb-2">search_off</span><p class="text-sm text-on-surface-variant">Không tìm thấy món ăn phù hợp</p></div>';
         }
       }
     } catch (err) {
-      console.error('Body recommend stream error:', err);
-      // Fallback: gọi POST API
-      try {
-        const fallbackRes = await fetch('/api/recommend-by-body', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ gender, age, weight, height, goal, bmi: metrics.bmi, bmr: metrics.bmr, tdee: metrics.tdee, calTarget: metrics.calTarget })
-        });
-        const data = await fallbackRes.json();
-        if (data.success && data.dishes) {
-          data.dishes.forEach(d => appendBodyDish(d));
-        }
-      } catch (e2) {
-        console.error('Body recommend fallback error:', e2);
+      console.error('Body recommend error:', err);
+      const list = document.getElementById('body-dishes-list');
+      if (list) {
+        list.innerHTML = '<div class="bg-surface-container-low rounded-xl p-6 text-center"><span class="material-symbols-outlined text-3xl text-error mb-2">error_outline</span><p class="text-sm text-on-surface-variant">Lỗi kết nối, vui lòng thử lại</p></div>';
       }
     }
   }
