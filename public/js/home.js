@@ -247,6 +247,14 @@
     return filtered.map(s => s.dish);
   }
 
+  // ---- Tab config ----
+  const tabConfig = {
+    breakfast: { label: '🌅 Bữa Sáng', title: '🌅 Bữa Sáng' },
+    lunch:     { label: '☀️ Bữa Trưa', title: '☀️ Bữa Trưa' },
+    dinner:    { label: '🌆 Bữa Chiều/Tối', title: '🌆 Bữa Chiều/Tối' },
+    night:     { label: '🌙 Ăn Đêm', title: '🌙 Ăn Đêm' },
+  };
+
   // ---- Prepare all section data ----
   function prepareAllSections() {
     const mealIds = ['breakfast', 'lunch', 'dinner', 'night'];
@@ -257,39 +265,36 @@
     }
   }
 
-  // ---- Render a section (3 dishes) ----
-  function renderSection(mealId) {
-    const grid = document.querySelector(`.meal-grid[data-meal="${mealId}"]`);
+  // ---- Render dish grid for a meal tab (show all dishes, batch-style) ----
+  function renderGrid(mealId) {
+    const grid = document.getElementById('dish-grid');
     if (!grid) return;
 
     const dishes = state.sectionData[mealId] || [];
     const idx = state.sectionIndex[mealId] || 0;
 
+    // Update title
+    const titleEl = document.getElementById('meal-grid-title');
+    if (titleEl) titleEl.textContent = tabConfig[mealId]?.title || mealId;
+
     if (!dishes || dishes.length === 0) {
       grid.innerHTML = `
-        <div class="bg-surface-container-lowest rounded-xl p-6 text-center col-span-full border border-outline-variant/20">
+        <div class="bg-surface-container-lowest rounded-xl p-8 text-center col-span-full border border-outline-variant/20">
           <span class="material-symbols-outlined text-4xl text-outline mb-2">restaurant</span>
           <p class="text-sm text-on-surface-variant">Chưa có gợi ý cho bữa này</p>
         </div>`;
+      document.getElementById('btn-load-more')?.classList.add('hidden');
       return;
     }
 
-    // Take 3 dishes starting at idx, cycle if needed
-    const three = [];
-    for (let i = 0; i < 3 && three.length < 3; i++) {
+    // Show first 10 dishes starting at idx, cycle
+    const shown = [];
+    for (let i = 0; i < dishes.length && shown.length < 10; i++) {
       const d = dishes[(idx + i) % dishes.length];
-      if (d && !three.some(t => t.name === d.name)) {
-        three.push(d);
-      }
-    }
-    // If still not enough, allow dupes
-    while (three.length < 3 && dishes.length > 0) {
-      three.push(dishes[three.length % dishes.length]);
+      if (d && !shown.some(t => t.name === d.name)) shown.push(d);
     }
 
-    grid.innerHTML = three.map((dish, i) => {
-      const absIdx = (idx + i) % dishes.length;
-      return `
+    grid.innerHTML = shown.map(dish => `
       <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high animate-fade-in">
         <div class="p-4">
           <div class="flex items-start justify-between mb-2">
@@ -300,15 +305,12 @@
           </div>
           <div class="flex items-center gap-3 mb-2 flex-wrap">
             <span class="flex items-center gap-1 text-xs text-on-surface-variant">
-              <span class="material-symbols-outlined text-[14px]">schedule</span>
-              ${dish.time || '--'}
+              <span class="material-symbols-outlined text-[14px]">schedule</span> ${dish.time || '--'}
             </span>
             <span class="flex items-center gap-1 text-xs text-on-surface-variant">
-              <span class="material-symbols-outlined text-[14px]">local_fire_department</span>
-              ${dish.calories || '--'}
+              <span class="material-symbols-outlined text-[14px]">local_fire_department</span> ${dish.calories || '--'}
             </span>
-            ${dish.difficulty ? `
-            <span class="text-[10px] bg-surface-container-high text-on-surface-variant px-1.5 py-0.5 rounded-full font-semibold">${dish.difficulty}</span>` : ''}
+            ${dish.difficulty ? `<span class="text-[10px] bg-surface-container-high text-on-surface-variant px-1.5 py-0.5 rounded-full font-semibold">${dish.difficulty}</span>` : ''}
           </div>
           ${dish.description ? `<p class="text-xs text-on-surface-variant mb-3 line-clamp-2">${dish.description}</p>` : ''}
           <div class="flex gap-2">
@@ -320,22 +322,19 @@
             </button>
           </div>
         </div>
-      </div>`;
-    }).join('');
+      </div>
+    `).join('');
 
-    // Attach events for this section
-    attachSectionEvents(grid, mealId);
+    // Attach events
+    attachGridEvents(grid);
 
-    // Show/hide "Xem thêm" based on availability
-    const btn = document.querySelector(`.meal-refresh-btn[data-meal="${mealId}"]`);
-    if (btn) {
-      btn.classList.toggle('hidden', dishes.length <= 3);
-    }
+    // Show/hide load more
+    const loadBtn = document.getElementById('btn-load-more');
+    if (loadBtn) loadBtn.classList.toggle('hidden', dishes.length <= 10);
   }
 
-  // ---- Attach events for a section's dish cards ----
-  function attachSectionEvents(grid, mealId) {
-    // Detail buttons
+  // ---- Attach events for dish grid ----
+  function attachGridEvents(grid) {
     grid.querySelectorAll('.detail-btn').forEach(btn => {
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -345,8 +344,6 @@
         else MealPlan.showToast('Không thể hiển thị chi tiết!', 'error');
       });
     });
-
-    // Cook buttons
     grid.querySelectorAll('.meal-cook-btn').forEach(btn => {
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -361,8 +358,6 @@
         }
       });
     });
-
-    // Favorite buttons
     grid.querySelectorAll('.fav-btn').forEach(btn => {
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -382,39 +377,32 @@
     });
   }
 
-  // ---- Refresh / cycle a section (advance by 3 dishes) ----
-  function handleRefresh(mealId) {
+  // ---- Switch tab ----
+  let currentMealTab = 'breakfast';
+
+  function switchMealTab(mealId) {
+    currentMealTab = mealId;
+    // Update tab styles
+    document.querySelectorAll('.meal-tab').forEach(tab => {
+      const isActive = tab.dataset.meal === mealId;
+      tab.classList.toggle('bg-primary', isActive);
+      tab.classList.toggle('text-on-primary', isActive);
+      tab.classList.toggle('bg-surface-container-high', !isActive);
+      tab.classList.toggle('text-on-surface-variant', !isActive);
+    });
+    renderGrid(mealId);
+  }
+
+  // ---- Refresh / cycle a tab (advance by 10 dishes) ----
+  function handleRefresh() {
+    const mealId = currentMealTab;
     const dishes = state.sectionData[mealId] || [];
-    if (dishes.length <= 3) {
+    if (dishes.length <= 10) {
       MealPlan.showToast('Đã hiển thị tất cả món cho bữa này!', 'info');
       return;
     }
-
-    // Advance index by 3 (skip the current 3, get next 3 new dishes)
-    state.sectionIndex[mealId] = (state.sectionIndex[mealId] + 3) % dishes.length;
-    renderSection(mealId);
-  }
-
-  // ---- Highlight current period ----
-  function highlightCurrentPeriod() {
-    const sections = document.querySelectorAll('.meal-section');
-    sections.forEach(sec => {
-      const meal = sec.dataset.meal;
-      const badge = sec.querySelector('.section-badge');
-      const header = sec.querySelector('.flex.items-center.justify-between');
-
-      if (meal === state.mealPeriod) {
-        sec.classList.add('ring-2', 'ring-primary/20', 'rounded-xl', 'p-3', '-mx-1');
-        if (badge) badge.classList.remove('hidden');
-        // Scroll to this section
-        setTimeout(() => {
-          header?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }, 500);
-      } else {
-        sec.classList.remove('ring-2', 'ring-primary/20', 'rounded-xl', 'p-3', '-mx-1');
-        if (badge) badge.classList.add('hidden');
-      }
-    });
+    state.sectionIndex[mealId] = (state.sectionIndex[mealId] + 10) % dishes.length;
+    renderGrid(mealId);
   }
 
   // ===================== Recipe Detail Overlay =====================
@@ -748,36 +736,31 @@
     const hasDishes = await loadAllDishes();
 
     if (!hasDishes) {
-      // Show fallback in all sections
-      ['breakfast', 'lunch', 'dinner', 'night'].forEach(id => {
-        const grid = document.querySelector(`.meal-grid[data-meal="${id}"]`);
-        if (grid) {
-          grid.innerHTML = `<div class="bg-surface-container-lowest rounded-xl p-6 text-center col-span-full border border-outline-variant/20">
-            <span class="material-symbols-outlined text-4xl text-outline mb-2">search_off</span>
-            <p class="text-sm text-on-surface-variant">Không thể tải dữ liệu món ăn</p>
-          </div>`;
-        }
-      });
+      const grid = document.getElementById('dish-grid');
+      if (grid) grid.innerHTML = `<div class="bg-surface-container-lowest rounded-xl p-8 text-center col-span-full border border-outline-variant/20">
+        <span class="material-symbols-outlined text-4xl text-outline mb-2">search_off</span>
+        <p class="text-sm text-on-surface-variant">Không thể tải dữ liệu món ăn</p>
+      </div>`;
       return;
     }
 
     // 3. Score and prepare sections
     prepareAllSections();
 
-    // 4. Render all sections
-    ['breakfast', 'lunch', 'dinner', 'night'].forEach(id => renderSection(id));
+    // 4. Show initial tab (current period) and render
+    const defaultMeal = state.mealPeriod || 'breakfast';
+    switchMealTab(defaultMeal);
 
-    // 5. Highlight current meal period
-    highlightCurrentPeriod();
-
-    // 6. Attach refresh buttons
-    document.querySelectorAll('.meal-refresh-btn').forEach(btn => {
-      btn.addEventListener('click', function(e) {
+    // 5. Attach tab click handlers
+    document.querySelectorAll('.meal-tab').forEach(tab => {
+      tab.addEventListener('click', function(e) {
         e.stopPropagation();
-        const meal = this.dataset.meal;
-        handleRefresh(meal);
+        switchMealTab(this.dataset.meal);
       });
     });
+
+    // 6. Attach refresh button
+    document.getElementById('btn-load-more')?.addEventListener('click', handleRefresh);
 
     // 7. Search handler
     searchInput.addEventListener('keydown', async (e) => {

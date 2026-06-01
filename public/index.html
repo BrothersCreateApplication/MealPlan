@@ -158,92 +158,28 @@
         </div>
       </div>
 
-      <!-- 4 Meal Period Sections -->
-      <section>
-        <!-- Breakfast -->
-        <div class="meal-section mb-6" data-meal="breakfast">
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-amber-600">sunny_snowing</span>
-              <h2 class="font-title-md text-on-surface font-semibold">🌅 Bữa Sáng</h2>
-              <span class="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold hidden section-badge">✨ Gợi ý</span>
-            </div>
-            <button class="meal-refresh-btn text-primary font-label-md text-sm flex items-center gap-1 hover:opacity-80 transition-opacity" data-meal="breakfast">
-              <span class="material-symbols-outlined text-[18px]">refresh</span>
-              Xem thêm
-            </button>
-          </div>
-          <div class="meal-grid grid grid-cols-1 gap-4" data-meal="breakfast">
-            <div class="col-span-full text-center py-8 bg-surface-container-lowest rounded-xl">
-              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-3"></div>
-              <p class="text-sm text-on-surface-variant">Đang tải gợi ý bữa sáng...</p>
-            </div>
-          </div>
-        </div>
+      <!-- Meal Period Tabs -->
+      <div class="flex gap-1.5 mb-4 overflow-x-auto hide-scrollbar" id="meal-tabs">
+        <button class="meal-tab flex-shrink-0 px-4 py-2 rounded-full font-label-md text-sm transition-all" data-meal="breakfast">🌅 Sáng</button>
+        <button class="meal-tab flex-shrink-0 px-4 py-2 rounded-full font-label-md text-sm transition-all" data-meal="lunch">☀️ Trưa</button>
+        <button class="meal-tab flex-shrink-0 px-4 py-2 rounded-full font-label-md text-sm transition-all" data-meal="dinner">🌆 Chiều/Tối</button>
+        <button class="meal-tab flex-shrink-0 px-4 py-2 rounded-full font-label-md text-sm transition-all" data-meal="night">🌙 Đêm</button>
+      </div>
 
-        <!-- Lunch -->
-        <div class="meal-section mb-6" data-meal="lunch">
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-orange-600">wb_sunny</span>
-              <h2 class="font-title-md text-on-surface font-semibold">☀️ Bữa Trưa</h2>
-              <span class="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-semibold hidden section-badge">✨ Gợi ý</span>
-            </div>
-            <button class="meal-refresh-btn text-primary font-label-md text-sm flex items-center gap-1 hover:opacity-80 transition-opacity" data-meal="lunch">
-              <span class="material-symbols-outlined text-[18px]">refresh</span>
-              Xem thêm
-            </button>
-          </div>
-          <div class="meal-grid grid grid-cols-1 gap-4" data-meal="lunch">
-            <div class="col-span-full text-center py-8 bg-surface-container-lowest rounded-xl">
-              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-3"></div>
-              <p class="text-sm text-on-surface-variant">Đang tải gợi ý bữa trưa...</p>
-            </div>
-          </div>
+      <!-- Dish Grid -->
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-title-md text-on-surface font-semibold" id="meal-grid-title">🌅 Bữa Sáng</h2>
+        <button id="btn-load-more" class="text-primary font-label-md text-sm flex items-center gap-1 hover:opacity-80 transition-opacity">
+          <span class="material-symbols-outlined text-[18px]">refresh</span>
+          Xem thêm
+        </button>
+      </div>
+      <div id="dish-grid" class="grid grid-cols-1 gap-4">
+        <div class="col-span-full text-center py-12 bg-surface-container-lowest rounded-xl border border-outline-variant/20">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p class="text-sm text-on-surface-variant">Đang tải gợi ý món ăn...</p>
         </div>
-
-        <!-- Dinner -->
-        <div class="meal-section mb-6" data-meal="dinner">
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-indigo-600">bedtime</span>
-              <h2 class="font-title-md text-on-surface font-semibold">🌆 Bữa Chiều / Tối</h2>
-              <span class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-semibold hidden section-badge">✨ Gợi ý</span>
-            </div>
-            <button class="meal-refresh-btn text-primary font-label-md text-sm flex items-center gap-1 hover:opacity-80 transition-opacity" data-meal="dinner">
-              <span class="material-symbols-outlined text-[18px]">refresh</span>
-              Xem thêm
-            </button>
-          </div>
-          <div class="meal-grid grid grid-cols-1 gap-4" data-meal="dinner">
-            <div class="col-span-full text-center py-8 bg-surface-container-lowest rounded-xl">
-              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-3"></div>
-              <p class="text-sm text-on-surface-variant">Đang tải gợi ý bữa tối...</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Late Night -->
-        <div class="meal-section mb-6" data-meal="night">
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-purple-600">nightlight</span>
-              <h2 class="font-title-md text-on-surface font-semibold">🌙 Ăn Đêm</h2>
-              <span class="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold hidden section-badge">✨ Gợi ý</span>
-            </div>
-            <button class="meal-refresh-btn text-primary font-label-md text-sm flex items-center gap-1 hover:opacity-80 transition-opacity" data-meal="night">
-              <span class="material-symbols-outlined text-[18px]">refresh</span>
-              Xem thêm
-            </button>
-          </div>
-          <div class="meal-grid grid grid-cols-1 gap-4" data-meal="night">
-            <div class="col-span-full text-center py-8 bg-surface-container-lowest rounded-xl">
-              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-3"></div>
-              <p class="text-sm text-on-surface-variant">Đang tải gợi ý ăn đêm...</p>
-            </div>
-          </div>
-        </div>
-      </section>
+      </div>
     </div>
 
     <!-- CAMERA MODAL -->
