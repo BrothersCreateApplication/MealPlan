@@ -7,6 +7,7 @@
   const state = {
     allDishes: [],           // all dishes fetched from DB
     weather: null,           // { condition, temp, tempLabel, humidity, ... }
+    cityName: '',            // detected city for display
     mealPeriod: null,        // 'breakfast' | 'lunch' | 'dinner' | 'night'
     periodName: null,        // Tiếng Việt
     sectionIndex: {},        // { breakfast: 0, lunch: 0, dinner: 0, night: 0 } for cycling
@@ -84,6 +85,11 @@
         });
         await fetchWeather(pos.coords.latitude, pos.coords.longitude);
         state.geoError = false;
+        // Get city from IP fallback
+        try {
+          const ipRes = await fetch('https://ipapi.co/json/');
+          if (ipRes.ok) { const ipData = await ipRes.json(); if (ipData.city) state.cityName = ipData.city; }
+        } catch (_) {}
       } catch (e) {
         state.geoError = true;
         console.warn('[Home] Geolocation failed:', e.message);
@@ -92,6 +98,7 @@
           const ipRes = await fetch('https://ipapi.co/json/');
           if (ipRes.ok) {
             const ipData = await ipRes.json();
+            if (ipData.city) state.cityName = ipData.city;
             if (ipData.latitude && ipData.longitude) {
               await fetchWeather(ipData.latitude, ipData.longitude);
               state.geoError = false;
@@ -119,7 +126,7 @@
 
     const w = state.weather;
     if (!w || !w.condition) {
-      textEl.textContent = '📍 Đã phát hiện vị trí của bạn';
+      textEl.textContent = `📍 ${state.cityName || 'Vị trí của bạn'} • ${periodLabel()}`;
       contextEl.textContent = `⏰ ${state.periodName} — Gợi ý món ${periodVibeText()}`;
       return;
     }
@@ -136,7 +143,7 @@
 
     const weatherVibe = weatherKeywords[w.condition];
     const vibeText = weatherVibe ? `thời tiết ${weatherVibe.vibe}` : 'bình thường';
-    textEl.textContent = `📍 ${periodLabel()} • ${weatherLabel(w.condition)} • ${w.temp}°C`;
+    textEl.textContent = `📍 ${state.cityName || 'Vị trí của bạn'} • ${periodLabel()} • ${weatherLabel(w.condition)} • ${w.temp}°C`;
     contextEl.textContent = `⏰ ${state.periodName} — Trời ${weatherLabel(w.condition).toLowerCase()}, gợi ý món ${vibeText}`;
   }
 
@@ -153,6 +160,26 @@
   function periodVibeText() {
     const vibes = { breakfast: 'nhẹ nhàng cho bữa sáng', lunch: 'đầy đủ cho bữa trưa', dinner: 'ấm cúng cho bữa tối', night: 'nhẹ nhàng cho khuya' };
     return vibes[state.mealPeriod] || 'ngon';
+  }
+
+  // ---- Emoji lookup for dish names ----
+  const dishEmojiMap = {
+    'salad': '🥗', 'phở': '🍜', 'bánh': '🥟', 'trứng': '🥚', 'cơm': '🍚',
+    'canh': '🥣', 'nướng': '🔥', 'chiên': '🍳', 'xào': '🥘', 'kho': '🍲',
+    'luộc': '🥟', 'rau': '🥬', 'tôm': '🦐', 'cá': '🐟', 'gà': '🍗',
+    'bò': '🥩', 'heo': '🐷', 'lợn': '🐷', 'chả': '🥓', 'mì': '🍝',
+    'lẩu': '🍲', 'cháo': '🥣', 'súp': '🥣', 'bún': '🍜', 'bò': '🥩',
+    'bánh mì': '🥖', 'sữa': '🥛', 'xôi': '🍚', 'ốp la': '🍳',
+  };
+
+  function getDishEmoji(name) {
+    const lower = name.toLowerCase();
+    // Sort keys by length (longest first) for best match
+    const sorted = Object.entries(dishEmojiMap).sort(([a], [b]) => b.length - a.length);
+    for (const [key, emoji] of sorted) {
+      if (lower.includes(key)) return emoji;
+    }
+    return '🍽️';
   }
 
   // ---- Fetch all dishes from DB ----
@@ -269,7 +296,7 @@
       <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high animate-fade-in">
         <div class="p-4">
           <div class="flex items-start justify-between mb-2">
-            <h4 class="font-title-md text-on-surface flex-1">${dish.name}</h4>
+            <h4 class="font-title-md text-on-surface flex-1"><span class="mr-1.5">${getDishEmoji(dish.name)}</span>${dish.name}</h4>
             <button class="fav-btn flex-shrink-0 ml-2 p-1 rounded-full hover:bg-surface-container-high transition-all" data-dish="${dish.name}">
               <span class="material-symbols-outlined text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
             </button>
