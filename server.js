@@ -66,7 +66,7 @@ app.post('/api/search-dishes', async (req, res) => {
     if (apiKey) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
+        const timeout = setTimeout(() => controller.abort(), 7000);
         const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -869,7 +869,7 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 20000);
+      const timeout = setTimeout(() => controller.abort(), 7000);
       const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -922,7 +922,11 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
 
   // ---- Mock fallback: lấy dishes từ DB và sắp xếp ----
   try {
-    const dishes = await getCachedDishes();
+    // Timeout 3s cho Supabase
+    const dishes = await Promise.race([
+      getCachedDishes(),
+      new Promise(resolve => setTimeout(() => resolve(null), 3000))
+    ]);
     let scored = [];
 
     if (dishes && dishes.length > 0) {
@@ -1041,7 +1045,8 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 25000);
+      // Timeout 7s — Vercel Hobby chỉ có 10s, để dư 3s cho fallback
+      const timeout = setTimeout(() => controller.abort(), 7000);
       const aiResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -1131,9 +1136,14 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
 
   // ---- Fallback: DB + sample (chạy khi không có API key, hoặc AI thất bại) ----
   if (!aiSucceeded) {
+    let scored = [];
+
     try {
-      const dishes = await getCachedDishes();
-      let scored = [];
+      // Timeout 3s cho Supabase — trên Vercel Hobby function timeout 10s
+      const dishes = await Promise.race([
+        getCachedDishes(),
+        new Promise(resolve => setTimeout(() => resolve(null), 3000))
+      ]);
 
       if (dishes && dishes.length > 0) {
         const perMealTarget = Math.round(parseInt(calTarget) / 3) || 500;
@@ -1153,20 +1163,17 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
         });
         scored.sort((a, b) => b.matchPercent - a.matchPercent);
       }
-
-      if (scored.length < 3) {
-        scored = getSampleBodyDishes(calTarget, goal);
-      }
-
-      for (const item of scored.slice(0, 8)) {
-        sendDish(item.dish, item.matchPercent);
-      }
     } catch (err) {
-      console.error('Body stream fallback error:', err);
-      const fallback = getSampleBodyDishes(calTarget, goal);
-      for (const item of fallback) {
-        sendDish(item.dish, item.matchPercent);
-      }
+      console.error('Body stream DB fetch error:', err.message);
+    }
+
+    // Nếu DB trống hoặc timeout → dùng sample
+    if (scored.length < 3) {
+      scored = getSampleBodyDishes(calTarget, goal);
+    }
+
+    for (const item of scored.slice(0, 8)) {
+      sendDish(item.dish, item.matchPercent);
     }
   }
 
