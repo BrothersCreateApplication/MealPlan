@@ -950,17 +950,22 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
         return { dish: d, matchPercent: Math.min(99, matchPercent - penalty) };
       });
 
-    // Sort by matchPercent descending, lấy top 10
-    scored.sort((a, b) => b.matchPercent - a.matchPercent);
-    const top = scored.slice(0, 10);
+      // Sort by matchPercent descending, lấy top 10
+      scored.sort((a, b) => b.matchPercent - a.matchPercent);
+      const top = scored.slice(0, 10);
 
-    // Nếu quá ít, dùng sample
-    if (top.length < 3) {
+      // Nếu quá ít, dùng sample
+      if (top.length < 3) {
+        const samples = getSampleBodyDishes(calTarget, goal);
+        return res.json({ success: true, dishes: samples });
+      }
+
+      return res.json({ success: true, dishes: top });
+    } else {
+      // Không có DB dishes — dùng sample
       const samples = getSampleBodyDishes(calTarget, goal);
       return res.json({ success: true, dishes: samples });
     }
-
-    return res.json({ success: true, dishes: top });
   } catch (err) {
     console.error('Body recommend fallback error:', err);
     return res.json({ success: false, error: err.message });
@@ -982,6 +987,7 @@ app.get('/api/recommend-by-body-stream', async (req, res) => {
   res.flushHeaders();
 
   const apiKey = process.env.DEEPSEEK_API_KEY;
+  let aiSucceeded = false;
 
   // Helper to send SSE dish
   function sendDish(dish, matchPercent) {
@@ -1114,14 +1120,17 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
             sendDish(d, mp);
           }
         }
+        aiSucceeded = true;
       } catch (e) {
         console.error('Body stream parse error:', e.message);
       }
     } catch (err) {
       console.error('Body stream AI error:', err.message);
     }
-  } else {
-    // No API key — stream from DB fallback
+  }
+
+  // ---- Fallback: DB + sample (chạy khi không có API key, hoặc AI thất bại) ----
+  if (!aiSucceeded) {
     try {
       const dishes = await getCachedDishes();
       let scored = [];
@@ -1145,7 +1154,6 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
         scored.sort((a, b) => b.matchPercent - a.matchPercent);
       }
 
-      // Nếu DB không có dishes hoặc quá ít, dùng sample
       if (scored.length < 3) {
         scored = getSampleBodyDishes(calTarget, goal);
       }
@@ -1154,8 +1162,7 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
         sendDish(item.dish, item.matchPercent);
       }
     } catch (err) {
-      console.error('Body stream DB error:', err);
-      // Fallback cứng
+      console.error('Body stream fallback error:', err);
       const fallback = getSampleBodyDishes(calTarget, goal);
       for (const item of fallback) {
         sendDish(item.dish, item.matchPercent);
