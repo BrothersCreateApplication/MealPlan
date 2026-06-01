@@ -855,13 +855,14 @@ QUY TẮC:
 - Đảm bảo tổng calories mỗi món phù hợp với calTarget cho 1 bữa (calTarget/3)
 - Nếu mục tiêu giảm cân: ưu tiên món ít dầu mỡ, nhiều rau, protein nạc
 - Nếu mục tiêu tăng cơ: ưu tiên món giàu protein, carb vừa phải
+- Nếu mục tiêu tăng cân: ưu tiên món giàu calo, carb và chất béo lành mạnh
 - Nếu giữ dáng: cân bằng dinh dưỡng
 - Đề xuất 4-6 món đa dạng`;
 
     const userPrompt = `Người dùng: ${gender === 'male' ? 'Nam' : 'Nữ'}, ${age} tuổi, ${weight}kg, ${height}cm.
 BMI: ${bmi} (${bmi >= 25 ? 'thừa cân' : bmi >= 23 ? 'nguy cơ thừa cân' : bmi >= 18.5 ? 'bình thường' : 'gầy'})
 BMR: ${bmr} kcal/ngày, TDEE: ${tdee} kcal/ngày.
-Mục tiêu: ${goal === 'lose' ? 'Giảm cân' : goal === 'gain' ? 'Tăng cơ' : 'Giữ dáng'}.
+Mục tiêu: ${goal === 'lose' ? 'Giảm cân' : goal === 'gain_muscle' || goal === 'gain' ? 'Tăng cơ' : goal === 'gain_weight' ? 'Tăng cân' : 'Giữ dáng'}.
 Mỗi bữa nên nạp khoảng ${Math.round(calTarget / 3)} kcal.
 
 Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục tiêu này.`;
@@ -942,7 +943,7 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
       if (goal === 'lose') {
         const ingNames = (d.ingredients || []).map(i => (i.name || '').toLowerCase());
         if (ingNames.some(n => /chiên|rán|dầu|mỡ/.test(n))) penalty = 15;
-      } else if (goal === 'gain') {
+      } else if (goal === 'gain_muscle' || goal === 'gain') {
         const ingNames = (d.ingredients || []).map(i => (i.name || '').toLowerCase());
         if (ingNames.some(n => /thịt|bò|gà|cá|tôm|trứng|đậu/.test(n))) matchPercent += 5;
       }
@@ -959,6 +960,193 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
     console.error('Body recommend fallback error:', err);
     return res.json({ success: false, error: err.message });
   }
+});
+
+// ---- SSE stream: gợi ý món theo thể trạng ----
+app.get('/api/recommend-by-body-stream', async (req, res) => {
+  const { gender, age, weight, height, goal, bmi, bmr, tdee, calTarget } = req.query;
+
+  if (!age || !weight || !height) {
+    return res.json({ success: false, error: 'Missing body metrics' });
+  }
+
+  // SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+
+  // Helper to send SSE dish
+  function sendDish(dish, matchPercent) {
+    res.write(`data: ${JSON.stringify({ type: 'dish', dish, matchPercent })}\n\n`);
+  }
+
+  function sendDone() {
+    res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+    res.end();
+  }
+
+  if (apiKey) {
+    // Map goal names (client may send gain_muscle or gain)
+    const goalNormalized = goal === 'gain_muscle' || goal === 'gain' ? 'gain_muscle' : goal;
+    const goalDisplay = goalNormalized === 'lose' ? 'Giảm cân' :
+      goalNormalized === 'gain_muscle' ? 'Tăng cơ' :
+      goalNormalized === 'gain_weight' ? 'Tăng cân' : 'Giữ dáng';
+
+    const systemPrompt = `Bạn là chuyên gia dinh dưỡng và đầu bếp. Dựa trên chỉ số cơ thể người dùng, hãy đề xuất các món ăn phù hợp.
+
+Trả về JSON hợp lệ (không markdown, không code block) với format MẢNG:
+[
+  {
+    "name": "tên món",
+    "time": "thời gian nấu (VD: 15 ph, 30 ph)",
+    "calories": "số kcal (VD: 350 kcal)",
+    "difficulty": "Dễ | Trung bình | Khó",
+    "description": "mô tả ngắn (1 câu)",
+    "ingredients": [
+      { "name": "nguyên liệu", "quantity": "định lượng", "price": 0 }
+    ],
+    "instructions": "các bước nấu, mỗi bước 1 dòng, có số thứ tự"
+  }
+]
+
+QUY TẮC:
+- Mỗi món phải có đủ ingredients và instructions
+- Đảm bảo calories mỗi món phù hợp với calTarget cho 1 bữa
+- Giảm cân: ưu tiên món ít dầu mỡ, nhiều rau, protein nạc
+- Tăng cơ: ưu tiên món giàu protein, carb vừa phải
+- Tăng cân: ưu tiên món giàu calo, carb và chất béo lành mạnh
+- Giữ dáng: cân bằng dinh dưỡng
+- Đề xuất 4-6 món đa dạng`;
+
+    const userPrompt = `Người dùng: ${gender === 'male' ? 'Nam' : 'Nữ'}, ${age} tuổi, ${weight}kg, ${height}cm.
+BMI: ${bmi}, BMR: ${bmr} kcal/ngày, TDEE: ${tdee} kcal/ngày.
+Mục tiêu: ${goalDisplay}.
+Mỗi bữa nên nạp khoảng ${Math.round(parseInt(calTarget) / 3)} kcal.
+
+Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục tiêu này. Trả về MẢNG JSON.`;
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 25000);
+      const aiResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.4,
+          max_tokens: 4000,
+          stream: true
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+
+      if (!aiResponse.ok) throw new Error(`DeepSeek API error: ${aiResponse.status}`);
+
+      // Stream DeepSeek response, accumulate, then parse and send each dish
+      const reader = aiResponse.body.getReader();
+      const decoder = new TextDecoder();
+      let sseBuffer = '';
+      let accumulated = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        sseBuffer += decoder.decode(value, { stream: true });
+
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop() || '';
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed?.choices?.[0]?.delta?.content || '';
+              accumulated += content;
+            } catch (e) { /* skip */ }
+          }
+        }
+      }
+      if (sseBuffer.trim()) {
+        const line = sseBuffer;
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (data !== '[DONE]') {
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed?.choices?.[0]?.delta?.content || '';
+              accumulated += content;
+            } catch (e) { /* skip */ }
+          }
+        }
+      }
+
+      // Parse accumulated JSON array
+      try {
+        let clean = accumulated.trim();
+        const jsonMatch = clean.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) clean = jsonMatch[1].trim();
+        const arr = JSON.parse(clean);
+
+        if (Array.isArray(arr)) {
+          const perMeal = Math.round(parseInt(calTarget) / 3) || 500;
+          for (const d of arr) {
+            if (!d.name) continue;
+            const cal = parseInt((d.calories || '').replace(/[^0-9]/g, '')) || 0;
+            const diff = Math.abs(cal - perMeal);
+            let mp = diff < 50 ? 95 : diff < 100 ? 85 : diff < 200 ? 75 : 60;
+            sendDish(d, mp);
+          }
+        }
+      } catch (e) {
+        console.error('Body stream parse error:', e.message);
+      }
+    } catch (err) {
+      console.error('Body stream AI error:', err.message);
+    }
+  } else {
+    // No API key — stream from DB fallback
+    try {
+      const dishes = await getCachedDishes();
+      if (dishes && dishes.length > 0) {
+        const perMealTarget = Math.round(parseInt(calTarget) / 3) || 500;
+        const goalNorm = goal === 'gain_muscle' || goal === 'gain' ? 'gain_muscle' : goal;
+
+        const scored = dishes.map(d => {
+          const cal = parseInt((d.calories || '').replace(/[^0-9]/g, '')) || 300;
+          const diff = Math.abs(cal - perMealTarget);
+          let matchPercent = diff < 50 ? 95 : diff < 100 ? 85 : diff < 200 ? 75 : diff < 300 ? 60 : 45;
+
+          let penalty = 0;
+          if (goalNorm === 'lose') {
+            const names = (d.ingredients || []).map(i => (i.name || '').toLowerCase());
+            if (names.some(n => /chiên|rán|dầu|mỡ/.test(n))) penalty = 15;
+          }
+          return { dish: d, matchPercent: Math.min(99, matchPercent - penalty) };
+        });
+        scored.sort((a, b) => b.matchPercent - a.matchPercent);
+
+        for (const item of scored.slice(0, 8)) {
+          sendDish(item.dish, item.matchPercent);
+        }
+      }
+    } catch (err) {
+      console.error('Body stream DB error:', err);
+    }
+  }
+
+  sendDone();
 });
 
 // ===================== Health Analysis API =====================

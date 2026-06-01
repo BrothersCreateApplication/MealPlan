@@ -1334,9 +1334,13 @@
         calTarget = tdee - 500;
         goalLabel = 'Giảm cân';
         break;
-      case 'gain':
+      case 'gain_muscle':
         calTarget = tdee + 300;
         goalLabel = 'Tăng cơ';
+        break;
+      case 'gain_weight':
+        calTarget = tdee + 500;
+        goalLabel = 'Tăng cân';
         break;
       default:
         calTarget = tdee;
@@ -1351,9 +1355,9 @@
       tdee: Math.round(tdee),
       calTarget: Math.round(calTarget),
       goalLabel,
-      // Protein gợi ý: 1.2-1.6g/kg tùy mục tiêu
-      proteinMin: Math.round(weight * (goal === 'gain' ? 1.6 : 1.0)),
-      proteinMax: Math.round(weight * (goal === 'gain' ? 2.0 : 1.4)),
+      // Protein gợi ý: tăng cơ = nhiều protein, tăng cân = vừa phải
+      proteinMin: Math.round(weight * (goal === 'gain_muscle' ? 1.6 : 1.0)),
+      proteinMax: Math.round(weight * (goal === 'gain_muscle' ? 2.0 : 1.4)),
     };
   }
 
@@ -1371,13 +1375,8 @@
   function closeBodyResult() {
     const overlay = document.getElementById('body-result-overlay');
     if (overlay) overlay.classList.add('hidden');
-    // Clear content để lần sau mở lại thấy loading
     const content = document.getElementById('body-result-content');
-    if (content) { content.classList.add('hidden'); content.innerHTML = ''; }
-    const loading = document.getElementById('body-result-loading');
-    if (loading) loading.classList.remove('hidden');
-    const error = document.getElementById('body-result-error');
-    if (error) error.classList.add('hidden');
+    if (content) { content.innerHTML = ''; }
   }
 
   // ---- Hàm lấy calories từ dish string ----
@@ -1387,8 +1386,8 @@
     return calStr ? parseInt(calStr) : null;
   }
 
-  // ---- Render kết quả ----
-  function renderBodyResults(metrics, dishes) {
+  // ---- Render metrics card (hiển thị ngay, không cần chờ API) ----
+  function renderBodyMetrics(metrics) {
     const loading = document.getElementById('body-result-loading');
     const content = document.getElementById('body-result-content');
     const error = document.getElementById('body-result-error');
@@ -1398,8 +1397,7 @@
     error.classList.add('hidden');
     content.classList.remove('hidden');
 
-    // Metric cards
-    const metricsHtml = `
+    content.innerHTML = `
       <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-5 text-white shadow-lg">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-title-md text-sm font-semibold text-white/90">Chỉ số cơ thể</h3>
@@ -1409,7 +1407,7 @@
           <div class="bg-white/15 backdrop-blur-sm rounded-xl p-3 text-center">
             <div class="text-2xl font-bold">${metrics.bmi}</div>
             <div class="text-xs text-white/70">BMI</div>
-            <div class="text-[10px] font-semibold ${metrics.bmiColor.replace('text-', 'text-white/')}">${metrics.bmiStatus}</div>
+            <div class="text-[10px] font-semibold text-white/90">${metrics.bmiStatus}</div>
           </div>
           <div class="bg-white/15 backdrop-blur-sm rounded-xl p-3 text-center">
             <div class="text-2xl font-bold">${metrics.bmr}</div>
@@ -1441,84 +1439,101 @@
           </div>
         </div>
       </div>
-    `;
-
-    // Dishes section
-    let dishesHtml = '';
-    if (dishes && dishes.length > 0) {
-      dishesHtml = `
-        <div>
-          <h3 class="font-title-md text-on-surface flex items-center gap-2 mb-3">
-            <span class="material-symbols-outlined text-indigo-500">restaurant</span>
-            Gợi ý món ăn phù hợp
-          </h3>
-          <div class="space-y-3">
-            ${dishes.map((d, i) => {
-              const cal = extractCalories(d.dish || d);
-              const matchPct = d.matchPercent || (d.suitability ? Math.round(d.suitability * 100) : null);
-              const dish = d.dish || d;
-              const calDiff = cal ? Math.abs(cal - Math.round(metrics.calTarget / 3)) : null;
-              const badgeColor = calDiff !== null && calDiff < 100 ? 'bg-emerald-100 text-emerald-700' :
-                                calDiff !== null && calDiff < 250 ? 'bg-amber-100 text-amber-700' : 'bg-surface-container-high text-on-surface-variant';
-              return `
-                <div class="bg-surface-container-low rounded-xl p-4 border border-outline-variant/20 hover:shadow-sm transition-all cursor-pointer body-recommend-dish" data-dish-name="${dish.name}" data-idx="${i}">
-                  <div class="flex items-start justify-between">
-                    <div class="flex-1 min-w-0">
-                      <h4 class="font-title-md text-sm text-on-surface">${dish.name}</h4>
-                      <div class="flex items-center gap-3 mt-1">
-                        <span class="flex items-center gap-1 text-xs text-on-surface-variant">
-                          <span class="material-symbols-outlined text-[14px]">schedule</span> ${dish.time || '--'}
-                        </span>
-                        <span class="flex items-center gap-1 text-xs text-on-surface-variant">
-                          <span class="material-symbols-outlined text-[14px]">local_fire_department</span> ${dish.calories || '--'}
-                        </span>
-                      </div>
-                    </div>
-                    ${matchPct ? `<div class="flex flex-col items-center ml-2">
-                      <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
-                        <span class="font-price-tag font-bold text-sm text-indigo-600">${matchPct}%</span>
-                      </div>
-                      <span class="text-[10px] text-on-surface-variant mt-0.5">phù hợp</span>
-                    </div>` : ''}
-                  </div>
-                  ${dish.description ? `<p class="text-xs text-on-surface-variant mt-2 line-clamp-1">${dish.description}</p>` : ''}
-                  <div class="flex flex-wrap gap-1.5 mt-2">
-                    <span class="px-2 py-0.5 ${badgeColor} rounded-full text-[10px] font-semibold">
-                      ${calDiff !== null ? `${calDiff} kcal lệch` : ''}
-                    </span>
-                  </div>
-                </div>
-              `;
-            }).join('')}
+      <!-- Dishes section heading — dishes will stream in below -->
+      <div id="body-dishes-section">
+        <h3 class="font-title-md text-on-surface flex items-center gap-2 mb-3 mt-4">
+          <span class="material-symbols-outlined text-indigo-500">restaurant</span>
+          Gợi ý món ăn phù hợp
+        </h3>
+        <div id="body-dishes-list" class="space-y-3">
+          <div class="bg-surface-container-low rounded-xl p-6 text-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mx-auto mb-3"></div>
+            <p class="text-sm text-on-surface-variant">Đang tìm món phù hợp...</p>
           </div>
         </div>
-      `;
-    } else {
-      dishesHtml = `
-        <div class="bg-surface-container-low rounded-xl p-6 text-center">
-          <span class="material-symbols-outlined text-3xl text-outline mb-2">search_off</span>
-          <p class="text-sm text-on-surface-variant">Không tìm thấy món ăn phù hợp</p>
-        </div>
-      `;
-    }
-
-    content.innerHTML = metricsHtml + dishesHtml;
-
-    // Attach dish click events
-    content.querySelectorAll('.body-recommend-dish').forEach(el => {
-      el.addEventListener('click', function() {
-        const name = this.dataset.dishName;
-        const idx = parseInt(this.dataset.idx);
-        const dish = (dishes[idx] && dishes[idx].dish) ? dishes[idx].dish : (dishes[idx] || {});
-        if (dish && dish.name) {
-          // Use home's showRecipeDetail
-          showRecipeDetail(dish);
-        }
-      });
-    });
+      </div>
+    `;
   }
 
-  // ---- Gọi API ----
+  // ---- Append một dish (SSE stream) ----
+  function appendBodyDish(dishData) {
+    const list = document.getElementById('body-dishes-list');
+    if (!list) return;
+
+    // Remove loading placeholder if present
+    const loading = list.querySelector('.body-dishes-loading');
+    if (loading) loading.remove();
+
+    const dish = dishData.dish || dishData;
+    const matchPct = dishData.matchPercent || null;
+    const cal = extractCalories(dish);
+    const perMeal = null; // We'll compute from the metrics card if needed
+    const calDiff = cal ? null : null; // skip badge for now
+
+    const card = document.createElement('div');
+    card.className = 'bg-surface-container-low rounded-xl overflow-hidden border border-outline-variant/20 hover:shadow-md transition-all animate-fade-in';
+
+    // Store dish data for detail/cook buttons
+    card.dataset.dishName = dish.name;
+
+    card.innerHTML = `
+      <div class="p-4">
+        <div class="flex items-start justify-between">
+          <div class="flex-1 min-w-0">
+            <h4 class="font-title-md text-sm text-on-surface">${dish.name}</h4>
+            <div class="flex items-center gap-3 mt-1">
+              <span class="flex items-center gap-1 text-xs text-on-surface-variant">
+                <span class="material-symbols-outlined text-[14px]">schedule</span> ${dish.time || '--'}
+              </span>
+              <span class="flex items-center gap-1 text-xs text-on-surface-variant">
+                <span class="material-symbols-outlined text-[14px]">local_fire_department</span> ${dish.calories || '--'}
+              </span>
+              ${dish.difficulty ? `<span class="px-1.5 py-0.5 bg-surface-container-high text-on-surface-variant rounded text-[10px] font-semibold">${dish.difficulty}</span>` : ''}
+            </div>
+          </div>
+          ${matchPct ? `<div class="flex flex-col items-center ml-2">
+            <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
+              <span class="font-price-tag font-bold text-sm text-indigo-600">${matchPct}%</span>
+            </div>
+            <span class="text-[10px] text-on-surface-variant mt-0.5">phù hợp</span>
+          </div>` : ''}
+        </div>
+        ${dish.description ? `<p class="text-xs text-on-surface-variant mt-2 line-clamp-1">${dish.description}</p>` : ''}
+        <div class="flex gap-2 mt-3">
+          <button class="body-dish-detail flex-1 bg-surface-container-high text-indigo-600 py-2 rounded-lg text-xs font-label-md hover:bg-indigo-50 active:scale-[0.98] transition-all flex items-center justify-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">article</span>
+            Xem chi tiết
+          </button>
+          <button class="body-dish-cook flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-2 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1 shadow-sm">
+            <span class="material-symbols-outlined text-[15px]">cooking</span>
+            Nấu Ăn
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Attach events
+    card.querySelector('.body-dish-detail')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showRecipeDetail(dish);
+    });
+    card.querySelector('.body-dish-cook')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const ings = dish.ingredients || [];
+      MealPlan.setCart(ings);
+      MealPlan.state.currentMealName = dish.name;
+      MealPlan.saveState();
+      document.getElementById('body-result-overlay')?.classList.add('hidden');
+      document.querySelector('.recipe-overlay')?.remove();
+      MealPlan.navigate('cart');
+      if (window.renderCart) window.renderCart();
+      MealPlan.showToast(`Đã thêm "${dish.name}" vào danh sách nấu!`, 'success');
+    });
+
+    list.appendChild(card);
+  }
+
+  // ---- Gọi API đề xuất (SSE stream) ----
   async function handleBodyRecommend() {
     const gender = document.querySelector('input[name="body-gender"]:checked')?.value || 'male';
     const age = parseInt(document.getElementById('body-age')?.value || '30');
@@ -1532,36 +1547,85 @@
       return;
     }
 
-    // Đóng form, mở result overlay
+    // Đóng form
     closeBodyForm();
+
+    // Reset result overlay
+    const loading = document.getElementById('body-result-loading');
+    const content = document.getElementById('body-result-content');
+    if (loading) loading.classList.remove('hidden');
+    if (content) { content.classList.add('hidden'); content.innerHTML = ''; }
+    document.getElementById('body-result-error')?.classList.add('hidden');
+
+    // Mở result overlay
     const resultOverlay = document.getElementById('body-result-overlay');
     if (resultOverlay) resultOverlay.classList.remove('hidden');
 
+    // Tính metrics ngay lập tức (client-side)
     const metrics = calculateBodyMetrics(gender, age, weight, height, goal);
+    renderBodyMetrics(metrics);
 
-    // Gọi API đề xuất
+    // Gọi API đề xuất (SSE stream)
     try {
-      const res = await fetch('/api/recommend-by-body', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gender, age, weight, height, goal,
-          bmi: metrics.bmi,
-          bmr: metrics.bmr,
-          tdee: metrics.tdee,
-          calTarget: metrics.calTarget
-        })
-      });
-      const data = await res.json();
-      if (data.success && data.dishes) {
-        renderBodyResults(metrics, data.dishes);
-      } else {
-        // Fallback: render chỉ số + thông báo
-        renderBodyResults(metrics, []);
+      const res = await fetch(`/api/recommend-by-body-stream?gender=${gender}&age=${age}&weight=${weight}&height=${height}&goal=${goal}&bmi=${metrics.bmi}&bmr=${metrics.bmr}&tdee=${metrics.tdee}&calTarget=${metrics.calTarget}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let seenNames = new Set();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || '';
+
+        for (const event of events) {
+          const match = event.match(/^data: (.+)/m);
+          if (!match) continue;
+
+          try {
+            const payload = JSON.parse(match[1]);
+
+            if (payload.type === 'dish') {
+              const dish = payload.dish;
+              if (dish && dish.name) {
+                const key = dish.name.toLowerCase();
+                if (!seenNames.has(key)) {
+                  seenNames.add(key);
+                  appendBodyDish({ dish, matchPercent: payload.matchPercent || null });
+                }
+              }
+            } else if (payload.type === 'done') {
+              // Remove loading if no dishes came
+              const list = document.getElementById('body-dishes-list');
+              if (list && list.querySelector('.animate-spin')) {
+                list.innerHTML = '<div class="bg-surface-container-low rounded-xl p-6 text-center"><span class="material-symbols-outlined text-3xl text-outline mb-2">search_off</span><p class="text-sm text-on-surface-variant">Không tìm thấy món ăn phù hợp</p></div>';
+              }
+            }
+          } catch (e) { /* skip parse error */ }
+        }
       }
     } catch (err) {
-      console.error('Body recommend error:', err);
-      renderBodyResults(metrics, []);
+      console.error('Body recommend stream error:', err);
+      // Fallback: gọi POST API
+      try {
+        const fallbackRes = await fetch('/api/recommend-by-body', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gender, age, weight, height, goal, bmi: metrics.bmi, bmr: metrics.bmr, tdee: metrics.tdee, calTarget: metrics.calTarget })
+        });
+        const data = await fallbackRes.json();
+        if (data.success && data.dishes) {
+          data.dishes.forEach(d => appendBodyDish(d));
+        }
+      } catch (e2) {
+        console.error('Body recommend fallback error:', e2);
+      }
     }
   }
 
