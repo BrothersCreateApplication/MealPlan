@@ -547,6 +547,44 @@ app.get('/api/weather', async (req, res) => {
 
 // ===================== Dish Management API =====================
 
+// ---- Gợi ý món theo buổi (server-side filter, không load 257 món) ----
+const MEAL_KEYWORDS = {
+  breakfast: ['bánh canh', 'nui', 'bún', 'phở', 'cơm sườn', 'bánh mì', 'cháo', 'xôi', 'mì', 'ốp la', 'trứng', 'sữa', 'bánh cuốn', 'bánh ướt', 'bánh bèo', 'hủ tiếu', 'miến'],
+  lunch:     ['cơm', 'cơm tấm', 'cơm chiên', 'cơm rang', 'cơm gà'],
+  dinner:    ['canh', 'xào', 'kho', 'lẩu', 'hấp', 'nướng', 'salad', 'soup', 'súp', 'cuốn', 'nem', 'gỏi', 'rau'],
+  night:     ['cháo', 'súp', 'mì', 'phở', 'salad', 'trái cây', 'bánh', 'sữa'],
+};
+
+app.get('/api/dishes/meal/:period', async (req, res) => {
+  const period = req.params.period;
+  const keywords = MEAL_KEYWORDS[period];
+  if (!keywords) return res.json({ dishes: [] });
+
+  try {
+    const client = db.getClient();
+    if (!client) return res.json({ dishes: [] });
+
+    // Query các món có tên chứa bất kỳ keyword nào của buổi này
+    const orConditions = keywords.map(k => `name.ilike.%${k}%`);
+    const { data, error } = await client
+      .from('dishes')
+      .select('id, name, time, calories, difficulty, description, instructions')
+      .or(orConditions.join(','))
+      .order('name')
+      .limit(30);
+
+    if (error) {
+      console.error('[Server] Meal query error:', error.message);
+      return res.json({ dishes: [] });
+    }
+
+    res.json({ dishes: data || [] });
+  } catch (e) {
+    console.error('[Server] Meal suggestion error:', e.message);
+    res.json({ dishes: [] });
+  }
+});
+
 app.get('/api/dishes', async (req, res) => {
   const dishes = await getCachedDishes();
   res.json({ dishes });
