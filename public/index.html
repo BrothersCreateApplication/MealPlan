@@ -107,9 +107,9 @@
     };
   </script>
 </head>
-<body class="bg-background text-on-surface min-h-screen">
+<body class="bg-background text-on-surface min-h-screen flex flex-col overflow-hidden">
   <!-- Top Header Bar -->
-  <header class="bg-surface shadow-sm sticky top-0 z-50">
+  <header class="bg-surface shadow-sm flex-shrink-0 z-50">
     <nav class="flex items-center justify-center w-full px-4 py-3">
       <div class="font-headline-lg text-primary font-bold text-xl flex items-center gap-2">
         <span>🥘</span>
@@ -118,10 +118,10 @@
     </nav>
   </header>
 
-  <!-- Main Content -->
-  <main class="px-4 py-4 pb-24">
+  <!-- Main Content — overflow-hidden, mỗi page tự scroll -->
+  <main class="flex-1 min-h-0 overflow-hidden">
     <!-- PAGE: Trang Chủ -->
-    <div id="page-home" class="page active">
+    <div id="page-home" class="page active h-full overflow-y-auto px-4 py-4 pb-24">
       <section class="mb-5">
         <h1 class="font-headline-lg text-on-surface mb-4 text-2xl font-bold">Hôm nay nấu gì?</h1>
         <div class="relative">
@@ -208,8 +208,8 @@
     </div>
 
     <!-- PAGE: Giỏ Đi Chợ -->
-    <div id="page-cart" class="page hidden flex flex-col h-[calc(100vh-8rem)]">
-      <div class="flex-shrink-0">
+    <div id="page-cart" class="page hidden flex flex-col h-full">
+      <div class="flex-shrink-0 px-4 pt-4">
         <h1 class="font-headline-lg font-bold text-primary mb-4 text-xl">Giỏ Đi Chợ</h1>
         <!-- Summary Bar -->
         <div class="bg-surface-container-low rounded-xl p-3 flex items-center justify-between border border-outline-variant/30 mb-3">
@@ -226,11 +226,11 @@
         </div>
       </div>
       <!-- Scrollable cart items -->
-      <div id="cart-items" class="flex-1 space-y-2 overflow-y-auto min-h-0">
+      <div id="cart-items" class="flex-1 space-y-2 overflow-y-auto min-h-0 px-4">
         <!-- Rendered by JS -->
       </div>
-      <!-- Summary Card -->
-      <div id="cart-summary-card" class="flex-shrink-0 bg-surface-container rounded-xl p-3 shadow-md border border-primary/10 mt-auto">
+      <!-- Summary Card (cố định dưới cùng) -->
+      <div id="cart-summary-card" class="flex-shrink-0 bg-surface-container rounded-xl p-3 shadow-md border border-primary/10 mt-3 mx-4 mb-4">
         <h2 class="font-label-md font-bold text-primary mb-2">Tổng quan đơn hàng</h2>
         <div class="flex items-center gap-3 mb-2 pb-2 border-b border-outline-variant/50">
           <div class="flex-1">
@@ -264,7 +264,7 @@
     </div>
 
     <!-- PAGE: Lịch Sử & Thói Quen -->
-    <div id="page-history" class="page hidden">
+    <div id="page-history" class="page hidden h-full overflow-y-auto px-4 py-4 pb-24">
       <div class="max-w-4xl mx-auto space-y-6">
         <h1 class="font-headline-lg font-bold text-on-surface mb-1 text-2xl">Lịch Sử &amp; Thói Quen</h1>
         <p class="text-on-surface-variant text-sm -mt-4">Theo dõi hành trình nấu nướng của bạn</p>
@@ -415,7 +415,7 @@
     </div>
 
     <!-- PAGE: Tủ Lạnh -->
-    <div id="page-fridge" class="page hidden">
+    <div id="page-fridge" class="page hidden h-full overflow-y-auto px-4 py-4 pb-24">
       <div class="mb-5">
         <h1 class="font-headline-lg text-on-surface mb-1 text-2xl font-bold">Tủ Lạnh Có Gì?</h1>
         <p class="text-on-surface-variant text-sm">Nhập nguyên liệu bạn đang có, tôi sẽ gợi ý món ăn!</p>
