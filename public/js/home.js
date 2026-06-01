@@ -839,6 +839,21 @@
     const kidneysHtml = renderOrganCard('kidneys', analysis.kidneys, 'Thận', 'kidney');
     const liverHtml = renderOrganCard('liver', analysis.liver, 'Gan', 'liver');
 
+    // Star rating (1-5★) — hỗ trợ nửa sao (VD: 4.5 → 4 vàng + 1 nửa vàng)
+    const rating = analysis.rating || 3;
+    const fullStars = Math.floor(rating);
+    const decimal = rating - fullStars;
+    const adjustedFull = decimal >= 0.75 ? fullStars + 1 : fullStars;
+
+    const starHtml = Array.from({ length: 5 }, (_, i) => {
+      if (i < adjustedFull) return '<span class="text-yellow-300 text-base">★</span>';
+      if (i === fullStars && decimal >= 0.25 && decimal < 0.75) {
+        // Nửa sao: gradient vàng → trắng ngang 50%
+        return '<span class="text-base" style="background:linear-gradient(90deg,#FBBF24 50%,rgba(255,255,255,0.4) 50%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">★</span>';
+      }
+      return '<span class="text-white/40 text-base">★</span>';
+    }).join('');
+
     const overall = analysis.overall || '';
 
     results.innerHTML = `
@@ -848,9 +863,15 @@
       ${liverHtml}
       ${overall ? `
       <div class="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl p-4 text-white shadow-md">
-        <div class="flex items-center gap-2 mb-1">
-          <span class="material-symbols-outlined">summarize</span>
-          <h4 class="font-title-md font-semibold">Đánh giá tổng quan</h4>
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined">summarize</span>
+            <h4 class="font-title-md font-semibold">Đánh giá tổng quan</h4>
+          </div>
+          <div class="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full">
+            <span class="text-yellow-300 text-base flex">${starHtml}</span>
+            <span class="text-sm font-bold ml-1">${rating.toFixed(1)}</span>
+          </div>
         </div>
         <p class="text-sm text-white/90 leading-relaxed">${overall}</p>
       </div>` : ''}
@@ -1341,7 +1362,9 @@
     }
   }
 
+  // Expose globally for fridge module to use
   window.renderHomeDishes = renderDishes;
+  window.showHealthAnalysis = showHealthAnalysis;
 
   document.addEventListener('DOMContentLoaded', initHome);
 })();

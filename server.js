@@ -835,6 +835,7 @@ app.post('/api/health-analysis', async (req, res) => {
   const systemPrompt = `Bạn là chuyên gia dinh dưỡng. Phân tích tác động của món ăn lên sức khỏe.
 Trả về JSON hợp lệ (không markdown, không code block) với format:
 {
+  "rating": 4.5,
   "nutrients": {
     "calories": "số kcal (chỉ lấy số, VD: 350)",
     "protein": "ước tính protein (g)",
@@ -862,6 +863,13 @@ Trả về JSON hợp lệ (không markdown, không code block) với format:
   },
   "overall": "đánh giá tổng quan về mức độ lành mạnh của món ăn này (2-3 câu)"
 }
+
+QUY TẮC ĐÁNH GIÁ rating (thang 1.0 - 5.0, 1 decimal):
+- 4.5-5.0: rất lành mạnh, tốt cho tất cả các cơ quan
+- 3.5-4.4: lành mạnh, chỉ cần chú ý một ít
+- 2.5-3.4: trung bình, cần điều chỉnh
+- 1.5-2.4: kém lành mạnh, nên hạn chế
+- 1.0-1.4: không tốt cho sức khỏe, chỉ nên ăn ít
 
 QUY TẮC ĐÁNH GIÁ:
 - "danger": thành phần có hại ở mức cao (natri >800mg, chất béo bão hòa >15g, protein >40g món, đường >20g)
@@ -955,7 +963,18 @@ function getMockHealthAnalysis(name, ingredients) {
     return 'danger';
   }
 
+  // Tính rating (1-5) dựa trên các score
+  const totalScore = heartScore + kidneyScore + liverScore;
+  let rating = 3.0; // default
+  if (totalScore >= 5) rating = 4.5;
+  else if (totalScore >= 3) rating = 4.0;
+  else if (totalScore >= 0) rating = 3.5;
+  else if (totalScore >= -3) rating = 2.5;
+  else if (totalScore >= -6) rating = 2.0;
+  else rating = 1.5;
+
   return {
+    rating: rating,
     nutrients: {
       calories: '350',
       protein: '25g',

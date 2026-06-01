@@ -465,16 +465,11 @@
 
     // Health analysis handler
     overlay.querySelector('#health-analysis-btn')?.addEventListener('click', () => {
-      // We don't have showHealthAnalysis here, so dispatch a custom event
-      // The home.js module can listen for this
-      MealPlan.showToast('🩺 Đang phân tích sức khỏe...', 'info');
-      // Open recipe overlay in home context instead
-      // For now, navigate to home and trigger the analysis via home.js
-      const event = new CustomEvent('health-analysis-requested', { detail: { dish } });
-      document.dispatchEvent(event);
-    });
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) overlay.remove();
+      if (typeof window.showHealthAnalysis === 'function') {
+        window.showHealthAnalysis(dish);
+      } else {
+        MealPlan.showToast('🩺 Chức năng phân tích sức khỏe chưa sẵn sàng', 'error');
+      }
     });
 
     // Cook handler
