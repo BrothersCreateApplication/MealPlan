@@ -552,6 +552,15 @@ app.get('/api/dishes', async (req, res) => {
   res.json({ dishes });
 });
 
+// Load 1 món + ingredients (gọi khi click Xem/Nấu)
+app.get('/api/dishes/:name', async (req, res) => {
+  let name = req.params.name;
+  try { name = decodeURIComponent(name); } catch (e) { /* keep */ }
+  const dish = await db.getDishByName(name);
+  if (!dish) return res.status(404).json({ error: 'Not found' });
+  res.json({ dish });
+});
+
 app.post('/api/dishes', async (req, res) => {
   const dish = req.body;
   if (!dish || !dish.name) {

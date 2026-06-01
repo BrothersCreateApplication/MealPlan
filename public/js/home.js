@@ -46,7 +46,9 @@
     updateMealBanner();
   }
 
-  // ---- Update meal banner UI (đơn giản, chỉ buổi + vibe) ----
+  // ---- Update meal banner UI (emoji + giờ làm hình nền, không chữ buổi) ----
+  const BANNER_EMOJI = { breakfast: '🌅', lunch: '☀️', dinner: '🌆', night: '🌙' };
+
   function updateMealBanner() {
     const banner = document.getElementById('weather-banner');
     const iconEl = document.getElementById('weather-icon');
@@ -60,12 +62,14 @@
 
     const period = state.mealPeriods.find(p => p.id === state.mealPeriod);
     const kw = mealKeywords[state.mealPeriod];
+    const emoji = BANNER_EMOJI[state.mealPeriod] || '🍽️';
 
+    // Chỉ hiển thị emoji + vibe, không có chữ "Bữa Sáng" (đã có tab)
     iconEl.textContent = period?.icon || 'sunny';
-    tempEl.textContent = period?.short || '';
-    descEl.textContent = period?.label || '';
-    textEl.textContent = `⏰ ${period?.label || ''} — Gợi ý món ${kw?.vibe || 'phù hợp'}`;
-    contextEl.textContent = `Hôm nay ${kw?.vibe ? `ăn gì ${kw.vibe}?` : 'nấu gì?'}`;
+    tempEl.textContent = emoji;
+    descEl.textContent = '';
+    textEl.textContent = `${emoji} Gợi ý món ${kw?.vibe || 'phù hợp'} hôm nay`;
+    contextEl.textContent = '';
   }
 
   // ---- Dish icon lookup (Material Symbols + gradient pair) ----
@@ -284,21 +288,43 @@
   }
 
   // ---- Attach events for dish grid ----
+  async function fetchDishDetails(name) {
+    try {
+      const res = await fetch(`/api/dishes/${encodeURIComponent(name)}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.dish || null;
+    } catch (e) {
+      console.warn('[Home] Fetch dish details error:', e);
+      return null;
+    }
+  }
+
   function attachGridEvents(grid) {
     grid.querySelectorAll('.detail-btn').forEach(btn => {
-      btn.addEventListener('click', function(e) {
+      btn.addEventListener('click', async function(e) {
         e.stopPropagation();
         const name = this.dataset.dishName;
-        const dish = state.allDishes.find(d => d.name === name) || state.searchResults.find(d => d.name === name);
+        let dish = state.allDishes.find(d => d.name === name) || state.searchResults.find(d => d.name === name);
+        // Nếu dish không có ingredients, fetch từ server
+        if (dish && (!dish.ingredients || dish.ingredients.length === 0)) {
+          const full = await fetchDishDetails(name);
+          if (full) dish = full;
+        }
         if (dish) showRecipeDetail(dish);
         else MealPlan.showToast('Không thể hiển thị chi tiết!', 'error');
       });
     });
     grid.querySelectorAll('.meal-cook-btn').forEach(btn => {
-      btn.addEventListener('click', function(e) {
+      btn.addEventListener('click', async function(e) {
         e.stopPropagation();
         const name = this.dataset.dishName;
-        const dish = state.allDishes.find(d => d.name === name) || state.searchResults.find(d => d.name === name);
+        let dish = state.allDishes.find(d => d.name === name) || state.searchResults.find(d => d.name === name);
+        // Nếu dish không có ingredients, fetch từ server
+        if (dish && (!dish.ingredients || dish.ingredients.length === 0)) {
+          const full = await fetchDishDetails(name);
+          if (full) dish = full;
+        }
         if (dish) {
           MealPlan.setCart(dish.ingredients || []);
           MealPlan.state.currentMealName = dish.name;
@@ -678,6 +704,12 @@
     state.isSearchMode = true;
     state.lastSearchQuery = query;
     state.searchResults = [];
+
+    // Un-highlight tất cả tab buổi khi đang search — không focus vào tab nào
+    document.querySelectorAll('.meal-tab').forEach(tab => {
+      tab.classList.remove('bg-primary', 'text-on-primary');
+      tab.classList.add('bg-surface-container-high', 'text-on-surface-variant');
+    });
 
     // Show loading state
     const grid = document.getElementById('dish-grid');

@@ -44,15 +44,16 @@ function normalizeDishes(dishes) {
 async function getAllDishes() {
   const client = getClient();
   if (!client) return [];
+  // KHÔNG join dish_ingredients — query nhẹ, nhanh hơn
   const { data, error } = await client
     .from('dishes')
-    .select('*, dish_ingredients(*)')
+    .select('*')
     .order('name', { ascending: true });
   if (error) {
     console.error('[Supabase] getAllDishes error:', error.message);
     return [];
   }
-  return normalizeDishes(data);
+  return data || [];
 }
 
 async function getDishByName(name) {
@@ -91,17 +92,16 @@ async function getRandomDishes(count = 3) {
   const client = getClient();
   if (!client) return [];
 
-  // Dùng fallback: lấy danh sách dishes + ingredients, shuffle client-side
+  // Chỉ lấy dishes (không ingredients), shuffle, lấy count
   const { data: d, error: e } = await client
     .from('dishes')
-    .select('*, dish_ingredients(*)');
+    .select('*');
   if (e) {
     console.error('[Supabase] getRandomDishes error:', e.message);
     return [];
   }
-  // Shuffle client-side và lấy count món
   const shuffled = (d || []).sort(() => Math.random() - 0.5).slice(0, count);
-  return normalizeDishes(shuffled);
+  return shuffled;
 }
 
 async function addDish(dish) {
@@ -178,6 +178,21 @@ async function addDish(dish) {
   return { action: 'inserted', id: dishId };
 }
 
+// ---- Lấy dishes + ingredients (nặng, chỉ dùng khi cần) ----
+async function getAllDishesWithIngredients() {
+  const client = getClient();
+  if (!client) return [];
+  const { data, error } = await client
+    .from('dishes')
+    .select('*, dish_ingredients(*)')
+    .order('name', { ascending: true });
+  if (error) {
+    console.error('[Supabase] getAllDishesWithIngredients error:', error.message);
+    return [];
+  }
+  return normalizeDishes(data);
+}
+
 async function addNewDishes(dishes) {
   const results = [];
   for (const dish of dishes) {
@@ -218,7 +233,7 @@ function removeAccents(str) {
 async function suggestDishesByIngredients(availableIngredients, limit = 5) {
   if (!availableIngredients || availableIngredients.length === 0) return [];
 
-  const allDishes = await getAllDishes();
+  const allDishes = await getAllDishesWithIngredients();
   const normalizedAvailable = availableIngredients.map(i => removeAccents(i.toLowerCase().trim()));
 
   const scored = allDishes.map(dish => {
@@ -291,6 +306,7 @@ async function getDishCount() {
 module.exports = {
   getClient,
   getAllDishes,
+  getAllDishesWithIngredients,
   getDishByName,
   searchDishes,
   getRandomDishes,
