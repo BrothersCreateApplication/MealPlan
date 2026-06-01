@@ -516,6 +516,90 @@
         Nấu Ăn
       </button>
     `;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'recipe-overlay fixed inset-0 z-[200] bg-black/50 flex md:items-center justify-center animate-fade-in';
+    overlay.innerHTML = `
+      <div class="bg-surface-container-lowest w-full max-h-[100dvh] md:max-h-[85vh] md:max-w-lg md:rounded-2xl md:mx-4 shadow-2xl flex flex-col animate-slide-up">
+        <!-- Scrollable body -->
+        <div class="flex-1 overflow-y-auto min-h-0">
+          <div class="p-5 md:p-6">
+            <div class="flex justify-end mb-2">
+              <button class="bg-surface-container-high text-on-surface-variant p-1.5 rounded-full hover:bg-surface-container-highest transition-all" id="recipe-close">
+                <span class="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <!-- Title & badges -->
+            <div class="flex items-center gap-2 mb-1">
+              <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">${dish.name}</h2>
+              ${dish.difficulty ? `<span class="bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-full text-xs font-semibold">${dish.difficulty}</span>` : ''}
+            </div>
+            <div class="flex items-center gap-gutter-md mb-4">
+              <span class="flex items-center gap-1 text-on-surface-variant font-label-md">
+                <span class="material-symbols-outlined text-[18px]">schedule</span> ${dish.time || '--'}
+              </span>
+              <span class="flex items-center gap-1 text-on-surface-variant font-label-md">
+                <span class="material-symbols-outlined text-[18px]">local_fire_department</span> ${dish.calories || '--'}
+              </span>
+            </div>
+
+            ${dish.description ? `<p class="text-body-md text-on-surface-variant mb-5">${dish.description}</p>` : ''}
+
+            <!-- Ingredients -->
+            <div class="mb-5">
+              <h3 class="font-title-md flex items-center gap-2 text-primary mb-3">
+                <span class="material-symbols-outlined">shopping_basket</span>
+                Nguyên liệu cần mua
+              </h3>
+              <div class="bg-surface-container-low rounded-xl divide-y divide-outline-variant/20 overflow-hidden">
+                ${(dish.ingredients || []).map(ing => `
+                  <div class="flex items-center justify-between px-4 py-2.5">
+                    <div class="flex items-center gap-3">
+                      <span class="material-symbols-outlined text-outline text-[18px]">${getIngredientIcon(ing.name)}</span>
+                      <span class="font-label-md text-on-surface">${ing.name}</span>
+                    </div>
+                    <span class="text-on-surface-variant font-body-md">${ing.quantity}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- Instructions with internal scroll -->
+            <div>
+              <h3 class="font-title-md flex items-center gap-2 text-secondary mb-3">
+                <span class="material-symbols-outlined">menu_book</span>
+                Cách nấu
+              </h3>
+              <div class="bg-surface-container-low rounded-xl px-5 py-4 max-h-[40vh] overflow-y-auto">
+                <ul class="space-y-2 list-none">
+                  ${steps || '<li class="text-on-surface-variant italic">Không có hướng dẫn chi tiết</li>'}
+                </ul>
+              </div>
+            </div>
+
+            <!-- Health Analysis Button -->
+            <div class="mt-5 mb-5">
+              <button id="health-analysis-btn" class="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all shadow-md">
+                <span class="material-symbols-outlined">monitor_heart</span>
+                Phân tích sức khỏe
+              </button>
+              <p class="text-xs text-on-surface-variant text-center mt-1">Đánh giá tác động lên tim, thận, gan</p>
+            </div>
+
+            <!-- YouTube video embed -->
+            <div class="mt-3">
+              <h3 class="font-title-md flex items-center gap-2 text-error mb-3">
+                <span class="material-symbols-outlined">smart_display</span>
+                Video hướng dẫn
+              </h3>
+              <div id="youtube-video-container" class="bg-surface-container-low rounded-xl overflow-hidden aspect-video flex items-center justify-center">
+                <div class="text-center p-6">
+                  <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p class="text-xs text-on-surface-variant">Đang tìm video hướng dẫn...</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Sticky bottom buttons -->
