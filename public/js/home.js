@@ -6,8 +6,6 @@
   // ---- State ----
   const state = {
     allDishes: [],           // all dishes fetched from DB
-    weather: null,           // { condition, temp, tempLabel, humidity, ... }
-    cityName: '',            // detected city for display
     mealPeriod: null,        // 'breakfast' | 'lunch' | 'dinner' | 'night'
     periodName: null,        // Tiếng Việt
     sectionIndex: {},        // { breakfast: 0, lunch: 0, dinner: 0, night: 0 } for cycling
@@ -16,25 +14,12 @@
     lastSearchQuery: '',     // last search query
     searchResults: [],       // search results from API
     isLoading: true,
-    geoError: false,
     mealPeriods: [
-      { id: 'breakfast', label: 'Bữa Sáng', hours: [5, 6, 7, 8, 9], icon: 'sunny_snowing', color: 'amber' },
-      { id: 'lunch',     label: 'Bữa Trưa', hours: [10, 11, 12, 13, 14], icon: 'wb_sunny', color: 'orange' },
-      { id: 'dinner',    label: 'Bữa Chiều/Tối', hours: [15, 16, 17, 18, 19, 20], icon: 'bedtime', color: 'indigo' },
-      { id: 'night',     label: 'Ăn Đêm', hours: [21, 22, 23, 0, 1, 2, 3, 4], icon: 'nightlight', color: 'purple' },
+      { id: 'breakfast', label: 'Bữa Sáng', hours: [5, 6, 7, 8, 9], icon: 'sunny_snowing', color: 'amber', short: '🌅 Sáng' },
+      { id: 'lunch',     label: 'Bữa Trưa', hours: [10, 11, 12, 13, 14], icon: 'wb_sunny', color: 'orange', short: '☀️ Trưa' },
+      { id: 'dinner',    label: 'Bữa Chiều/Tối', hours: [15, 16, 17, 18, 19, 20], icon: 'bedtime', color: 'indigo', short: '🌆 Chiều' },
+      { id: 'night',     label: 'Ăn Đêm', hours: [21, 22, 23, 0, 1, 2, 3, 4], icon: 'nightlight', color: 'purple', short: '🌙 Đêm' },
     ]
-  };
-
-  // ---- Weather condition mapping ----
-  const weatherKeywords = {
-    // [condition]: { tags for matching, vibe }
-    clear:   { tags: ['nướng', 'salad', 'rau', 'trái cây', 'smoothie', 'lẩu thái', 'bánh mì', 'gỏi', 'nem'], vibe: 'nóng' },
-    cloudy:  { tags: ['xào', 'kho', 'canh', 'nấu', 'lẩu', 'bún', 'phở', 'cháo'], vibe: 'mát' },
-    foggy:   { tags: ['cháo', 'súp', 'lẩu', 'ấm', 'nóng'], vibe: 'lạnh' },
-    drizzly: { tags: ['cháo', 'súp', 'lẩu', 'bún', 'phở', 'ấm', 'nóng', 'canh'], vibe: 'mưa lạnh' },
-    rainy:   { tags: ['lẩu', 'cháo', 'súp', 'bún', 'phở', 'canh nóng', 'ấm', 'kho'], vibe: 'mưa lạnh' },
-    snowy:   { tags: ['lẩu', 'súp', 'cháo', 'ấm', 'nóng', 'kho'], vibe: 'rét' },
-    stormy:  { tags: ['lẩu', 'cháo', 'súp', 'ấm', 'nóng', 'bún', 'phở'], vibe: 'bão' },
   };
 
   const mealKeywords = {
@@ -53,72 +38,16 @@
     return state.mealPeriods[2]; // fallback dinner
   }
 
-  // ---- Fetch weather via our proxy ----
-  async function fetchWeather(lat, lon) {
-    try {
-      const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}`);
-      const data = await res.json();
-      if (data.success) {
-        state.weather = data.weather;
-        if (data.cityName) state.cityName = data.cityName;
-      }
-    } catch (e) {
-      console.warn('[Home] Weather fetch error:', e);
-    }
-  }
-
-  // ---- Get user location ----
-  async function detectContext() {
+  // ---- Detect context: chỉ dựa vào giờ hiện tại, bỏ GPS/weather ----
+  function detectContext() {
     const period = getMealPeriod();
     state.mealPeriod = period.id;
     state.periodName = period.label;
-
-    // Default weather (unknown) — hiển thị banner NGAY để không bị trắng
-    state.weather = { condition: 'unknown', temp: 25, tempLabel: 'moderate', icon: 'help', precipitation: 0 };
-    updateWeatherBanner();
-
-    // Gọi ipapi.co song song để có city name backup (3s timeout)
-    const ipPromise = fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(3000) })
-      .then(r => r.ok ? r.json() : {}).catch(() => ({}));
-
-    // Try geolocation (giảm timeout xuống 3s)
-    if ('geolocation' in navigator) {
-      try {
-        const pos = await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('timeout')), 3000);
-          navigator.geolocation.getCurrentPosition(
-            (p) => { clearTimeout(timeout); resolve(p); },
-            (e) => { clearTimeout(timeout); reject(e); },
-            { enableHighAccuracy: false, timeout: 3000, maximumAge: 600000 }
-          );
-        });
-        await fetchWeather(pos.coords.latitude, pos.coords.longitude);
-        state.geoError = false;
-      } catch (e) {
-        state.geoError = true;
-        console.warn('[Home] Geolocation failed:', e.message);
-        try {
-          const ipData = await ipPromise;
-          if (ipData.city && !state.cityName) state.cityName = ipData.city;
-          if (ipData.latitude && ipData.longitude) {
-            await fetchWeather(ipData.latitude, ipData.longitude);
-            state.geoError = false;
-          }
-        } catch (ipErr) {}
-      }
-    }
-    // Fallback: nếu server không trả cityName
-    if (!state.cityName) {
-      try {
-        const ipData = await ipPromise;
-        if (ipData.city) state.cityName = ipData.city;
-      } catch (ipErr) {}
-    }
-    updateWeatherBanner(); // cập nhật lại nếu có dữ liệu thật
+    updateMealBanner();
   }
 
-  // ---- Update weather banner UI ----
-  function updateWeatherBanner() {
+  // ---- Update meal banner UI (đơn giản, chỉ buổi + vibe) ----
+  function updateMealBanner() {
     const banner = document.getElementById('weather-banner');
     const iconEl = document.getElementById('weather-icon');
     const tempEl = document.getElementById('weather-temp');
@@ -129,41 +58,14 @@
     if (!banner) return;
     banner.classList.remove('hidden');
 
-    const w = state.weather;
-    if (!w || !w.condition) {
-      textEl.textContent = `📍 ${state.cityName || 'Vị trí của bạn'} • ${periodLabel()}`;
-      contextEl.textContent = `⏰ ${state.periodName} — Gợi ý món ${periodVibeText()}`;
-      return;
-    }
+    const period = state.mealPeriods.find(p => p.id === state.mealPeriod);
+    const kw = mealKeywords[state.mealPeriod];
 
-    // Map icon
-    const iconMap = {
-      'clear': 'sunny', 'cloudy': 'cloud', 'foggy': 'foggy',
-      'drizzly': 'rainy_light', 'rainy': 'rainy', 'snowy': 'snowy', 'stormy': 'thunderstorm'
-    };
-    iconEl.textContent = iconMap[w.condition] || 'sunny';
-
-    tempEl.textContent = `${w.temp}°`;
-    descEl.textContent = weatherLabel(w.condition);
-
-    const weatherVibe = weatherKeywords[w.condition];
-    textEl.innerHTML = `${state.cityName || ''} <span class="text-outline mx-0.5">•</span> ${periodLabel()} <span class="text-outline mx-0.5">•</span> ${weatherLabel(w.condition)} <span class="text-outline mx-0.5">•</span> <strong>${w.temp}°C</strong>`;
-    contextEl.textContent = `Gợi ý món ${weatherVibe ? weatherVibe.vibe : 'phù hợp'} cho ${state.periodName.toLowerCase()}`;
-  }
-
-  function weatherLabel(cond) {
-    const map = { clear: 'Nắng', cloudy: 'Mây', foggy: 'Sương mù', drizzly: 'Mưa nhẹ', rainy: 'Mưa', snowy: 'Tuyết', stormy: 'Bão' };
-    return map[cond] || '--';
-  }
-
-  function periodLabel() {
-    const labels = { breakfast: '🌅 Sáng', lunch: '☀️ Trưa', dinner: '🌆 Chiều', night: '🌙 Đêm' };
-    return labels[state.mealPeriod] || 'Ngày';
-  }
-
-  function periodVibeText() {
-    const vibes = { breakfast: 'nhẹ nhàng cho bữa sáng', lunch: 'đầy đủ cho bữa trưa', dinner: 'ấm cúng cho bữa tối', night: 'nhẹ nhàng cho khuya' };
-    return vibes[state.mealPeriod] || 'ngon';
+    iconEl.textContent = period?.icon || 'sunny';
+    tempEl.textContent = period?.short || '';
+    descEl.textContent = period?.label || '';
+    textEl.textContent = `⏰ ${period?.label || ''} — Gợi ý món ${kw?.vibe || 'phù hợp'}`;
+    contextEl.textContent = `Hôm nay ${kw?.vibe ? `ăn gì ${kw.vibe}?` : 'nấu gì?'}`;
   }
 
   // ---- Dish icon lookup (Material Symbols + gradient pair) ----
@@ -224,14 +126,12 @@
     return false;
   }
 
-  // ---- Smart dish filtering per meal + weather ----
+  // ---- Smart dish filtering per meal (chỉ theo buổi, bỏ weather) ----
   function getDishesForMealPeriod(mealId) {
     const dishes = state.allDishes;
     if (!dishes || dishes.length === 0) return [];
 
-    const weather = state.weather || { tempLabel: 'moderate', condition: 'unknown' };
     const mealKw = mealKeywords[mealId] || mealKeywords.lunch;
-    const weatherKw = weatherKeywords[weather.condition] || weatherKeywords.cloudy;
 
     // Score each dish
     const scored = dishes.map(dish => {
@@ -247,34 +147,19 @@
         if (ings.includes(tag)) score += 2;
       }
 
-      // Weather match
-      for (const tag of (weatherKw.tags || [])) {
-        if (text.includes(tag)) score += 2;
-        if (ings.includes(tag)) score += 1;
-      }
-
-      // Temperature-based adjustments
-      if (weather.tempLabel === 'hot') {
-        if (text.includes('nướng') || text.includes('chiên') || text.includes('kho tàu') || text.includes('thịt kho')) score -= 1;
-        if (text.includes('salad') || text.includes('rau') || text.includes('canh chua') || text.includes('gỏi') || text.includes('trái cây')) score += 2;
-      } else if (weather.tempLabel === 'cold') {
-        if (text.includes('lẩu') || text.includes('cháo') || text.includes('súp') || text.includes('canh nóng') || text.includes('kho')) score += 2;
-        if (text.includes('salad') || text.includes('rau sống')) score -= 1;
-      }
-
-      // Prefer dishes with full data
+      // Bonus: dishes with complete data
       if (dish.instructions) score += 1;
       if (dish.time) score += 0.5;
       if (dish.calories) score += 0.5;
 
+      if (score === 0) score = 0.01; // always show but low priority
+
       return { dish, score };
     });
 
-    // Filter: only include dishes with score >= 0 (or top 20)
-    const filtered = scored.filter(s => s.score > 0);
-    filtered.sort((a, b) => b.score - a.score);
-
-    return filtered.map(s => s.dish);
+    // Sort by score descending, take top 30
+    scored.sort((a, b) => b.score - a.score);
+    return scored.filter(s => s.score > 0).map(s => s.dish);
   }
 
   // ---- Tab config ----
@@ -831,24 +716,18 @@
 
     if (!searchInput || !btnSchedule) return;
 
-    // 1. Detect context + Load dishes SONG SONG — không để GPS block grid
-    // Dùng Promise.allSettled để cả 2 cùng chạy, nếu 1 cái fail vẫn render
-    await Promise.allSettled([
-      loadAllDishes(),
-      detectContext(),   // weather/city chạy nền, không block dishes
-    ]);
+    // 1. Detect context NGAY — meal period từ giờ hiện tại (đồng bộ, không block)
+    detectContext();
 
-    if (!state.allDishes || state.allDishes.length === 0) {
+    // 2. Load dishes
+    const hasDishes = await loadAllDishes();
+
+    if (!hasDishes) {
       const grid = document.getElementById('dish-grid');
       if (grid) grid.innerHTML = `<div class="bg-surface-container-lowest rounded-xl p-8 text-center col-span-full border border-outline-variant/20">
         <span class="material-symbols-outlined text-4xl text-outline mb-2">search_off</span>
         <p class="text-sm text-on-surface-variant">Không thể tải dữ liệu món ăn</p>
       </div>`;
-      // Vẫn render meal tab cho đúng buổi dù không có món
-      const defaultMeal = state.mealPeriod || 'breakfast';
-      if (document.getElementById('meal-grid-title')) {
-        document.getElementById('meal-grid-title').textContent = tabConfig[defaultMeal]?.title || defaultMeal;
-      }
       return;
     }
 
