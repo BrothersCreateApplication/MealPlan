@@ -835,9 +835,9 @@
     `;
 
     // Organ cards
-    const heartHtml = renderOrganCard('heart', analysis.heart, 'Tim mạch', 'favorite');
-    const kidneysHtml = renderOrganCard('kidneys', analysis.kidneys, 'Thận', 'kidney');
-    const liverHtml = renderOrganCard('liver', analysis.liver, 'Gan', 'liver');
+    const heartHtml = renderOrganCard('heart', analysis.heart, 'Tim mạch', 'monitor_heart');
+    const kidneysHtml = renderOrganCard('kidneys', analysis.kidneys, 'Thận', 'water_drop');
+    const liverHtml = renderOrganCard('liver', analysis.liver, 'Gan', 'spa');
 
     // Star rating (1-5★) — hỗ trợ nửa sao (VD: 4.5 → 4 vàng + 1 nửa vàng)
     const rating = analysis.rating || 3;
