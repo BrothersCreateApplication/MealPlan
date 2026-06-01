@@ -436,33 +436,43 @@ app.get('/api/weather', async (req, res) => {
     return res.json({ success: false, error: 'Missing lat/lon' });
   }
   try {
-    // Reverse geocode: lat/lon → city name (Open-Meteo Geocoding API, free)
+    // Reverse geocode: lat/lon → city name (BigDataCloud, free, no key needed)
     let cityName = '';
+    let ispName = '';
+    let fallbackCity = '';
     try {
-      const geoRes = await fetch(
-        `https://geocoding-api.open-meteo.com/v1/search?name=${lat},${lon}&count=1&language=vi&format=json`
+      // Use BigDataCloud reverse geocode — trả locality (phường) và admin info (quận/huyện)
+      const bdcRes = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=vi`
       );
-      if (geoRes.ok) {
-        const geoData = await geoRes.json();
-        // Fallback: use coordinates-based reverse lookup
-      }
-      // Use Nominatim (OSM) for reverse geocoding — free, no key needed
-      const revRes = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=vi`,
-        { headers: { 'User-Agent': 'VaobepApp/1.0' } }
-      );
-      if (revRes.ok) {
-        const revData = await revRes.json();
-        const addr = revData.address || {};
-        // Ưu tiên suburb/district/quarter (cấp phường/quận) hơn city
-        // vì city có thể trả về sai (VD: Tân Phú → Thủ Đức)
-        cityName = addr.suburb || addr.quarter || addr.district || addr.town || addr.city || addr.state || '';
-        // Làm sạch tên: bỏ "Phường ", "Xã ", "Quận ", "Thành phố " prefix
-        cityName = cityName.replace(/^(Phường|Xã|Thị trấn|Quận|Huyện|Thành phố|TP\.)\s+/i, '');
-        // If only district/suburb, append state for clarity
-        if (!addr.city && !addr.town && addr.district) {
-          cityName = addr.district;
+      if (bdcRes.ok) {
+        const bdcData = await bdcRes.json();
+        const locality = bdcData.locality || '';
+        const adminLevels = bdcData.localityInfo?.administrative || [];
+        const informative = bdcData.localityInfo?.informative || [];
+
+        // Tìm quận/huyện từ administrative (adminLevel ~8-10 là quận)
+        let district = '';
+        for (const a of adminLevels) {
+          const name = a.name || '';
+          if (/^(Quận|Huyện|thị xã|Thành phố)\s/.test(name) || /^(Quận|Huyện)/.test(name)) {
+            district = name;
+          }
         }
+        // Fallback: tìm trong informative nếu không thấy trong administrative
+        if (!district) {
+          for (const a of informative) {
+            const name = a.name || '';
+            if (/^Quận\s/.test(name) || /^Huyện\s/.test(name)) {
+              district = name;
+            }
+          }
+        }
+
+        // Ưu tiên: quận/huyện → locality (phường/xã) → city
+        cityName = district || locality || bdcData.city || '';
+        // Làm sạch: "Quận Tân Phú" → "Tân Phú", "Phường Phú Thạnh" → "Phú Thạnh"
+        cityName = cityName.replace(/^(Quận|Huyện|Phường|Xã|Thị trấn|Thành phố|TP\.)\s+/i, '');
       }
     } catch (geoErr) {
       console.warn('[Weather] Geocode error:', geoErr.message);
