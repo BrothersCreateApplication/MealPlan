@@ -133,10 +133,11 @@
       }
     } catch (e) {
       console.warn('Load more error:', e);
-      newDishes = getSampleDishes();
+      // Not in search mode: fallback to sample
+      if (!isSearchMode) newDishes = getSampleDishes();
     }
 
-    if (newDishes.length === 0) {
+    if (newDishes.length === 0 && !isSearchMode) {
       newDishes = getSampleDishes();
     }
 
@@ -831,14 +832,20 @@
                 }
               });
 
-              // Xoá loading, render DB dishes ngay
-              renderDishes(allDishes);
+              if (allDishes.length > 0) {
+                // Có DB results — render ngay
+                renderDishes(allDishes);
+              }
+              // Nếu DB rỗng: giữ nguyên loading, chờ AI
 
               const statusEl = document.getElementById('search-status');
-              if (statusEl) {
-                statusEl.textContent = allDishes.length >= 6
-                  ? '✓ Đã tìm đủ món từ cơ sở dữ liệu'
-                  : `🔎 Có ${allDishes.length} món từ dữ liệu, AI đang tạo thêm...`;
+              if (!statusEl) continue;
+              if (allDishes.length >= 6) {
+                statusEl.textContent = '✓ Đã tìm đủ món từ cơ sở dữ liệu';
+              } else if (allDishes.length > 0) {
+                statusEl.textContent = `🔎 Có ${allDishes.length} món từ dữ liệu, AI đang tạo thêm...`;
+              } else {
+                statusEl.textContent = '🤖 Không có trong DB, AI đang tìm món mới...';
               }
 
             } else if (payload.type === 'ai_start') {
@@ -869,6 +876,19 @@
               // Hoàn tất
               const statusEl = document.getElementById('search-status');
               if (statusEl) statusEl.textContent = '✓ Hoàn tất!';
+
+              // Nếu không có kết quả nào sau khi hoàn tất, hiển thị thông báo
+              if (allDishes.length === 0) {
+                const grid = document.getElementById('dish-grid');
+                if (grid) {
+                  grid.innerHTML = `
+                    <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
+                      <span class="material-symbols-outlined text-5xl text-outline mb-4">search_off</span>
+                      <p class="text-on-surface-variant font-body-md">Không tìm thấy món "${query}"</p>
+                      <p class="text-xs text-on-surface-variant mt-2">Hãy thử từ khóa khác hoặc thêm món qua camera</p>
+                    </div>`;
+                }
+              }
             }
           } catch (e) {
             // skip parse error
@@ -894,25 +914,33 @@
 
       if (dishes.length > 0) {
         dishes = filterByPriority(dishes, query);
+        renderDishes(dishes);
+      } else {
+        // Không có kết quả — show not found
+        const grid = document.getElementById('dish-grid');
+        if (grid) {
+          grid.innerHTML = `
+            <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
+              <span class="material-symbols-outlined text-5xl text-outline mb-4">search_off</span>
+              <p class="text-on-surface-variant font-body-md">Không tìm thấy món "${query}"</p>
+              <p class="text-xs text-on-surface-variant mt-2">Hãy thử từ khóa khác hoặc thêm món qua camera</p>
+            </div>`;
+        }
       }
-
-      if (dishes.length === 0) {
-        const sample = getSampleDishes();
-        dishes = filterByPriority(sample, query);
-        if (dishes.length === 0) dishes = sample.filter(d =>
-          d.name && d.name.toLowerCase().includes(query.toLowerCase())
-        );
-        if (dishes.length === 0) dishes = sample.slice(0, 3);
-      }
-
-      renderDishes(dishes);
     }
 
-    // Fallback: nếu không có món nào
+    // Fallback: nếu không có món nào (cả DB + AI đều rỗng)
     if (allDishes.length === 0) {
-      const sample = getSampleDishes();
-      const filtered = filterByPriority(sample, query);
-      renderDishes(filtered.length > 0 ? filtered : sample.slice(0, 3));
+      const grid = document.getElementById('dish-grid');
+      if (grid) {
+        // Không dùng getSampleDishes() — chỉ hiện thông báo không tìm thấy
+        grid.innerHTML = `
+          <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
+            <span class="material-symbols-outlined text-5xl text-outline mb-4">search_off</span>
+            <p class="text-on-surface-variant font-body-md">Không tìm thấy món "${query}"</p>
+            <p class="text-xs text-on-surface-variant mt-2">Hãy thử từ khóa khác hoặc thêm món qua camera</p>
+          </div>`;
+      }
     }
   }
 

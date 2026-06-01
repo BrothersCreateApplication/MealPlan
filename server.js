@@ -249,7 +249,9 @@ app.get('/api/search-dishes-stream', async (req, res) => {
       }
     } catch (e) {
       console.error('[DeepSeek] Failed to parse accumulated JSON:', e.message);
-      console.error('[DeepSeek] Accumulated text (first 200):', accumulated.slice(0, 200));
+      console.error('[DeepSeek] Accumulated text (first 500):', accumulated.slice(0, 500));
+      // Log the raw accumulated without JSON parse
+      console.error('[DeepSeek] Raw accumulated:', accumulated);
     }
 
     // Lưu AI dishes vào DB (fire-and-forget)
