@@ -12,6 +12,9 @@
     periodName: null,        // Tiếng Việt
     sectionIndex: {},        // { breakfast: 0, lunch: 0, dinner: 0, night: 0 } for cycling
     sectionData: {},         // { breakfast: [], lunch: [], dinner: [], night: [] }
+    isSearchMode: false,     // true when user is searching
+    lastSearchQuery: '',     // last search query
+    searchResults: [],       // search results from API
     isLoading: true,
     geoError: false,
     mealPeriods: [
@@ -140,9 +143,8 @@
     descEl.textContent = weatherLabel(w.condition);
 
     const weatherVibe = weatherKeywords[w.condition];
-    const vibeText = weatherVibe ? `thời tiết ${weatherVibe.vibe}` : 'bình thường';
-    textEl.textContent = `📍 ${state.cityName || 'Vị trí của bạn'} • ${periodLabel()} • ${weatherLabel(w.condition)} • ${w.temp}°C`;
-    contextEl.textContent = `⏰ ${state.periodName} — Trời ${weatherLabel(w.condition).toLowerCase()}, gợi ý món ${vibeText}`;
+    textEl.innerHTML = `${state.cityName || ''} <span class="text-outline mx-0.5">•</span> ${periodLabel()} <span class="text-outline mx-0.5">•</span> ${weatherLabel(w.condition)} <span class="text-outline mx-0.5">•</span> <strong>${w.temp}°C</strong>`;
+    contextEl.textContent = `Gợi ý món ${weatherVibe ? weatherVibe.vibe : 'phù hợp'} cho ${state.periodName.toLowerCase()}`;
   }
 
   function weatherLabel(cond) {
@@ -160,24 +162,44 @@
     return vibes[state.mealPeriod] || 'ngon';
   }
 
-  // ---- Emoji lookup for dish names ----
-  const dishEmojiMap = {
-    'salad': '🥗', 'phở': '🍜', 'bánh': '🥟', 'trứng': '🥚', 'cơm': '🍚',
-    'canh': '🥣', 'nướng': '🔥', 'chiên': '🍳', 'xào': '🥘', 'kho': '🍲',
-    'luộc': '🥟', 'rau': '🥬', 'tôm': '🦐', 'cá': '🐟', 'gà': '🍗',
-    'bò': '🥩', 'heo': '🐷', 'lợn': '🐷', 'chả': '🥓', 'mì': '🍝',
-    'lẩu': '🍲', 'cháo': '🥣', 'súp': '🥣', 'bún': '🍜', 'bò': '🥩',
-    'bánh mì': '🥖', 'sữa': '🥛', 'xôi': '🍚', 'ốp la': '🍳',
+  // ---- Dish icon lookup (Material Symbols + gradient pair) ----
+  const dishIconMap = {
+    'salad': { icon: 'nutrition', bg: 'from-lime-400/20 to-green-400/20' },
+    'phở': { icon: 'ramen_dining', bg: 'from-amber-400/20 to-orange-400/20' },
+    'bánh': { icon: 'bakery_dining', bg: 'from-purple-400/20 to-fuchsia-300/20' },
+    'trứng': { icon: 'egg_alt', bg: 'from-yellow-300/20 to-amber-200/20' },
+    'cơm': { icon: 'rice_bowl', bg: 'from-orange-400/20 to-yellow-300/20' },
+    'canh': { icon: 'soup_kitchen', bg: 'from-teal-400/20 to-cyan-300/20' },
+    'nướng': { icon: 'local_fire_department', bg: 'from-red-400/20 to-orange-400/20' },
+    'chiên': { icon: 'cooking', bg: 'from-amber-400/20 to-yellow-300/20' },
+    'xào': { icon: 'skillet', bg: 'from-orange-400/20 to-yellow-300/20' },
+    'kho': { icon: 'stove', bg: 'from-amber-500/20 to-orange-400/20' },
+    'luộc': { icon: 'water', bg: 'from-teal-400/20 to-cyan-300/20' },
+    'rau': { icon: 'eco', bg: 'from-green-400/20 to-emerald-300/20' },
+    'tôm': { icon: 'set_meal', bg: 'from-pink-400/20 to-orange-300/20' },
+    'cá': { icon: 'set_meal', bg: 'from-blue-400/20 to-teal-300/20' },
+    'gà': { icon: 'lunch_dining', bg: 'from-amber-400/20 to-yellow-300/20' },
+    'bò': { icon: 'lunch_dining', bg: 'from-red-400/20 to-orange-400/20' },
+    'lẩu': { icon: 'local_fire_department', bg: 'from-red-500/20 to-orange-400/20' },
+    'cháo': { icon: 'soup_kitchen', bg: 'from-teal-400/20 to-cyan-300/20' },
+    'súp': { icon: 'soup_kitchen', bg: 'from-amber-400/20 to-orange-300/20' },
+    'bún': { icon: 'ramen_dining', bg: 'from-amber-400/20 to-orange-400/20' },
+    'mì': { icon: 'ramen_dining', bg: 'from-yellow-500/20 to-orange-400/20' },
+    'bánh mì': { icon: 'bakery_dining', bg: 'from-amber-400/20 to-yellow-300/20' },
+    'sữa': { icon: 'local_cafe', bg: 'from-blue-200/20 to-white/20' },
+    'xôi': { icon: 'rice_bowl', bg: 'from-orange-400/20 to-yellow-300/20' },
+    'nem': { icon: 'dining', bg: 'from-green-400/20 to-emerald-300/20' },
+    'cuốn': { icon: 'dining', bg: 'from-green-400/20 to-teal-300/20' },
+    'gỏi': { icon: 'nutrition', bg: 'from-lime-400/20 to-green-400/20' },
   };
 
-  function getDishEmoji(name) {
+  function getDishVisual(name) {
     const lower = name.toLowerCase();
-    // Sort keys by length (longest first) for best match
-    const sorted = Object.entries(dishEmojiMap).sort(([a], [b]) => b.length - a.length);
-    for (const [key, emoji] of sorted) {
-      if (lower.includes(key)) return emoji;
+    const sorted = Object.entries(dishIconMap).sort(([a], [b]) => b.length - a.length);
+    for (const [key, val] of sorted) {
+      if (lower.includes(key)) return val;
     }
-    return '🍽️';
+    return { icon: 'restaurant', bg: 'from-primary/10 to-primary-container/20' };
   }
 
   // ---- Fetch all dishes from DB ----
@@ -271,11 +293,37 @@
     const grid = document.getElementById('dish-grid');
     if (!grid) return;
 
+    const titleEl = document.getElementById('meal-grid-title');
+    const loadBtn = document.getElementById('btn-load-more');
+
+    // Search mode: use searchResults, show all, no cycle
+    if (state.isSearchMode) {
+      const results = state.searchResults || [];
+      if (titleEl) titleEl.textContent = `🔍 Tìm "${state.lastSearchQuery}"`;
+      if (loadBtn) loadBtn.classList.add('hidden');
+
+      if (!results || results.length === 0) {
+        const isSearching = document.querySelector('.animate-spin');
+        if (isSearching) return; // still loading, keep spinner
+        grid.innerHTML = `
+          <div class="bg-surface-container-lowest rounded-xl p-8 text-center col-span-full border border-outline-variant/20">
+            <span class="material-symbols-outlined text-4xl text-outline mb-2">search_off</span>
+            <p class="text-sm text-on-surface-variant">Không tìm thấy món "${state.lastSearchQuery}"</p>
+            <p class="text-xs text-on-surface-variant mt-2">Hãy thử từ khóa khác hoặc thêm món qua camera</p>
+          </div>`;
+        return;
+      }
+
+      grid.innerHTML = results.map(dish => renderCard(dish)).join('');
+      attachGridEvents(grid);
+      return;
+    }
+
+    // Normal mode: use sectionData
     const dishes = state.sectionData[mealId] || [];
     const idx = state.sectionIndex[mealId] || 0;
 
     // Update title
-    const titleEl = document.getElementById('meal-grid-title');
     if (titleEl) titleEl.textContent = tabConfig[mealId]?.title || mealId;
 
     if (!dishes || dishes.length === 0) {
@@ -295,36 +343,7 @@
       if (d && !shown.some(t => t.name === d.name)) shown.push(d);
     }
 
-    grid.innerHTML = shown.map(dish => `
-      <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high animate-fade-in">
-        <div class="p-4">
-          <div class="flex items-start justify-between mb-2">
-            <h4 class="font-title-md text-on-surface flex-1"><span class="mr-1.5">${getDishEmoji(dish.name)}</span>${dish.name}</h4>
-            <button class="fav-btn flex-shrink-0 ml-2 p-1 rounded-full hover:bg-surface-container-high transition-all" data-dish="${dish.name}">
-              <span class="material-symbols-outlined text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
-            </button>
-          </div>
-          <div class="flex items-center gap-3 mb-2 flex-wrap">
-            <span class="flex items-center gap-1 text-xs text-on-surface-variant">
-              <span class="material-symbols-outlined text-[14px]">schedule</span> ${dish.time || '--'}
-            </span>
-            <span class="flex items-center gap-1 text-xs text-on-surface-variant">
-              <span class="material-symbols-outlined text-[14px]">local_fire_department</span> ${dish.calories || '--'}
-            </span>
-            ${dish.difficulty ? `<span class="text-[10px] bg-surface-container-high text-on-surface-variant px-1.5 py-0.5 rounded-full font-semibold">${dish.difficulty}</span>` : ''}
-          </div>
-          ${dish.description ? `<p class="text-xs text-on-surface-variant mb-3 line-clamp-2">${dish.description}</p>` : ''}
-          <div class="flex gap-2">
-            <button class="detail-btn flex-1 bg-surface-container-high text-primary py-2 rounded-lg text-xs font-label-md hover:bg-primary-container/30 active:scale-[0.98] transition-all" data-dish-name="${dish.name}">
-              <span class="material-symbols-outlined text-[16px] align-middle">article</span> Xem
-            </button>
-            <button class="meal-cook-btn flex-1 bg-primary text-on-primary py-2 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1" data-dish-name="${dish.name}">
-              <span class="material-symbols-outlined text-[16px]">cooking</span> Nấu
-            </button>
-          </div>
-        </div>
-      </div>
-    `).join('');
+    grid.innerHTML = shown.map(dish => renderCard(dish)).join('');
 
     // Attach events
     attachGridEvents(grid);
@@ -334,13 +353,53 @@
     if (loadBtn) loadBtn.classList.toggle('hidden', dishes.length <= 10);
   }
 
+  // ---- Render single dish card (compact design) ----
+  function renderCard(dish) {
+    const visual = getDishVisual(dish.name);
+    return `
+      <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden border border-surface-container-high animate-fade-in">
+        <div class="p-3.5">
+          <div class="flex items-center gap-2.5">
+            <div class="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br ${visual.bg} text-primary flex-shrink-0">
+              <span class="material-symbols-outlined text-[22px]" style="font-variation-settings:'FILL' 1">${visual.icon}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-1.5">
+                <h4 class="font-label-md text-on-surface truncate">${dish.name}</h4>
+                <button class="fav-btn flex-shrink-0 p-0.5 rounded-full hover:bg-surface-container-high transition-all" data-dish="${dish.name}">
+                  <span class="material-symbols-outlined text-secondary text-[16px] ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
+                </button>
+              </div>
+              <div class="flex items-center gap-2 mt-0.5">
+                <span class="flex items-center gap-0.5 text-[11px] text-on-surface-variant">
+                  <span class="material-symbols-outlined text-[12px]">schedule</span> ${dish.time || '--'}
+                </span>
+                <span class="flex items-center gap-0.5 text-[11px] text-on-surface-variant">
+                  <span class="material-symbols-outlined text-[12px]">local_fire_department</span> ${dish.calories || '--'}
+                </span>
+                ${dish.difficulty ? `<span class="text-[9px] bg-surface-container-high text-on-surface-variant px-1.5 py-0.5 rounded-full font-semibold">${dish.difficulty}</span>` : ''}
+              </div>
+            </div>
+            <div class="flex gap-1.5 flex-shrink-0">
+              <button class="detail-btn w-9 h-9 flex items-center justify-center bg-surface-container-high text-primary rounded-lg hover:bg-primary-container/30 active:scale-95 transition-all" data-dish-name="${dish.name}" title="Xem chi tiết">
+                <span class="material-symbols-outlined text-[18px]">article</span>
+              </button>
+              <button class="meal-cook-btn w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-lg hover:opacity-90 active:scale-95 transition-all" data-dish-name="${dish.name}" title="Nấu ăn">
+                <span class="material-symbols-outlined text-[18px]">cooking</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
   // ---- Attach events for dish grid ----
   function attachGridEvents(grid) {
     grid.querySelectorAll('.detail-btn').forEach(btn => {
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
         const name = this.dataset.dishName;
-        const dish = state.allDishes.find(d => d.name === name);
+        const dish = state.allDishes.find(d => d.name === name) || state.searchResults.find(d => d.name === name);
         if (dish) showRecipeDetail(dish);
         else MealPlan.showToast('Không thể hiển thị chi tiết!', 'error');
       });
@@ -349,7 +408,7 @@
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
         const name = this.dataset.dishName;
-        const dish = state.allDishes.find(d => d.name === name);
+        const dish = state.allDishes.find(d => d.name === name) || state.searchResults.find(d => d.name === name);
         if (dish) {
           MealPlan.setCart(dish.ingredients || []);
           MealPlan.state.currentMealName = dish.name;
@@ -383,6 +442,9 @@
 
   function switchMealTab(mealId) {
     currentMealTab = mealId;
+    // Clear search mode when switching tabs
+    state.isSearchMode = false;
+    state.searchResults = [];
     // Update tab styles
     document.querySelectorAll('.meal-tab').forEach(tab => {
       const isActive = tab.dataset.meal === mealId;
@@ -396,6 +458,11 @@
 
   // ---- Refresh / cycle a tab (advance by 10 dishes) ----
   function handleRefresh() {
+    // If in search mode, re-search with the same query
+    if (state.isSearchMode && state.lastSearchQuery) {
+      handleSearch(state.lastSearchQuery);
+      return;
+    }
     const mealId = currentMealTab;
     const dishes = state.sectionData[mealId] || [];
     if (dishes.length <= 10) {
@@ -714,12 +781,41 @@
     if (error) error.classList.remove('hidden');
   }
 
-  // ===================== Search (kept from original) =====================
+  // ===================== Search =====================
   async function handleSearch(query) {
     if (!query.trim()) return;
-    // Redirect to search via SSE — show in a single grid
-    // For now, fall back to original behavior
-    MealPlan.showToast(`🔍 Đã tìm "${query}"`, 'info');
+
+    state.isSearchMode = true;
+    state.lastSearchQuery = query;
+    state.searchResults = [];
+
+    // Show loading state
+    const grid = document.getElementById('dish-grid');
+    const titleEl = document.getElementById('meal-grid-title');
+    if (titleEl) titleEl.textContent = `🔍 Đang tìm "${query}"...`;
+    if (grid) {
+      grid.innerHTML = `
+        <div class="bg-surface-container-lowest rounded-xl p-8 text-center col-span-full border border-outline-variant/20">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p class="text-sm text-on-surface-variant">🔍 Đang tìm kiếm "${query}"...</p>
+        </div>`;
+    }
+    document.getElementById('btn-load-more')?.classList.add('hidden');
+
+    try {
+      const res = await fetch('/api/search-dishes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
+      const data = await res.json();
+      state.searchResults = data.dishes || [];
+    } catch (e) {
+      console.warn('[Home] Search error:', e);
+      state.searchResults = [];
+    }
+
+    renderGrid(currentMealTab);
   }
 
   // ===================== Init =====================
