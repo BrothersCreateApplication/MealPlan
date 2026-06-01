@@ -9,6 +9,20 @@ const db = require('./supabase');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ---- In-memory cache cho dishes ----
+let dishesCache = { data: null, time: 0 };
+const CACHE_TTL = 60000; // 60 giây cache
+
+async function getCachedDishes() {
+  const now = Date.now();
+  if (dishesCache.data && (now - dishesCache.time) < CACHE_TTL) {
+    return dishesCache.data;
+  }
+  dishesCache.data = await db.getAllDishes();
+  dishesCache.time = now;
+  return dishesCache.data;
+}
+
 // ---- Helper: parse JSON safely ----
 function tryParseJSON(str) {
   try { return JSON.parse(str); } catch (e) { return null; }
@@ -534,7 +548,7 @@ app.get('/api/weather', async (req, res) => {
 // ===================== Dish Management API =====================
 
 app.get('/api/dishes', async (req, res) => {
-  const dishes = await db.getAllDishes();
+  const dishes = await getCachedDishes();
   res.json({ dishes });
 });
 
