@@ -42,53 +42,55 @@ app.post('/api/search-dishes', async (req, res) => {
 
   const q = query.trim().toLowerCase();
 
-  // 1. Lấy món chứa chính xác cụm từ từ DB
+  // 1. Lấy món chứa chính xác cụm từ từ DB (MIỄN PHÍ)
   const { exactMatch } = await db.searchDishes(q);
   let aiDishes = [];
 
-  // 2. Luôn gọi AI để có kết quả chính xác + gần giống
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (apiKey) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 20000);
-      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: [
-            { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước). Tìm "${query}". LUẬT: Chỉ trả món có tên chứa "${query}" — VD tìm "bánh canh" thì trả "bánh canh cá lóc", "bánh canh tôm", "bánh canh giò heo"... Nếu DB chưa có, tạo các biến thể của "${query}". Trả 6-10 món. Instructions: ngắn gọn, đủ bước.` },
-            { role: 'user', content: `Tìm món: ${query}` }
-          ],
-          temperature: 0.7,
-          max_tokens: 3000
-        }),
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
+  // 2. Chỉ gọi AI nếu DB chưa đủ 6 món
+  if (exactMatch.length < 6) {
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+    if (apiKey) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: 'deepseek-chat',
+            messages: [
+              { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước). Tìm "${query}". LUẬT: Chỉ trả món có tên chứa "${query}" — VD tìm "bánh canh" thì trả "bánh canh cá lóc", "bánh canh tôm", "bánh canh giò heo"... Nếu DB chưa có, tạo các biến thể của "${query}". Trả 6-10 món. Instructions: ngắn gọn, đủ bước.` },
+              { role: 'user', content: `Tìm món: ${query}` }
+            ],
+            temperature: 0.7,
+            max_tokens: 3000
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
 
-      if (response.ok) {
-        const data = await response.json();
-        const content = data?.choices?.[0]?.message?.content;
-        if (content) {
-          const parsed = JSON.parse(content);
-          const aiRaw = Array.isArray(parsed) ? parsed : [parsed];
-          aiDishes = aiRaw.map(normalizeDish);
+        if (response.ok) {
+          const data = await response.json();
+          const content = data?.choices?.[0]?.message?.content;
+          if (content) {
+            const parsed = JSON.parse(content);
+            const aiRaw = Array.isArray(parsed) ? parsed : [parsed];
+            aiDishes = aiRaw.map(normalizeDish);
 
-          // Lưu vào DB cho lần sau
-          const saveResults = await db.addNewDishes(aiDishes);
-          const inserted = saveResults.filter(r => r && r.action === 'inserted');
-          if (inserted.length > 0) {
-            console.log(`[DeepSeek] Saved ${inserted.length} new dishes to Supabase from search: "${query}"`);
+            // Lưu vào DB cho lần sau
+            const saveResults = await db.addNewDishes(aiDishes);
+            const inserted = saveResults.filter(r => r && r.action === 'inserted');
+            if (inserted.length > 0) {
+              console.log(`[DeepSeek] Saved ${inserted.length} new dishes to Supabase from search: "${query}"`);
+            }
           }
         }
+      } catch (e) {
+        console.error('DeepSeek search error:', e.message);
       }
-    } catch (e) {
-      console.error('DeepSeek search error:', e.message);
     }
   }
 
@@ -110,6 +112,163 @@ app.post('/api/search-dishes', async (req, res) => {
   for (const d of aiDishes) addIfNew(d);
 
   res.json({ dishes: merged.slice(0, 10), fromCache: exactMatch.length > 0 });
+});
+
+// ---- Search dishes STREAMING: SSE, DB trước, DeepSeek stream sau ----
+app.get('/api/search-dishes-stream', async (req, res) => {
+  const query = req.query.query;
+  if (!query) return res.json({ dishes: [] });
+
+  const q = query.trim().toLowerCase();
+
+  // SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  // 1. DB results immediately
+  const { exactMatch } = await db.searchDishes(q);
+  let seenNames = new Set(exactMatch.map(d => d.name.toLowerCase()));
+
+  res.write(`data: ${JSON.stringify({ type: 'db', dishes: exactMatch })}\n\n`);
+
+  // 2. Kiểm tra nếu đã đủ món thì không cần AI
+  if (exactMatch.length >= 6) {
+    res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+    res.end();
+    return;
+  }
+
+  // 3. Báo hiệu AI bắt đầu
+  res.write(`data: ${JSON.stringify({ type: 'ai_start' })}\n\n`);
+
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) {
+    res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+    res.end();
+    return;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
+
+    const aiResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước). Tìm "${query}". LUẬT: Chỉ trả món có tên chứa "${query}" — VD tìm "bánh canh" thì trả "bánh canh cá lóc", "bánh canh tôm", "bánh canh giò heo"... Nếu DB chưa có, tạo các biến thể của "${query}". Trả 6-10 món. Instructions: ngắn gọn, đủ bước.` },
+          { role: 'user', content: `Tìm món: ${query}` }
+        ],
+        temperature: 0.7,
+        max_tokens: 3000,
+        stream: true
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+
+    if (!aiResponse.ok) {
+      const errText = await aiResponse.text().catch(() => '');
+      console.error(`[DeepSeek] Stream HTTP ${aiResponse.status}: ${errText.slice(0, 200)}`);
+      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      res.end();
+      return;
+    }
+
+    // Stream DeepSeek response
+    const reader = aiResponse.body.getReader();
+    const decoder = new TextDecoder();
+    let sseBuffer = '';
+    let accumulated = '';
+    let allAiDishes = [];
+
+    async function processChunk() {
+      // Process SSE lines from DeepSeek
+      const lines = sseBuffer.split('\n');
+      sseBuffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed?.choices?.[0]?.delta?.content || '';
+            if (content) {
+              accumulated += content;
+            }
+          } catch (e) {
+            // Not a valid JSON line — skip
+          }
+        }
+      }
+    }
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      sseBuffer += decoder.decode(value, { stream: true });
+      await processChunk();
+    }
+
+    // Xử lý buffer còn lại
+    if (sseBuffer.trim()) {
+      await processChunk();
+    }
+
+    // Parse complete accumulated JSON and send dishes
+    try {
+      // Strip markdown code blocks if present
+      let clean = accumulated.trim();
+      const jsonMatch = clean.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        clean = jsonMatch[1].trim();
+      }
+
+      const arr = JSON.parse(clean);
+      if (Array.isArray(arr)) {
+        for (const d of arr) {
+          const normalized = normalizeDish(d);
+          if (!normalized || !normalized.name) continue;
+          const key = normalized.name.toLowerCase();
+          if (!seenNames.has(key)) {
+            seenNames.add(key);
+            allAiDishes.push(normalized);
+            res.write(`data: ${JSON.stringify({ type: 'ai', dish: normalized })}\n\n`);
+          }
+        }
+        console.log(`[DeepSeek] Parsed ${arr.length} dishes from stream, sent ${allAiDishes.length} new`);
+      }
+    } catch (e) {
+      console.error('[DeepSeek] Failed to parse accumulated JSON:', e.message);
+      console.error('[DeepSeek] Accumulated text (first 200):', accumulated.slice(0, 200));
+    }
+
+    // Lưu AI dishes vào DB (fire-and-forget)
+    if (allAiDishes.length > 0) {
+      db.addNewDishes(allAiDishes).then(saveResults => {
+        const inserted = saveResults.filter(r => r && r.action === 'inserted');
+        if (inserted.length > 0) {
+          console.log(`[DeepSeek] Saved ${inserted.length} new dishes to Supabase from stream: "${query}"`);
+        }
+      }).catch(e => console.error('[DeepSeek] Save stream dishes error:', e.message));
+    }
+
+    console.log(`[DeepSeek] Streamed ${allAiDishes.length} AI dishes for: "${query}"`);
+  } catch (e) {
+    console.error('DeepSeek stream error:', e.message);
+  }
+
+  res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+  res.end();
 });
 
 // ---- Random dishes ----

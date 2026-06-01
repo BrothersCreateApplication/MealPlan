@@ -771,7 +771,7 @@
     }
   }
 
-  // ---- Search: cache DB trước, DeepSeek nếu món mới ----
+  // ---- Search: SSE streaming — DB trước, AI stream sau ----
   async function handleSearch(query) {
     if (!query.trim()) {
       await loadRandomDishes();
@@ -787,40 +787,229 @@
         <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p class="text-on-surface-variant font-body-md">🔍 Đang tìm kiếm gợi ý cho "${query}"...</p>
-          <p class="text-xs text-on-surface-variant mt-2">Đang tra cứu cơ sở dữ liệu và AI để có kết quả chính xác nhất — vui lòng đợi trong giây lát</p>
+          <p class="text-xs text-on-surface-variant mt-2" id="search-status">Đang tra cứu cơ sở dữ liệu...</p>
         </div>`;
     }
 
-    // 1. Gọi API search — cache server check trước
-    let dishes = [];
+    // Dùng SSE để nhận DB results + AI stream
+    let allDishes = [];
+    let seenNames = new Set();
+
     try {
-      const res = await fetch('/api/search-dishes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
-      });
-      const data = await res.json();
-      if (data.dishes) dishes = data.dishes;
+      const res = await fetch(`/api/search-dishes-stream?query=${encodeURIComponent(query)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE — mỗi event là "data: {json}\n\n"
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || '';
+
+        for (const event of events) {
+          const match = event.match(/^data: (.+)/m);
+          if (!match) continue;
+
+          try {
+            const payload = JSON.parse(match[1]);
+
+            if (payload.type === 'db') {
+              // DB results — hiển thị ngay lập tức
+              const dbDishes = Array.isArray(payload.dishes) ? payload.dishes : [];
+              dbDishes.forEach(d => {
+                const key = d.name.toLowerCase();
+                if (!seenNames.has(key)) {
+                  seenNames.add(key);
+                  allDishes.push(d);
+                }
+              });
+
+              // Xoá loading, render DB dishes ngay
+              renderDishes(allDishes);
+
+              const statusEl = document.getElementById('search-status');
+              if (statusEl) {
+                statusEl.textContent = allDishes.length >= 6
+                  ? '✓ Đã tìm đủ món từ cơ sở dữ liệu'
+                  : `🔎 Có ${allDishes.length} món từ dữ liệu, AI đang tạo thêm...`;
+              }
+
+            } else if (payload.type === 'ai_start') {
+              // AI bắt đầu generate
+              const statusEl = document.getElementById('search-status');
+              if (statusEl) statusEl.textContent = '🤖 AI đang tạo công thức mới, sẽ hiển thị dần...';
+
+              // Nếu đang ở loading state, render DB results trước
+              if (allDishes.length > 0 && document.querySelector('.animate-spin')) {
+                renderDishes(allDishes);
+              }
+
+            } else if (payload.type === 'ai') {
+              // Nhận từng món từ AI stream
+              const dish = payload.dish;
+              if (dish && dish.name) {
+                const key = dish.name.toLowerCase();
+                if (!seenNames.has(key)) {
+                  seenNames.add(key);
+                  allDishes.push(dish);
+
+                  // Append card mới
+                  appendSingleDish(dish, allDishes.length - 1);
+                }
+              }
+
+            } else if (payload.type === 'done') {
+              // Hoàn tất
+              const statusEl = document.getElementById('search-status');
+              if (statusEl) statusEl.textContent = '✓ Hoàn tất!';
+            }
+          } catch (e) {
+            // skip parse error
+          }
+        }
+      }
     } catch (e) {
-      console.warn('Search API error:', e);
+      console.warn('Search stream error, falling back to regular API:', e);
+
+      // Fallback: gọi POST API cũ
+      let dishes = [];
+      try {
+        const fallbackRes = await fetch('/api/search-dishes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query })
+        });
+        const data = await fallbackRes.json();
+        if (data.dishes) dishes = data.dishes;
+      } catch (e2) {
+        console.warn('Fallback search error:', e2);
+      }
+
+      if (dishes.length > 0) {
+        dishes = filterByPriority(dishes, query);
+      }
+
+      if (dishes.length === 0) {
+        const sample = getSampleDishes();
+        dishes = filterByPriority(sample, query);
+        if (dishes.length === 0) dishes = sample.filter(d =>
+          d.name && d.name.toLowerCase().includes(query.toLowerCase())
+        );
+        if (dishes.length === 0) dishes = sample.slice(0, 3);
+      }
+
+      renderDishes(dishes);
     }
 
-    // 2. Client-side filter: ưu tiên theo phương pháp chế biến
-    if (dishes.length > 0) {
-      dishes = filterByPriority(dishes, query);
-    }
-
-    // 3. Fallback cuối
-    if (dishes.length === 0) {
+    // Fallback: nếu không có món nào
+    if (allDishes.length === 0) {
       const sample = getSampleDishes();
-      dishes = filterByPriority(sample, query);
-      if (dishes.length === 0) dishes = sample.filter(d =>
-        d.name && d.name.toLowerCase().includes(query.toLowerCase())
-      );
-      if (dishes.length === 0) dishes = sample.slice(0, 3);
+      const filtered = filterByPriority(sample, query);
+      renderDishes(filtered.length > 0 ? filtered : sample.slice(0, 3));
+    }
+  }
+
+  // ---- Append single dish card (cho AI stream) ----
+  function appendSingleDish(dish, idx) {
+    const grid = document.getElementById('dish-grid');
+    if (!grid) return;
+
+    // Thêm vào currentDishes để tránh trùng khi Xem thêm
+    currentDishes.push(dish);
+
+    // Nếu grid đang ở loading state, thay thế nội dung
+    if (grid.querySelector('.animate-spin')) {
+      grid.innerHTML = '';
+      return renderDishes(currentDishes);
     }
 
-    renderDishes(dishes);
+    // Nếu grid đang hiện "Không tìm thấy món" — thay thế bằng dishes
+    if (grid.textContent.includes('Không tìm thấy')) {
+      return renderDishes(currentDishes);
+    }
+
+    const { gradient, emoji } = getDishVisual(dish.name);
+    const cardHtml = `
+      <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high animate-fade-in">
+        <div class="relative h-48 overflow-hidden">
+          <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
+            <span class="text-6xl">${emoji}</span>
+          </div>
+          <div class="absolute top-3 right-3">
+            <button class="fav-btn bg-white/80 backdrop-blur-md p-1.5 rounded-full shadow-sm" data-dish="${dish.name}">
+              <span class="material-symbols-outlined text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
+            </button>
+          </div>
+        </div>
+        <div class="p-4">
+          <h4 class="font-title-md text-on-surface mb-2">${dish.name}</h4>
+          <div class="flex items-center gap-gutter-md mb-3">
+            <div class="flex items-center gap-1 text-on-surface-variant font-label-md">
+              <span class="material-symbols-outlined text-[18px]">schedule</span>
+              ${dish.time || '--'}
+            </div>
+            <div class="flex items-center gap-1 text-on-surface-variant font-label-md">
+              <span class="material-symbols-outlined text-[18px]">local_fire_department</span>
+              ${dish.calories || '--'}
+            </div>
+            ${dish.difficulty ? `
+            <div class="flex items-center gap-1 text-on-surface-variant font-label-md">
+              <span class="material-symbols-outlined text-[18px]">signal_cellular_alt</span>
+              ${dish.difficulty}
+            </div>` : ''}
+          </div>
+          ${dish.description ? `<p class="text-body-md text-on-surface-variant mb-3 line-clamp-2">${dish.description}</p>` : ''}
+          <button class="detail-btn w-full flex items-center justify-center gap-2 bg-surface-container-high text-primary font-label-md px-4 py-2.5 rounded-lg hover:bg-primary-container/30 active:scale-[0.98] transition-all" data-idx="${idx}" data-dish-name="${dish.name}">
+            <span class="material-symbols-outlined text-[18px]">article</span>
+            Xem Chi tiết
+          </button>
+        </div>
+      </div>`;
+
+    grid.insertAdjacentHTML('beforeend', cardHtml);
+
+    // Load ảnh và attach events
+    loadDishImage(dish.name);
+    attachSingleDishEvents(dish, idx);
+  }
+
+  // ---- Attach events cho 1 dish mới ----
+  function attachSingleDishEvents(dish, idx) {
+    // Attach detail btn — tìm nút cuối cùng
+    const btns = document.querySelectorAll('.detail-btn');
+    const lastBtn = btns[btns.length - 1];
+    if (lastBtn) {
+      lastBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        showRecipeDetail(dish);
+      });
+    }
+
+    // Attach fav btn — cuối cùng
+    const favBtns = document.querySelectorAll('.fav-btn');
+    const lastFav = favBtns[favBtns.length - 1];
+    if (lastFav) {
+      lastFav.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const icon = this.querySelector('.material-symbols-outlined');
+        const added = MealPlan.toggleFavorite(dish);
+        MealPlan.saveState();
+        if (added) {
+          icon.style.setProperty('font-variation-settings', "'FILL' 1");
+          icon.classList.remove('opacity-40');
+        } else {
+          icon.style.setProperty('font-variation-settings', "'FILL' 0");
+          icon.classList.add('opacity-40');
+        }
+      });
+    }
   }
 
   // ===================== Camera / Upload =====================
