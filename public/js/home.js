@@ -179,10 +179,16 @@
             </div>` : ''}
           </div>
           ${dish.description ? `<p class="text-body-md text-on-surface-variant mb-3 line-clamp-2">${dish.description}</p>` : ''}
-          <button class="detail-btn w-full flex items-center justify-center gap-2 bg-surface-container-high text-primary font-label-md px-4 py-2.5 rounded-lg hover:bg-primary-container/30 active:scale-[0.98] transition-all" data-idx="${idx}" data-dish-name="${dish.name}">
-            <span class="material-symbols-outlined text-[18px]">article</span>
-            Xem Chi tiết
-          </button>
+          <div class="flex gap-2">
+            <button class="detail-btn flex-1 flex items-center justify-center gap-1.5 bg-surface-container-high text-primary font-label-md px-3 py-2.5 rounded-lg hover:bg-primary-container/30 active:scale-[0.98] transition-all" data-idx="${idx}" data-dish-name="${dish.name}">
+              <span class="material-symbols-outlined text-[18px]">article</span>
+              Chi tiết
+            </button>
+            <button class="health-btn flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-label-md px-3 py-2.5 rounded-lg hover:opacity-90 active:scale-[0.98] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
+              <span class="material-symbols-outlined text-[18px]">monitor_heart</span>
+              Sức khỏe
+            </button>
+          </div>
         </div>
       </div>`;
     }).join('');
@@ -405,10 +411,16 @@
             </div>` : ''}
           </div>
           ${dish.description ? `<p class="text-body-md text-on-surface-variant mb-3 line-clamp-2">${dish.description}</p>` : ''}
-          <button class="detail-btn w-full flex items-center justify-center gap-2 bg-surface-container-high text-primary font-label-md px-4 py-2.5 rounded-lg hover:bg-primary-container/30 active:scale-[0.98] transition-all" data-idx="${idx}" data-dish-name="${dish.name}">
-            <span class="material-symbols-outlined text-[18px]">article</span>
-            Xem Chi tiết
-          </button>
+          <div class="flex gap-2">
+            <button class="detail-btn flex-1 flex items-center justify-center gap-1.5 bg-surface-container-high text-primary font-label-md px-3 py-2.5 rounded-lg hover:bg-primary-container/30 active:scale-[0.98] transition-all" data-idx="${idx}" data-dish-name="${dish.name}">
+              <span class="material-symbols-outlined text-[18px]">article</span>
+              Chi tiết
+            </button>
+            <button class="health-btn flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-label-md px-3 py-2.5 rounded-lg hover:opacity-90 active:scale-[0.98] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
+              <span class="material-symbols-outlined text-[18px]">monitor_heart</span>
+              Sức khỏe
+            </button>
+          </div>
         </div>
       </div>`;
     }).join('');
@@ -460,6 +472,20 @@
           showRecipeDetail(dish);
         } else {
           MealPlan.showToast('Không thể hiển thị chi tiết món ăn!', 'error');
+        }
+      });
+    });
+
+    // Health button → show health analysis
+    document.querySelectorAll('.health-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const name = this.dataset.dishName;
+        const dish = currentDishes.find(d => d && d.name === name);
+        if (dish) {
+          showHealthAnalysis(dish);
+        } else {
+          MealPlan.showToast('Không thể phân tích sức khỏe!', 'error');
         }
       });
     });
@@ -667,9 +693,15 @@
 
         <!-- Footer -->
         <div class="flex-shrink-0 p-4 md:p-6 border-t border-outline-variant/20 bg-surface-container-lowest">
-          <button class="health-analysis-close w-full py-3.5 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-high transition-all">
-            Đóng
-          </button>
+          <div class="flex gap-gutter-md">
+            <button class="health-cook-btn flex-1 bg-primary text-on-primary py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg">
+              <span class="material-symbols-outlined">cooking</span>
+              Nấu Ăn
+            </button>
+            <button class="health-analysis-close px-5 py-3.5 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-high transition-all">
+              Đóng
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -680,6 +712,17 @@
     const close = () => overlay.remove();
     overlay.querySelectorAll('.health-analysis-close').forEach(el => el.addEventListener('click', close));
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+    // Nấu Ăn handler
+    overlay.querySelector('.health-cook-btn')?.addEventListener('click', () => {
+      const ings = dish.ingredients || [];
+      MealPlan.setCart(ings);
+      MealPlan.state.currentMealName = dish.name;
+      MealPlan.saveState();
+      overlay.remove();
+      MealPlan.navigate('cart');
+      if (window.renderCart) window.renderCart();
+    });
 
     // Gọi API phân tích
     try {
@@ -1206,10 +1249,16 @@
             </div>` : ''}
           </div>
           ${dish.description ? `<p class="text-body-md text-on-surface-variant mb-3 line-clamp-2">${dish.description}</p>` : ''}
-          <button class="detail-btn w-full flex items-center justify-center gap-2 bg-surface-container-high text-primary font-label-md px-4 py-2.5 rounded-lg hover:bg-primary-container/30 active:scale-[0.98] transition-all" data-idx="${idx}" data-dish-name="${dish.name}">
-            <span class="material-symbols-outlined text-[18px]">article</span>
-            Xem Chi tiết
-          </button>
+          <div class="flex gap-2">
+            <button class="detail-btn flex-1 flex items-center justify-center gap-1.5 bg-surface-container-high text-primary font-label-md px-3 py-2.5 rounded-lg hover:bg-primary-container/30 active:scale-[0.98] transition-all" data-idx="${idx}" data-dish-name="${dish.name}">
+              <span class="material-symbols-outlined text-[18px]">article</span>
+              Chi tiết
+            </button>
+            <button class="health-btn flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-label-md px-3 py-2.5 rounded-lg hover:opacity-90 active:scale-[0.98] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
+              <span class="material-symbols-outlined text-[18px]">monitor_heart</span>
+              Sức khỏe
+            </button>
+          </div>
         </div>
       </div>`;
 
@@ -1228,6 +1277,16 @@
       lastBtn.addEventListener('click', function(e) {
         e.stopPropagation();
         showRecipeDetail(dish);
+      });
+    }
+
+    // Attach health btn — tìm nút cuối cùng
+    const healthBtns = document.querySelectorAll('.health-btn');
+    const lastHealth = healthBtns[healthBtns.length - 1];
+    if (lastHealth) {
+      lastHealth.addEventListener('click', function(e) {
+        e.stopPropagation();
+        showHealthAnalysis(dish);
       });
     }
 
