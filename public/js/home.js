@@ -694,6 +694,8 @@
       MealPlan.state.currentMealName = dish.name;
       MealPlan.saveState();
       overlay.remove();
+      // Đóng luôn recipe overlay đang mở bên dưới (nếu có)
+      document.querySelector('.recipe-overlay')?.remove();
       MealPlan.navigate('cart');
       if (window.renderCart) window.renderCart();
     });
