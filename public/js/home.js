@@ -1516,6 +1516,8 @@
     // Attach events
     card.querySelector('.body-dish-detail')?.addEventListener('click', (e) => {
       e.stopPropagation();
+      // Ẩn result overlay để xem công thức
+      document.getElementById('body-result-overlay')?.classList.add('hidden');
       showRecipeDetail(dish);
     });
     card.querySelector('.body-dish-cook')?.addEventListener('click', (e) => {
