@@ -239,9 +239,10 @@ async function suggestDishesByIngredients(availableIngredients, limit = 5) {
     const matchedNonBasic = results.filter(r => r.isAvailable && !r.isBasic).length;
     const nonBasicTotal = results.filter(r => !r.isBasic).length;
     const missing = results.filter(r => !r.isAvailable && !r.isBasic);
+    // Nếu món chỉ toàn gia vị (không có nguyên liệu chính) → match 0% để tránh gợi ý mấy món sốt
     const matchPercent = nonBasicTotal > 0
       ? Math.round((matchedNonBasic / nonBasicTotal) * 100)
-      : 100;
+      : 0;
 
     return {
       dish,
