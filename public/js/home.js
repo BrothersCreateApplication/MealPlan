@@ -86,11 +86,6 @@
         });
         await fetchWeather(pos.coords.latitude, pos.coords.longitude);
         state.geoError = false;
-        // Get city from IP fallback
-        try {
-          const ipRes = await fetch('https://ipapi.co/json/');
-          if (ipRes.ok) { const ipData = await ipRes.json(); if (ipData.city) state.cityName = ipData.city; }
-        } catch (_) {}
       } catch (e) {
         state.geoError = true;
         console.warn('[Home] Geolocation failed:', e.message);
@@ -99,7 +94,8 @@
           const ipRes = await fetch('https://ipapi.co/json/');
           if (ipRes.ok) {
             const ipData = await ipRes.json();
-            if (ipData.city) state.cityName = ipData.city;
+            // Chỉ dùng IP fallback city nếu weather API chưa trả về city
+            if (!state.cityName && ipData.city) state.cityName = ipData.city;
             if (ipData.latitude && ipData.longitude) {
               await fetchWeather(ipData.latitude, ipData.longitude);
               state.geoError = false;
