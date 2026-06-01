@@ -923,37 +923,42 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
   // ---- Mock fallback: lấy dishes từ DB và sắp xếp ----
   try {
     const dishes = await getCachedDishes();
-    if (!dishes || dishes.length === 0) {
-      return res.json({ success: true, dishes: [], summary: '' });
-    }
+    let scored = [];
 
-    const perMealTarget = Math.round(calTarget / 3);
-    const scored = dishes.map(d => {
-      const cal = parseInt((d.calories || '').replace(/[^0-9]/g, '')) || 300;
-      const diff = Math.abs(cal - perMealTarget);
-      let matchPercent;
-      if (diff < 50) matchPercent = 95;
-      else if (diff < 100) matchPercent = 85;
-      else if (diff < 200) matchPercent = 75;
-      else if (diff < 300) matchPercent = 60;
-      else matchPercent = 45;
+    if (dishes && dishes.length > 0) {
+      const perMealTarget = Math.round(calTarget / 3);
+      scored = dishes.map(d => {
+        const cal = parseInt((d.calories || '').replace(/[^0-9]/g, '')) || 300;
+        const diff = Math.abs(cal - perMealTarget);
+        let matchPercent;
+        if (diff < 50) matchPercent = 95;
+        else if (diff < 100) matchPercent = 85;
+        else if (diff < 200) matchPercent = 75;
+        else if (diff < 300) matchPercent = 60;
+        else matchPercent = 45;
 
-      // Penalty cho món chiên nếu giảm cân, bonus cho protein nếu tăng cơ
-      let penalty = 0;
-      if (goal === 'lose') {
-        const ingNames = (d.ingredients || []).map(i => (i.name || '').toLowerCase());
-        if (ingNames.some(n => /chiên|rán|dầu|mỡ/.test(n))) penalty = 15;
-      } else if (goal === 'gain_muscle' || goal === 'gain') {
-        const ingNames = (d.ingredients || []).map(i => (i.name || '').toLowerCase());
-        if (ingNames.some(n => /thịt|bò|gà|cá|tôm|trứng|đậu/.test(n))) matchPercent += 5;
-      }
+        // Penalty cho món chiên nếu giảm cân, bonus cho protein nếu tăng cơ
+        let penalty = 0;
+        if (goal === 'lose') {
+          const ingNames = (d.ingredients || []).map(i => (i.name || '').toLowerCase());
+          if (ingNames.some(n => /chiên|rán|dầu|mỡ/.test(n))) penalty = 15;
+        } else if (goal === 'gain_muscle' || goal === 'gain') {
+          const ingNames = (d.ingredients || []).map(i => (i.name || '').toLowerCase());
+          if (ingNames.some(n => /thịt|bò|gà|cá|tôm|trứng|đậu/.test(n))) matchPercent += 5;
+        }
 
-      return { dish: d, matchPercent: Math.min(99, matchPercent - penalty) };
-    });
+        return { dish: d, matchPercent: Math.min(99, matchPercent - penalty) };
+      });
 
     // Sort by matchPercent descending, lấy top 10
     scored.sort((a, b) => b.matchPercent - a.matchPercent);
     const top = scored.slice(0, 10);
+
+    // Nếu quá ít, dùng sample
+    if (top.length < 3) {
+      const samples = getSampleBodyDishes(calTarget, goal);
+      return res.json({ success: true, dishes: samples });
+    }
 
     return res.json({ success: true, dishes: top });
   } catch (err) {
@@ -1119,11 +1124,13 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
     // No API key — stream from DB fallback
     try {
       const dishes = await getCachedDishes();
+      let scored = [];
+
       if (dishes && dishes.length > 0) {
         const perMealTarget = Math.round(parseInt(calTarget) / 3) || 500;
         const goalNorm = goal === 'gain_muscle' || goal === 'gain' ? 'gain_muscle' : goal;
 
-        const scored = dishes.map(d => {
+        scored = dishes.map(d => {
           const cal = parseInt((d.calories || '').replace(/[^0-9]/g, '')) || 300;
           const diff = Math.abs(cal - perMealTarget);
           let matchPercent = diff < 50 ? 95 : diff < 100 ? 85 : diff < 200 ? 75 : diff < 300 ? 60 : 45;
@@ -1136,13 +1143,23 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
           return { dish: d, matchPercent: Math.min(99, matchPercent - penalty) };
         });
         scored.sort((a, b) => b.matchPercent - a.matchPercent);
+      }
 
-        for (const item of scored.slice(0, 8)) {
-          sendDish(item.dish, item.matchPercent);
-        }
+      // Nếu DB không có dishes hoặc quá ít, dùng sample
+      if (scored.length < 3) {
+        scored = getSampleBodyDishes(calTarget, goal);
+      }
+
+      for (const item of scored.slice(0, 8)) {
+        sendDish(item.dish, item.matchPercent);
       }
     } catch (err) {
       console.error('Body stream DB error:', err);
+      // Fallback cứng
+      const fallback = getSampleBodyDishes(calTarget, goal);
+      for (const item of fallback) {
+        sendDish(item.dish, item.matchPercent);
+      }
     }
   }
 
@@ -1352,6 +1369,81 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Vào Bếp server running at http://localhost:${PORT}`);
 });
+
+// ---- Sample dishes cho body recommend fallback ----
+function getSampleBodyDishes(calTarget, goal) {
+  const perMeal = Math.round(parseInt(calTarget || 1800) / 3);
+  const goalNorm = `${goal || 'maintain'}`;
+  const isLose = goalNorm === 'lose';
+  const isGain = goalNorm === 'gain_muscle' || goalNorm === 'gain';
+  const isGainWeight = goalNorm === 'gain_weight';
+
+  // Dishes với calories khác nhau
+  const all = [
+    {
+      dish: { name: 'Salad Gà Luộc', time: '15 ph', calories: '280 kcal', difficulty: 'Dễ', description: 'Salad gà luộc xé sợi trộn rau củ thanh mát.', ingredients: [{name:'Ức gà',quantity:'150g'},{name:'Xà lách',quantity:'100g'},{name:'Cà rốt',quantity:'1 củ'}], instructions: '1. Ức gà luộc chín, xé sợi.\n2. Rau củ thái sợi.\n3. Trộn đều với dầu giấm.' },
+      matchPercent: 65
+    },
+    {
+      dish: { name: 'Cá Hấp Xì Dầu', time: '20 ph', calories: '320 kcal', difficulty: 'Dễ', description: 'Cá hấp nhẹ với xì dầu, gừng và hành lá.', ingredients: [{name:'Cá chép',quantity:'1 con'},{name:'Xì dầu',quantity:'3 thìa'},{name:'Gừng',quantity:'1 nhánh'}], instructions: '1. Cá làm sạch, khứa vài đường.\n2. Xếp gừng lên cá.\n3. Hấp cách thủy 15 phút.' },
+      matchPercent: 70
+    },
+    {
+      dish: { name: 'Canh Chua Cá Lóc', time: '30 ph', calories: '380 kcal', difficulty: 'Trung bình', description: 'Canh chua ngọt thanh với cá lóc tươi.', ingredients: [{name:'Cá lóc',quantity:'300g'},{name:'Me',quantity:'50g'},{name:'Đậu bắp',quantity:'100g'}], instructions: '1. Cá lóc làm sạch, cắt khúc.\n2. Me ngâm nước ấm, bỏ hạt.\n3. Nấu sôi, cho cá vào, thêm me và rau.' },
+      matchPercent: 75
+    },
+    {
+      dish: { name: 'Bò Xào Súp Lơ', time: '15 ph', calories: '480 kcal', difficulty: 'Dễ', description: 'Thịt bò xào nhanh với súp lơ xanh.', ingredients: [{name:'Thịt bò thăn',quantity:'200g'},{name:'Súp lơ xanh',quantity:'200g'},{name:'Tỏi',quantity:'3 tép'}], instructions: '1. Thịt bò thái lát, ướp gia vị.\n2. Súp lơ luộc sơ.\n3. Phi tỏi, xào bò lửa lớn 2 phút.' },
+      matchPercent: 80
+    },
+    {
+      dish: { name: 'Ức Gà Áp Chảo', time: '20 ph', calories: '350 kcal', difficulty: 'Dễ', description: 'Ức gà áp chảo thơm ngon, ít dầu mỡ.', ingredients: [{name:'Ức gà',quantity:'200g'},{name:'Dầu olive',quantity:'1 thìa'},{name:'Hạt nêm',quantity:'1 thìa'}], instructions: '1. Ức gà ướp gia vị 10 phút.\n2. Áp chảo lửa vừa 5 phút mỗi mặt.\n3. Ăn kèm rau luộc.' },
+      matchPercent: 90
+    },
+    {
+      dish: { name: 'Cơm Tấm Sườn Nướng', time: '40 ph', calories: '650 kcal', difficulty: 'Trung bình', description: 'Cơm tấm với sườn nướng thơm lừng.', ingredients: [{name:'Sườn cốt lết',quantity:'300g'},{name:'Cơm tấm',quantity:'200g'},{name:'Mỡ hành',quantity:'1 thìa'}], instructions: '1. Sườn ướp gia vị 30 phút.\n2. Nướng sườn trên bếp than hoặc lò.\n3. Dọn với cơm tấm, mỡ hành và đồ chua.' },
+      matchPercent: 85
+    },
+    {
+      dish: { name: 'Khoai Tây Chiên', time: '15 ph', calories: '520 kcal', difficulty: 'Dễ', description: 'Khoai tây chiên giòn rụm.', ingredients: [{name:'Khoai tây',quantity:'3 củ'},{name:'Dầu ăn',quantity:'200ml'}], instructions: '1. Khoai gọt vỏ, thái sợi.\n2. Ngâm nước muối, để ráo.\n3. Chiên ngập dầu lửa lớn 5 phút.' },
+      matchPercent: 55
+    },
+  ];
+
+  // Sắp xếp theo độ phù hợp calo
+  all.sort((a, b) => {
+    const diffA = Math.abs(parseInt(a.dish.calories) - perMeal);
+    const diffB = Math.abs(parseInt(b.dish.calories) - perMeal);
+    return diffA - diffB;
+  });
+
+  // Ưu tiên theo mục tiêu
+  if (isLose) {
+    all.sort((a, b) => {
+      const calA = parseInt(a.dish.calories);
+      const calB = parseInt(b.dish.calories);
+      if (calA <= perMeal && calB > perMeal) return -1;
+      if (calA > perMeal && calB <= perMeal) return 1;
+      return Math.abs(calA - perMeal) - Math.abs(calB - perMeal);
+    });
+  } else if (isGainWeight) {
+    all.sort((a, b) => {
+      const calA = parseInt(a.dish.calories);
+      const calB = parseInt(b.dish.calories);
+      if (calA >= perMeal && calB < perMeal) return -1;
+      if (calA < perMeal && calB >= perMeal) return 1;
+      return Math.abs(calA - perMeal) - Math.abs(calB - perMeal);
+    });
+  }
+
+  // Tính lại matchPercent
+  return all.map(item => {
+    const cal = parseInt(item.dish.calories) || 300;
+    const diff = Math.abs(cal - perMeal);
+    item.matchPercent = diff < 50 ? 95 : diff < 100 ? 85 : diff < 200 ? 75 : diff < 300 ? 60 : 45;
+    return item;
+  }).slice(0, 8);
+}
 
 // ---- Mock responses ----
 function getMockResponse(messages) {

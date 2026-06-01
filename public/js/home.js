@@ -1308,12 +1308,12 @@
     const bmi = weight / (heightM * heightM);
 
     // BMI status
-    let bmiStatus, bmiColor;
-    if (bmi < 18.5) { bmiStatus = 'Gầy'; bmiColor = 'text-blue-600'; }
-    else if (bmi < 23) { bmiStatus = 'Bình thường'; bmiColor = 'text-emerald-600'; }
-    else if (bmi < 25) { bmiStatus = 'Thừa cân'; bmiColor = 'text-amber-600'; }
-    else if (bmi < 30) { bmiStatus = 'Béo phì độ I'; bmiColor = 'text-orange-600'; }
-    else { bmiStatus = 'Béo phì độ II'; bmiColor = 'text-red-600'; }
+    let bmiStatus, bmiColor, bmiBadgeBg;
+    if (bmi < 18.5) { bmiStatus = 'Gầy'; bmiColor = 'text-blue-600'; bmiBadgeBg = 'bg-blue-100'; }
+    else if (bmi < 23) { bmiStatus = 'Bình thường'; bmiColor = 'text-emerald-600'; bmiBadgeBg = 'bg-emerald-100'; }
+    else if (bmi < 25) { bmiStatus = 'Thừa cân'; bmiColor = 'text-amber-600'; bmiBadgeBg = 'bg-amber-100'; }
+    else if (bmi < 30) { bmiStatus = 'Béo phì độ I'; bmiColor = 'text-orange-600'; bmiBadgeBg = 'bg-orange-100'; }
+    else { bmiStatus = 'Béo phì độ II'; bmiColor = 'text-red-600'; bmiBadgeBg = 'bg-red-100'; }
 
     // BMR — Mifflin-St Jeor
     let bmr;
@@ -1351,6 +1351,7 @@
       bmi: Math.round(bmi * 10) / 10,
       bmiStatus,
       bmiColor,
+      bmiBadgeBg,
       bmr: Math.round(bmr),
       tdee: Math.round(tdee),
       calTarget: Math.round(calTarget),
@@ -1407,7 +1408,7 @@
           <div class="bg-white/15 backdrop-blur-sm rounded-xl p-3 text-center">
             <div class="text-2xl font-bold">${metrics.bmi}</div>
             <div class="text-xs text-white/70">BMI</div>
-            <div class="text-[10px] font-semibold text-white/90">${metrics.bmiStatus}</div>
+            <div class="mt-1 inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${metrics.bmiBadgeBg} ${metrics.bmiColor}">${metrics.bmiStatus}</div>
           </div>
           <div class="bg-white/15 backdrop-blur-sm rounded-xl p-3 text-center">
             <div class="text-2xl font-bold">${metrics.bmr}</div>
