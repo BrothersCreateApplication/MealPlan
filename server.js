@@ -454,7 +454,11 @@ app.get('/api/weather', async (req, res) => {
       if (revRes.ok) {
         const revData = await revRes.json();
         const addr = revData.address || {};
-        cityName = addr.city || addr.town || addr.suburb || addr.district || addr.quarter || addr.state || '';
+        // Ưu tiên suburb/district/quarter (cấp phường/quận) hơn city
+        // vì city có thể trả về sai (VD: Tân Phú → Thủ Đức)
+        cityName = addr.suburb || addr.quarter || addr.district || addr.town || addr.city || addr.state || '';
+        // Làm sạch tên: bỏ "Phường ", "Xã ", "Quận ", "Thành phố " prefix
+        cityName = cityName.replace(/^(Phường|Xã|Thị trấn|Quận|Huyện|Thành phố|TP\.)\s+/i, '');
         // If only district/suburb, append state for clarity
         if (!addr.city && !addr.town && addr.district) {
           cityName = addr.district;
