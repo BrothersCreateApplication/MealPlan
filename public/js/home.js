@@ -57,6 +57,7 @@
       const data = await res.json();
       if (data.success) {
         state.weather = data.weather;
+        if (data.cityName) state.cityName = data.cityName;
       }
     } catch (e) {
       console.warn('[Home] Weather fetch error:', e);
