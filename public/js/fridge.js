@@ -367,21 +367,20 @@
     overlay.className = 'recipe-overlay fixed inset-0 z-[200] bg-black/50 flex md:items-center justify-center animate-fade-in';
     overlay.innerHTML = `
       <div class="bg-surface-container-lowest w-full h-full md:h-auto md:max-h-[85vh] md:max-w-lg md:rounded-2xl md:mx-4 shadow-2xl flex flex-col animate-slide-up">
-        <div class="relative h-36 md:h-48 flex items-center justify-center overflow-hidden flex-shrink-0 ${gradient}">
-          <span class="text-6xl md:text-7xl">${emoji}</span>
-          <button class="absolute top-4 right-4 bg-black/30 backdrop-blur-md text-white p-2 rounded-full hover:bg-black/50 transition-all" id="recipe-close">
-            <span class="material-symbols-outlined">close</span>
-          </button>
-          <!-- Match badge overlaid -->
-          <div class="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full shadow flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full ${s.matchPercent >= 80 ? 'bg-primary' : s.matchPercent >= 50 ? 'bg-secondary' : 'bg-on-surface-variant'}"></span>
-            <span class="font-price-tag text-sm font-bold">${s.matchPercent}% phù hợp</span>
-          </div>
-        </div>
 
         <!-- Scrollable body -->
         <div class="flex-1 overflow-y-auto md:overflow-y-visible">
           <div class="p-5 md:p-6">
+            <!-- Close + Match badge -->
+            <div class="flex items-center justify-between mb-2">
+              <div class="bg-white shadow-sm border border-outline-variant/20 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full ${s.matchPercent >= 80 ? 'bg-primary' : s.matchPercent >= 50 ? 'bg-secondary' : 'bg-on-surface-variant'}"></span>
+                <span class="font-price-tag text-sm font-bold">${s.matchPercent}% phù hợp</span>
+              </div>
+              <button class="bg-surface-container-high text-on-surface-variant p-1.5 rounded-full hover:bg-surface-container-highest transition-all" id="recipe-close">
+                <span class="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
             <div class="flex items-center gap-2 mb-1">
               <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">${dish.name}</h2>
               ${dish.difficulty ? `<span class="bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-full text-xs font-semibold">${dish.difficulty}</span>` : ''}

@@ -470,9 +470,6 @@
     const existing = document.querySelector('.recipe-overlay');
     if (existing) existing.remove();
 
-    const { gradient, emoji } = getDishVisual(dish.name);
-
-    // Format instructions as numbered steps
     const steps = (dish.instructions || '')
       .split('\n')
       .filter(s => s.trim())
@@ -490,17 +487,15 @@
     overlay.className = 'recipe-overlay fixed inset-0 z-[200] bg-black/50 flex md:items-center justify-center animate-fade-in';
     overlay.innerHTML = `
       <div class="bg-surface-container-lowest w-full h-full md:h-auto md:max-h-[85vh] md:max-w-lg md:rounded-2xl md:mx-4 shadow-2xl flex flex-col animate-slide-up">
-        <!-- Header image -->
-        <div class="relative h-36 md:h-48 flex items-center justify-center overflow-hidden flex-shrink-0 ${gradient} recipe-header-img" data-dish-name="${dish.name}">
-          <span class="text-6xl md:text-7xl recipe-header-emoji">${emoji}</span>
-          <button class="absolute top-4 right-4 bg-black/30 backdrop-blur-md text-white p-2 rounded-full hover:bg-black/50 transition-all" id="recipe-close">
-            <span class="material-symbols-outlined">close</span>
-          </button>
-        </div>
-
         <!-- Scrollable body -->
         <div class="flex-1 overflow-y-auto md:overflow-y-visible">
           <div class="p-5 md:p-6">
+            <!-- Close button -->
+            <div class="flex justify-end mb-2">
+              <button class="bg-surface-container-high text-on-surface-variant p-1.5 rounded-full hover:bg-surface-container-highest transition-all" id="recipe-close">
+                <span class="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
             <!-- Title & badges -->
             <div class="flex items-center gap-2 mb-1">
               <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">${dish.name}</h2>
