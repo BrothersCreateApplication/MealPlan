@@ -73,6 +73,9 @@
     // Default weather (unknown)
     state.weather = { condition: 'unknown', temp: 25, tempLabel: 'moderate', icon: 'help', precipitation: 0 };
 
+    // Gọi ipapi.co song song để có city name backup
+    const ipPromise = fetch('https://ipapi.co/json/').then(r => r.ok ? r.json() : {}).catch(() => ({}));
+
     // Try geolocation
     if ('geolocation' in navigator) {
       try {
@@ -89,22 +92,20 @@
       } catch (e) {
         state.geoError = true;
         console.warn('[Home] Geolocation failed:', e.message);
-        // Try IP-based fallback
         try {
-          const ipRes = await fetch('https://ipapi.co/json/');
-          if (ipRes.ok) {
-            const ipData = await ipRes.json();
-            // Chỉ dùng IP fallback city nếu weather API chưa trả về city
-            if (!state.cityName && ipData.city) state.cityName = ipData.city;
-            if (ipData.latitude && ipData.longitude) {
-              await fetchWeather(ipData.latitude, ipData.longitude);
-              state.geoError = false;
-            }
+          const ipData = await ipPromise;
+          if (ipData.city && !state.cityName) state.cityName = ipData.city;
+          if (ipData.latitude && ipData.longitude && !state.weather?.condition) {
+            await fetchWeather(ipData.latitude, ipData.longitude);
+            state.geoError = false;
           }
-        } catch (ipErr) {
-          // Silent fail
-        }
+        } catch (ipErr) {}
       }
+    }
+    // Fallback: nếu server không trả cityName, dùng ipapi
+    if (!state.cityName) {
+      const ipData = await ipPromise;
+      if (ipData.city) state.cityName = ipData.city;
     }
     updateWeatherBanner();
   }
@@ -761,6 +762,11 @@
 
     // 6. Attach refresh button
     document.getElementById('btn-load-more')?.addEventListener('click', handleRefresh);
+
+    // Listen for health analysis requests from fridge.js
+    document.addEventListener('health-analysis-requested', async (e) => {
+      if (e.detail?.dish) await showHealthAnalysis(e.detail.dish);
+    });
 
     // 7. Search handler
     searchInput.addEventListener('keydown', async (e) => {

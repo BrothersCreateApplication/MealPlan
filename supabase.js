@@ -227,9 +227,25 @@ async function suggestDishesByIngredients(availableIngredients, limit = 5) {
 
     const results = dishIngs.map(ing => {
       const ingName = removeAccents(ing.name.toLowerCase().trim());
-      const isAvailable = normalizedAvailable.some(avail =>
-        ingName.includes(avail) || avail.includes(ingName)
-      );
+      const isAvailable = normalizedAvailable.some(avail => {
+        // Chỉ match nếu avail là từ riêng biệt trong ingName (có boundary)
+        // VD: "cá" không match "cải", "bò" không match "bông"
+        if (ingName.includes(avail) || avail.includes(ingName)) {
+          // Kiểm tra thêm: nếu avail là từ con của ingName nhưng không phải từ riêng
+          // thì chỉ match nếu ký tự trước/sau không phải chữ cái
+          const idx = ingName.indexOf(avail);
+          if (idx >= 0) {
+            const prevChar = idx > 0 ? ingName[idx - 1] : ' ';
+            const nextChar = idx + avail.length < ingName.length ? ingName[idx + avail.length] : ' ';
+            // Nếu ký tự xung quanh là chữ cái → false (VD: "ca" trong "cai")
+            const isPrevLetter = /[a-zđ]/.test(prevChar);
+            const isNextLetter = /[a-zđ]/.test(nextChar);
+            if (isPrevLetter || isNextLetter) return false;
+          }
+          return true;
+        }
+        return false;
+      });
       const isBasic = BASIC_SEASONINGS.some(b =>
         ingName.includes(removeAccents(b))
       );

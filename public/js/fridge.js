@@ -325,30 +325,6 @@
     const existing = document.querySelector('.recipe-overlay');
     if (existing) existing.remove();
 
-    // Get visual
-    const lower = dish.name.toLowerCase();
-    const visuals = {
-      'cà': { gradient: 'bg-gradient-to-br from-blue-400/30 to-teal-300/30', emoji: '🐟' },
-      'tôm': { gradient: 'bg-gradient-to-br from-pink-400/30 to-orange-300/30', emoji: '🦐' },
-      'gà': { gradient: 'bg-gradient-to-br from-amber-400/30 to-yellow-300/30', emoji: '🍗' },
-      'bò': { gradient: 'bg-gradient-to-br from-red-500/30 to-orange-400/30', emoji: '🥩' },
-      'heo': { gradient: 'bg-gradient-to-br from-rose-400/30 to-pink-300/30', emoji: '🐷' },
-      'lợn': { gradient: 'bg-gradient-to-br from-rose-400/30 to-pink-300/30', emoji: '🐷' },
-      'rau': { gradient: 'bg-gradient-to-br from-green-400/30 to-emerald-300/30', emoji: '🥬' },
-      'canh': { gradient: 'bg-gradient-to-br from-teal-400/30 to-cyan-300/30', emoji: '🥣' },
-      'salad': { gradient: 'bg-gradient-to-br from-lime-400/30 to-green-300/30', emoji: '🥗' },
-      'kho': { gradient: 'bg-gradient-to-br from-amber-500/30 to-orange-400/30', emoji: '🍲' },
-      'xào': { gradient: 'bg-gradient-to-br from-orange-400/30 to-yellow-300/30', emoji: '🥘' },
-      'luộc': { gradient: 'bg-gradient-to-br from-teal-400/30 to-cyan-300/30', emoji: '🥟' },
-      'chiên': { gradient: 'bg-gradient-to-br from-amber-400/30 to-yellow-300/30', emoji: '🍳' },
-      'nướng': { gradient: 'bg-gradient-to-br from-red-500/30 to-orange-400/30', emoji: '🔥' },
-    };
-    let gradient = 'bg-gradient-to-br from-primary/10 to-primary-container/20';
-    let emoji = '🍽️';
-    for (const [key, v] of Object.entries(visuals)) {
-      if (lower.includes(key)) { gradient = v.gradient; emoji = v.emoji; break; }
-    }
-
     // Available ingredient names for checking
     const availableNames = s.matched ? s.matched.map(m => m.name.toLowerCase()) : [];
 
@@ -435,8 +411,17 @@
               </div>
             </div>
 
+            <!-- Health Analysis Button -->
+            <div class="mt-5 mb-5">
+              <button id="health-analysis-btn" class="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all shadow-md">
+                <span class="material-symbols-outlined">monitor_heart</span>
+                Phân tích sức khỏe
+              </button>
+              <p class="text-xs text-on-surface-variant text-center mt-1">Đánh giá tác động lên tim, thận, gan</p>
+            </div>
+
             <!-- YouTube video embed -->
-            <div class="mt-5">
+            <div class="mt-3">
               <h3 class="font-title-md flex items-center gap-2 text-error mb-3">
                 <span class="material-symbols-outlined">smart_display</span>
                 Video hướng dẫn
@@ -474,6 +459,20 @@
     // Close handlers
     overlay.querySelector('#recipe-close')?.addEventListener('click', () => overlay.remove());
     overlay.querySelector('#recipe-close-alt')?.addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
+
+    // Health analysis handler
+    overlay.querySelector('#health-analysis-btn')?.addEventListener('click', () => {
+      // We don't have showHealthAnalysis here, so dispatch a custom event
+      // The home.js module can listen for this
+      MealPlan.showToast('🩺 Đang phân tích sức khỏe...', 'info');
+      // Open recipe overlay in home context instead
+      // For now, navigate to home and trigger the analysis via home.js
+      const event = new CustomEvent('health-analysis-requested', { detail: { dish } });
+      document.dispatchEvent(event);
+    });
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) overlay.remove();
     });
