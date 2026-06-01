@@ -8,7 +8,7 @@
   let currentAbortController = null; // để huỷ search cũ khi search mới
 
   // ---- Dish image helpers ----
-  // Sắp xếp keyword dài nhất trước để ưu tiên khớp chính xác hơn
+  // Dùng emoji thuần, không gọi API ảnh bên ngoài cho nhanh
   const dishVisuals = (() => {
     const map = {
       'salad': { gradient: 'bg-gradient-to-br from-lime-400/30 to-green-300/30', emoji: '🥗' },
@@ -47,34 +47,7 @@
     return defaultVisual;
   }
 
-  async function loadDishImage(dishName, containerClass = 'dish-image') {
-    try {
-      const res = await fetch(`/api/dish-image?name=${encodeURIComponent(dishName)}`);
-      const data = await res.json();
-      if (data.url) {
-        // Tìm container bằng cách duyệt — không dùng CSS.escape
-        const all = document.querySelectorAll(`.${containerClass}`);
-        let container = null;
-        for (const el of all) {
-          if (el.getAttribute('data-dish-name') === dishName) {
-            container = el;
-            break;
-          }
-        }
-        if (container) {
-          const img = new Image();
-          img.onload = () => {
-            container.style.backgroundImage = `url(${data.url})`;
-            container.style.backgroundSize = 'cover';
-            container.style.backgroundPosition = 'center';
-            container.innerHTML = ''; // remove emoji
-          };
-          img.onerror = () => { /* keep fallback */ };
-          img.src = data.url;
-        }
-      }
-    } catch (e) { /* keep fallback */ }
-  }
+  // Bỏ loadDishImage — dùng emoji thuần
 
   // ---- Gọi API để lấy gợi ý món ăn kèm công thức (cache trước, API sau) ----
   async function loadRandomDishes() {
@@ -215,9 +188,6 @@
     }).join('');
 
     grid.insertAdjacentHTML('beforeend', html);
-
-    // Load ảnh cho món mới
-    dishes.forEach(dish => { loadDishImage(dish.name); });
 
     // Attach events cho các nút mới — dùng MealPlan.toggleFavorite() để lưu đúng
     document.querySelectorAll('.fav-btn').forEach(btn => {
@@ -449,11 +419,6 @@
 
     // Attach events
     attachDishEvents();
-
-    // Async load Unsplash images for each card
-    dishes.forEach(dish => {
-      loadDishImage(dish.name);
-    });
   }
 
   // ---- Dish card events ----
@@ -616,9 +581,6 @@
     `;
 
     document.body.appendChild(overlay);
-
-    // Try to load real image for overlay header
-    loadDishImage(dish.name, 'recipe-header-img');
 
     // Tìm video YouTube
     loadYouTubeVideo(dish.name);
@@ -1018,8 +980,7 @@
 
     grid.insertAdjacentHTML('beforeend', cardHtml);
 
-    // Load ảnh và attach events
-    loadDishImage(dish.name);
+    // Attach events
     attachSingleDishEvents(dish, idx);
   }
 
