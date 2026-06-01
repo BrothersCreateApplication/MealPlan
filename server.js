@@ -438,44 +438,50 @@ app.get('/api/weather', async (req, res) => {
   try {
     // Reverse geocode: lat/lon → city name (BigDataCloud, free, no key needed)
     let cityName = '';
-    let ispName = '';
-    let fallbackCity = '';
     try {
-      // Use BigDataCloud reverse geocode — trả locality (phường) và admin info (quận/huyện)
       const bdcRes = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=vi`
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=vi`,
+        { signal: AbortSignal.timeout(3000) }
       );
       if (bdcRes.ok) {
         const bdcData = await bdcRes.json();
         const locality = bdcData.locality || '';
-        const adminLevels = bdcData.localityInfo?.administrative || [];
-        const informative = bdcData.localityInfo?.informative || [];
-
-        // Tìm quận/huyện từ administrative (adminLevel ~8-10 là quận)
+        // Tìm quận/huyện trong mảng informative
         let district = '';
+        const informative = bdcData.localityInfo?.informative || [];
+        for (const a of informative) {
+          if (/^Quận\s/i.test(a.name) || /^Huyện\s/i.test(a.name)) {
+            district = a.name;
+            break;
+          }
+        }
+        // Cũng check administrative nếu có
+        const adminLevels = bdcData.localityInfo?.administrative || [];
         for (const a of adminLevels) {
-          const name = a.name || '';
-          if (/^(Quận|Huyện|thị xã|Thành phố)\s/.test(name) || /^(Quận|Huyện)/.test(name)) {
-            district = name;
+          if (/^Quận\s/i.test(a.name) || /^Huyện\s/i.test(a.name)) {
+            district = district || a.name;
           }
         }
-        // Fallback: tìm trong informative nếu không thấy trong administrative
-        if (!district) {
-          for (const a of informative) {
-            const name = a.name || '';
-            if (/^Quận\s/.test(name) || /^Huyện\s/.test(name)) {
-              district = name;
-            }
-          }
-        }
-
-        // Ưu tiên: quận/huyện → locality (phường/xã) → city
         cityName = district || locality || bdcData.city || '';
-        // Làm sạch: "Quận Tân Phú" → "Tân Phú", "Phường Phú Thạnh" → "Phú Thạnh"
         cityName = cityName.replace(/^(Quận|Huyện|Phường|Xã|Thị trấn|Thành phố|TP\.)\s+/i, '');
       }
     } catch (geoErr) {
       console.warn('[Weather] Geocode error:', geoErr.message);
+    }
+    // Fallback: nếu không lấy được từ BigDataCloud, thử từ tọa độ
+    if (!cityName) {
+      try {
+        const nomRes = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=vi`,
+          { headers: { 'User-Agent': 'VaobepApp/1.0' }, signal: AbortSignal.timeout(3000) }
+        );
+        if (nomRes.ok) {
+          const nomData = await nomRes.json();
+          const addr = nomData.address || {};
+          cityName = addr.suburb || addr.quarter || addr.district || addr.town || addr.city || '';
+          cityName = cityName.replace(/^(Phường|Xã|Thị trấn|Quận|Huyện|Thành phố|TP\.)\s+/i, '');
+        }
+      } catch (nomErr) {}
     }
 
     const response = await fetch(

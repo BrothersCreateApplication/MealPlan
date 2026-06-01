@@ -73,21 +73,22 @@
     state.mealPeriod = period.id;
     state.periodName = period.label;
 
-    // Default weather (unknown)
+    // Default weather (unknown) — hiển thị banner NGAY để không bị trắng
     state.weather = { condition: 'unknown', temp: 25, tempLabel: 'moderate', icon: 'help', precipitation: 0 };
+    updateWeatherBanner();
 
     // Gọi ipapi.co song song để có city name backup
     const ipPromise = fetch('https://ipapi.co/json/').then(r => r.ok ? r.json() : {}).catch(() => ({}));
 
-    // Try geolocation
+    // Try geolocation (giảm timeout xuống 3s)
     if ('geolocation' in navigator) {
       try {
         const pos = await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('timeout')), 5000);
+          const timeout = setTimeout(() => reject(new Error('timeout')), 3000);
           navigator.geolocation.getCurrentPosition(
             (p) => { clearTimeout(timeout); resolve(p); },
             (e) => { clearTimeout(timeout); reject(e); },
-            { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 }
+            { enableHighAccuracy: false, timeout: 3000, maximumAge: 600000 }
           );
         });
         await fetchWeather(pos.coords.latitude, pos.coords.longitude);
@@ -98,19 +99,21 @@
         try {
           const ipData = await ipPromise;
           if (ipData.city && !state.cityName) state.cityName = ipData.city;
-          if (ipData.latitude && ipData.longitude && !state.weather?.condition) {
+          if (ipData.latitude && ipData.longitude) {
             await fetchWeather(ipData.latitude, ipData.longitude);
             state.geoError = false;
           }
         } catch (ipErr) {}
       }
     }
-    // Fallback: nếu server không trả cityName, dùng ipapi
+    // Fallback: nếu server không trả cityName
     if (!state.cityName) {
-      const ipData = await ipPromise;
-      if (ipData.city) state.cityName = ipData.city;
+      try {
+        const ipData = await ipPromise;
+        if (ipData.city) state.cityName = ipData.city;
+      } catch (ipErr) {}
     }
-    updateWeatherBanner();
+    updateWeatherBanner(); // cập nhật lại nếu có dữ liệu thật
   }
 
   // ---- Update weather banner UI ----
@@ -202,10 +205,13 @@
     return { icon: 'restaurant', bg: 'from-primary/10 to-primary-container/20' };
   }
 
-  // ---- Fetch all dishes from DB ----
+  // ---- Fetch all dishes from DB (with timeout) ----
   async function loadAllDishes() {
     try {
-      const res = await fetch('/api/dishes');
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch('/api/dishes', { signal: controller.signal });
+      clearTimeout(timeout);
       const data = await res.json();
       if (data.dishes && data.dishes.length > 0) {
         state.allDishes = data.dishes;
@@ -826,11 +832,11 @@
 
     if (!searchInput || !btnSchedule) return;
 
-    // 1. Detect context (location, weather, time)
-    await detectContext();
-
-    // 2. Load all dishes from DB
-    const hasDishes = await loadAllDishes();
+    // 1. Detect context + Load dishes SONG SONG — không để GPS block grid
+    const [hasDishes] = await Promise.all([
+      loadAllDishes(),
+      detectContext(),   // weather/city chạy nền, không block dishes
+    ]);
 
     if (!hasDishes) {
       const grid = document.getElementById('dish-grid');
