@@ -1449,14 +1449,14 @@
         <div id="body-dishes-list" class="space-y-3">
           <div class="bg-surface-container-low rounded-xl p-6 text-center">
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mx-auto mb-3"></div>
-            <p class="text-sm text-on-surface-variant">Đang tìm món phù hợp...</p>
+            <p class="text-sm text-on-surface-variant">AI đang phân tích và đưa ra món ăn phù hợp...</p>
           </div>
         </div>
       </div>
     `;
   }
 
-  // ---- Append một dish (SSE stream) ----
+  // ---- Append một dish ----
   function appendBodyDish(dishData) {
     const list = document.getElementById('body-dishes-list');
     if (!list) return;
@@ -1537,6 +1537,9 @@
   }
 
   // ---- Gọi API đề xuất (đơn giản: POST → AI trả về → hiển thị) ----
+  let bodyMetricsCache = null; // Lưu metrics để xem thêm
+  let bodyDishCount = 0;       // Đếm số món đã có
+
   async function handleBodyRecommend() {
     const gender = document.querySelector('input[name="body-gender"]:checked')?.value || 'male';
     const age = parseInt(document.getElementById('body-age')?.value || '30');
@@ -1565,39 +1568,88 @@
 
     // Tính metrics ngay lập tức (client-side)
     const metrics = calculateBodyMetrics(gender, age, weight, height, goal);
+    bodyMetricsCache = { gender, age, weight, height, goal, metrics };
+    bodyDishCount = 0;
     renderBodyMetrics(metrics);
 
-    // Gọi API đơn giản: POST → chờ → hiển thị
+    await fetchAndShowDishes(false);
+  }
+
+  // ---- Gọi API lấy món ----
+  async function fetchAndShowDishes(loadMore) {
+    if (!bodyMetricsCache) return;
+    const { gender, age, weight, height, goal, metrics } = bodyMetricsCache;
+
+    // Show loading trong dishes list
+    const list = document.getElementById('body-dishes-list');
+    if (!list) return;
+
+    if (loadMore) {
+      // Thêm loading vào cuối
+      const loader = document.createElement('div');
+      loader.className = 'bg-surface-container-low rounded-xl p-6 text-center body-dishes-loading';
+      loader.innerHTML = '<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mx-auto mb-3"></div><p class="text-sm text-on-surface-variant">AI đang phân tích và đưa ra món ăn phù hợp...</p>';
+      list.appendChild(loader);
+    }
+
     try {
       const res = await fetch('/api/recommend-by-body', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           gender, age, weight, height, goal,
-          bmi: metrics.bmi, bmr: metrics.bmr, tdee: metrics.tdee, calTarget: metrics.calTarget
+          bmi: metrics.bmi, bmr: metrics.bmr, tdee: metrics.tdee, calTarget: metrics.calTarget,
+          loadMore: loadMore,
+          skipCount: bodyDishCount // AI sẽ biết cần đề xuất món mới
         })
       });
       const data = await res.json();
 
-      if (data.success && data.dishes && data.dishes.length > 0) {
-        // Xoá loading, append từng món
-        const list = document.getElementById('body-dishes-list');
-        if (list) {
-          const spinner = list.querySelector('.animate-spin');
-          if (spinner) spinner.parentElement.remove();
-        }
-        data.dishes.forEach(d => appendBodyDish(d));
+      // Xoá loading
+      if (loadMore) {
+        const spinner = list.querySelector('.body-dishes-loading');
+        if (spinner) spinner.remove();
       } else {
-        // Không có món
-        const list = document.getElementById('body-dishes-list');
-        if (list) {
+        const spinner = list.querySelector('.animate-spin');
+        if (spinner) spinner.parentElement.remove();
+      }
+
+      if (data.success && data.dishes && data.dishes.length > 0) {
+        data.dishes.forEach(d => {
+          appendBodyDish(d);
+          bodyDishCount++;
+        });
+
+        // Thêm nút Xem thêm nếu chưa có
+        if (!document.getElementById('body-load-more-btn')) {
+          const btnWrap = document.createElement('div');
+          btnWrap.id = 'body-load-more-btn';
+          btnWrap.innerHTML = `
+            <button id="btn-body-load-more" class="w-full mt-3 py-3 border-2 border-dashed border-outline-variant/50 rounded-xl text-on-surface-variant font-label-md text-sm hover:bg-surface-container-low hover:border-indigo-300 transition-all">
+              <span class="flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-[18px]">refresh</span>
+                Xem thêm món ăn
+              </span>
+            </button>
+          `;
+          list.insertAdjacentElement('afterend', btnWrap);
+
+          document.getElementById('btn-body-load-more')?.addEventListener('click', async () => {
+            await fetchAndShowDishes(true);
+          });
+        }
+      } else {
+        if (loadMore) {
+          MealPlan.showToast('Đã hiển thị tất cả món phù hợp!', 'info');
+        } else {
           list.innerHTML = '<div class="bg-surface-container-low rounded-xl p-6 text-center"><span class="material-symbols-outlined text-3xl text-outline mb-2">search_off</span><p class="text-sm text-on-surface-variant">Không tìm thấy món ăn phù hợp</p></div>';
         }
       }
     } catch (err) {
       console.error('Body recommend error:', err);
-      const list = document.getElementById('body-dishes-list');
-      if (list) {
+      const spinner = list.querySelector('.animate-spin, .body-dishes-loading');
+      if (spinner) spinner.remove();
+      if (!loadMore) {
         list.innerHTML = '<div class="bg-surface-container-low rounded-xl p-6 text-center"><span class="material-symbols-outlined text-3xl text-error mb-2">error_outline</span><p class="text-sm text-on-surface-variant">Lỗi kết nối, vui lòng thử lại</p></div>';
       }
     }

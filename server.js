@@ -821,7 +821,7 @@ app.post('/api/analyze-image', async (req, res) => {
 
 // ===================== Recommend By Body API (BMI/BMR + AI) =====================
 app.post('/api/recommend-by-body', async (req, res) => {
-  const { gender, age, weight, height, goal, bmi, bmr, tdee, calTarget } = req.body;
+  const { gender, age, weight, height, goal, bmi, bmr, tdee, calTarget, loadMore, skipCount } = req.body;
   if (!age || !weight || !height) {
     return res.json({ success: false, error: 'Missing body metrics' });
   }
@@ -857,15 +857,25 @@ QUY TẮC:
 - Nếu mục tiêu tăng cơ: ưu tiên món giàu protein, carb vừa phải
 - Nếu mục tiêu tăng cân: ưu tiên món giàu calo, carb và chất béo lành mạnh
 - Nếu giữ dáng: cân bằng dinh dưỡng
-- Đề xuất 4-6 món đa dạng`;
+- Đề xuất 4-6 món đa dạng, không trùng lặp tên`;
 
-    const userPrompt = `Người dùng: ${gender === 'male' ? 'Nam' : 'Nữ'}, ${age} tuổi, ${weight}kg, ${height}cm.
+    let userPrompt;
+    if (loadMore) {
+      userPrompt = `Người dùng: ${gender === 'male' ? 'Nam' : 'Nữ'}, ${age} tuổi, ${weight}kg, ${height}cm.
+BMI: ${bmi}, BMR: ${bmr} kcal/ngày, TDEE: ${tdee} kcal/ngày.
+Mục tiêu: ${goal === 'lose' ? 'Giảm cân' : goal === 'gain_muscle' || goal === 'gain' ? 'Tăng cơ' : goal === 'gain_weight' ? 'Tăng cân' : 'Giữ dáng'}.
+Mỗi bữa nên nạp khoảng ${Math.round(calTarget / 3)} kcal.
+
+Hãy đề xuất THÊM 3 món ăn Việt Nam KHÁC phù hợp với thể trạng và mục tiêu này. Không trùng với ${skipCount || 0} món đã đề xuất trước đó.`;
+    } else {
+      userPrompt = `Người dùng: ${gender === 'male' ? 'Nam' : 'Nữ'}, ${age} tuổi, ${weight}kg, ${height}cm.
 BMI: ${bmi} (${bmi >= 25 ? 'thừa cân' : bmi >= 23 ? 'nguy cơ thừa cân' : bmi >= 18.5 ? 'bình thường' : 'gầy'})
 BMR: ${bmr} kcal/ngày, TDEE: ${tdee} kcal/ngày.
 Mục tiêu: ${goal === 'lose' ? 'Giảm cân' : goal === 'gain_muscle' || goal === 'gain' ? 'Tăng cơ' : goal === 'gain_weight' ? 'Tăng cân' : 'Giữ dáng'}.
 Mỗi bữa nên nạp khoảng ${Math.round(calTarget / 3)} kcal.
 
 Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục tiêu này.`;
+    }
 
     try {
       const controller = new AbortController();
@@ -954,12 +964,18 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
         return { dish: d, matchPercent: Math.min(99, matchPercent - penalty) };
       });
 
-      // Sort by matchPercent descending, lấy top 10
+      // Sort by matchPercent descending, lấy top — có offset nếu loadMore
       scored.sort((a, b) => b.matchPercent - a.matchPercent);
-      const top = scored.slice(0, 10);
+      const offset = loadMore ? (skipCount || 0) : 0;
+      const top = scored.slice(offset, offset + 5);
 
-      // Nếu quá ít, dùng sample
+      // Nếu quá ít hoặc loadMore hết món, dùng sample
       if (top.length < 3) {
+        if (loadMore) {
+          // Không còn món từ DB, dùng sample mới
+          const samples = getSampleBodyDishes(calTarget, goal).slice(0, 3);
+          return res.json({ success: true, dishes: samples });
+        }
         const samples = getSampleBodyDishes(calTarget, goal);
         return res.json({ success: true, dishes: samples });
       }
