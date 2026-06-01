@@ -62,7 +62,7 @@ app.post('/api/search-dishes', async (req, res) => {
           body: JSON.stringify({
             model: 'deepseek-chat',
             messages: [
-              { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước). Tìm "${query}". LUẬT: Chỉ trả món có tên chứa "${query}" — VD tìm "bánh canh" thì trả "bánh canh cá lóc", "bánh canh tôm", "bánh canh giò heo"... Nếu DB chưa có, tạo các biến thể của "${query}". Trả 6-10 món. Instructions: ngắn gọn, đủ bước.` },
+              { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước). Tìm món liên quan đến "${query}". Ưu tiên món có tên hoặc mô tả liên quan — linh hoạt, không cứng nhắc tên phải chứa chính xác. VD: tìm "kho quẹt" → trả "Kho Quẹt", "Rau Luộc Kho Quẹt", "Cơm Trắng Kho Quẹt". Tìm "rau" → trả các món rau. Trả 3-6 món (không ép nhiều nếu không đủ). Instructions: ngắn gọn, đủ bước.` },
               { role: 'user', content: `Tìm món: ${query}` }
             ],
             temperature: 0.7,
@@ -163,7 +163,7 @@ app.get('/api/search-dishes-stream', async (req, res) => {
       body: JSON.stringify({
         model: 'deepseek-chat',
         messages: [
-          { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước). Tìm "${query}". LUẬT: Chỉ trả món có tên chứa "${query}" — VD tìm "bánh canh" thì trả "bánh canh cá lóc", "bánh canh tôm", "bánh canh giò heo"... Nếu DB chưa có, tạo các biến thể của "${query}". Trả 6-10 món. Instructions: ngắn gọn, đủ bước.` },
+          { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước). Tìm món liên quan đến "${query}". Ưu tiên món có tên hoặc mô tả liên quan — linh hoạt, không cứng nhắc tên phải chứa chính xác. VD: tìm "kho quẹt" → trả "Kho Quẹt", "Rau Luộc Kho Quẹt", "Cơm Trắng Kho Quẹt". Tìm "rau" → trả các món rau. Trả 3-6 món (không ép nhiều nếu không đủ). Instructions: ngắn gọn, đủ bước.` },
           { role: 'user', content: `Tìm món: ${query}` }
         ],
         temperature: 0.7,
