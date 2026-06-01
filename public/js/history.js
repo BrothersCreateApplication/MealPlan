@@ -437,67 +437,24 @@
 
             <!-- Actions -->
             <div class="flex gap-2">
-              ${!isCooked ? `
-              <button class="history-cook-btn flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-2.5 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-sm" data-id="${item.id}">
-                <span class="material-symbols-outlined text-[16px]">cooking</span>
-                Nấu Ăn
-              </button>
-              ` : `
-              <button class="history-view-btn flex-1 bg-surface-container-high text-primary py-2.5 rounded-lg text-xs font-label-md hover:bg-primary-container/30 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5" data-id="${item.id}">
+              <button class="history-view-btn w-full bg-surface-container-high text-primary py-2.5 rounded-lg text-xs font-label-md hover:bg-primary-container/30 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5" data-id="${item.id}">
                 <span class="material-symbols-outlined text-[16px]">article</span>
-                Xem lại
-              </button>
-              `}
-              <button class="history-cart-btn flex-1 bg-primary text-on-primary py-2.5 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-sm" data-id="${item.id}">
-                <span class="material-symbols-outlined text-[16px]">shopping_cart</span>
-                ${!isCooked ? 'Đi Chợ' : 'Đi Chợ lại'}
+                Xem chi tiết
               </button>
             </div>
           </div>
         </div>`;
     }).join('');
 
-    // Attach events — Nấu Ăn (cho shopped entries)
-    container.querySelectorAll('.history-cook-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const id = this.dataset.id;
-        const entry = filtered.find(e => e.id === id);
-        if (entry && entry.dishData) {
-          window.showRecipeDetail(entry.dishData, 'cook');
-        } else {
-          MealPlan.showToast('Không có công thức chi tiết!', 'warning');
-        }
-      });
-    });
-
-    // Xem lại (cho cooked entries)
+    // Xem chi tiết
     container.querySelectorAll('.history-view-btn').forEach(btn => {
       btn.addEventListener('click', function() {
         const id = this.dataset.id;
         const entry = filtered.find(e => e.id === id);
         if (entry && entry.dishData) {
-          window.showRecipeDetail(entry.dishData, 'cook');
+          window.showRecipeDetail(entry.dishData);
         } else {
           MealPlan.showToast('Không có công thức!', 'warning');
-        }
-      });
-    });
-
-    // Đi Chợ (cho cả shopped và cooked)
-    container.querySelectorAll('.history-cart-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const id = this.dataset.id;
-        const entry = filtered.find(e => e.id === id);
-        if (entry && entry.dishData && entry.dishData.ingredients) {
-          MealPlan.setCart(entry.dishData.ingredients);
-          MealPlan.state.currentMealName = entry.dishData.name;
-          MealPlan.state.currentDishData = entry.dishData;
-          MealPlan.saveState();
-          MealPlan.navigate('cart');
-          if (window.renderCart) window.renderCart();
-          MealPlan.showToast(`Đã thêm "${entry.dishData.name}" vào giỏ!`, 'success', 2000);
-        } else {
-          MealPlan.showToast('Không có nguyên liệu chi tiết!', 'warning');
         }
       });
     });

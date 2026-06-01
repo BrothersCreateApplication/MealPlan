@@ -158,39 +158,12 @@
     const html = newSuggestions.map((s, i) => renderSuggestionCard(s, startIdx + i)).join('');
     container.insertAdjacentHTML('beforeend', html);
 
-    // Re-attach events
+    // Xem công thức
     container.querySelectorAll('.suggestion-detail-btn').forEach(btn => {
       btn.addEventListener('click', function() {
         const idx = parseInt(this.dataset.idx);
         const s = state.suggestions[idx];
         if (s && s.dish) showSuggestionDetail(s);
-      });
-    });
-
-    container.querySelectorAll('.suggestion-cart-list-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const idx = parseInt(this.dataset.idx);
-        const s = state.suggestions[idx];
-        if (s && s.dish) {
-          MealPlan.setCart(s.dish.ingredients || []);
-          MealPlan.state.currentMealName = s.dish.name;
-          MealPlan.state.currentDishData = s.dish;
-          MealPlan.saveState();
-          MealPlan.navigate('cart');
-          if (window.renderCart) window.renderCart();
-          MealPlan.showToast(`Đã thêm "${s.dish.name}" vào giỏ!`, 'success');
-        }
-      });
-    });
-
-    container.querySelectorAll('.suggestion-cook-list-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const idx = parseInt(this.dataset.idx);
-        const s = state.suggestions[idx];
-        if (s && s.dish) {
-          // Mở recipe ở chế độ cook
-          window.showRecipeDetail(s.dish, 'cook');
-        }
       });
     });
   }
@@ -230,32 +203,6 @@
         const s = suggestions[idx];
         if (s && s.dish) {
           showSuggestionDetail(s);
-        }
-      });
-    });
-
-    container.querySelectorAll('.suggestion-cart-list-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const idx = parseInt(this.dataset.idx);
-        const s = suggestions[idx];
-        if (s && s.dish) {
-          const ings = s.dish.ingredients || [];
-          MealPlan.setCart(ings);
-          MealPlan.state.currentMealName = s.dish.name;
-          MealPlan.saveState();
-          MealPlan.navigate('cart');
-          if (window.renderCart) window.renderCart();
-          MealPlan.showToast(`Đã thêm "${s.dish.name}" vào giỏ!`, 'success');
-        }
-      });
-    });
-
-    container.querySelectorAll('.suggestion-cook-list-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const idx = parseInt(this.dataset.idx);
-        const s = suggestions[idx];
-        if (s && s.dish) {
-          window.showRecipeDetail(s.dish, 'cook');
         }
       });
     });
@@ -328,14 +275,8 @@
 
           <!-- Actions -->
           <div class="flex gap-2 mt-3">
-            <button class="suggestion-detail-btn flex-1 bg-surface-container-high text-primary py-2 rounded-lg text-xs font-label-md hover:bg-primary-container/30 active:scale-[0.98] transition-all" data-idx="${idx}">
+            <button class="suggestion-detail-btn w-full bg-surface-container-high text-primary py-2 rounded-lg text-xs font-label-md hover:bg-primary-container/30 active:scale-[0.98] transition-all" data-idx="${idx}">
               <span class="material-symbols-outlined text-[16px] align-middle">article</span> Xem công thức
-            </button>
-            <button class="suggestion-cart-list-btn flex-1 bg-primary text-on-primary py-2 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1" data-idx="${idx}">
-              <span class="material-symbols-outlined text-[16px]">shopping_cart</span> Đi Chợ
-            </button>
-            <button class="suggestion-cook-list-btn bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-2 px-3 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center gap-1" data-idx="${idx}">
-              <span class="material-symbols-outlined text-[16px]">cooking</span> Nấu
             </button>
           </div>
         </div>
