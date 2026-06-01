@@ -374,15 +374,25 @@
     container.innerHTML = display.map((item, idx) => {
       const dateStr = item.date || formatISOToVN(item.dateISO);
       const ings = (item.dishData && item.dishData.ingredients) || [];
-      // Phân loại đã mua / đã có (nếu có item.owned thì ước lượng)
+      const isCooked = item.status === 'cooked';
       const ownCount = item.owned || 0;
-      const needCount = Math.max(0, ings.length - ownCount);
       return `
-        <div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/20 hover:shadow-md transition-all" data-history-id="${item.id}">
+        <div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/20 hover:shadow-md transition-all ${isCooked ? 'border-l-4 border-l-emerald-400' : ''}" data-history-id="${item.id}">
           <div class="p-4">
             <div class="flex items-start justify-between mb-2">
               <div class="flex-1 min-w-0">
-                <h4 class="font-title-md text-on-surface font-semibold">${item.dishName}</h4>
+                <div class="flex items-center gap-2">
+                  <h4 class="font-title-md text-on-surface font-semibold">${item.dishName}</h4>
+                  ${isCooked ? `
+                    <span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-0.5">
+                      <span class="material-symbols-outlined text-[12px]">check_circle</span> Đã nấu
+                    </span>
+                  ` : `
+                    <span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-0.5">
+                      <span class="material-symbols-outlined text-[12px]">shopping_cart</span> Đã mua
+                    </span>
+                  `}
+                </div>
                 <div class="flex items-center gap-2 mt-1">
                   <span class="text-[11px] text-on-surface-variant flex items-center gap-1">
                     <span class="material-symbols-outlined text-[12px]">calendar_today</span>
@@ -400,18 +410,16 @@
                   </span>` : ''}
                 </div>
               </div>
-              <div class="flex items-center gap-1">
-                <span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-semibold">${ings.length} nguyên liệu</span>
-              </div>
+              <span class="bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-full text-[10px] font-semibold">${ings.length} nguyên liệu</span>
             </div>
 
-            <!-- Danh sách nguyên liệu + trạng thái -->
+            <!-- Danh sách nguyên liệu -->
             ${ings.length > 0 ? `
             <div class="bg-surface-container-low rounded-xl divide-y divide-outline-variant/10 overflow-hidden mb-3">
               ${ings.slice(0, 4).map(ing => `
                 <div class="flex items-center justify-between px-3 py-2">
                   <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[16px] text-primary">check_circle</span>
+                    <span class="material-symbols-outlined text-[16px] ${isCooked ? 'text-emerald-500' : 'text-primary'}">${isCooked ? 'check_circle' : 'check_circle'}</span>
                     <span class="text-xs font-label-md text-on-surface">${ing.name}</span>
                   </div>
                   <span class="text-[11px] text-on-surface-variant">${ing.quantity}</span>
@@ -429,32 +437,53 @@
 
             <!-- Actions -->
             <div class="flex gap-2">
+              ${!isCooked ? `
               <button class="history-cook-btn flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-2.5 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-sm" data-id="${item.id}">
                 <span class="material-symbols-outlined text-[16px]">cooking</span>
                 Nấu Ăn
               </button>
+              ` : `
+              <button class="history-view-btn flex-1 bg-surface-container-high text-primary py-2.5 rounded-lg text-xs font-label-md hover:bg-primary-container/30 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5" data-id="${item.id}">
+                <span class="material-symbols-outlined text-[16px]">article</span>
+                Xem lại
+              </button>
+              `}
               <button class="history-cart-btn flex-1 bg-primary text-on-primary py-2.5 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-sm" data-id="${item.id}">
                 <span class="material-symbols-outlined text-[16px]">shopping_cart</span>
-                Đi Chợ
+                ${!isCooked ? 'Đi Chợ' : 'Đi Chợ lại'}
               </button>
             </div>
           </div>
         </div>`;
     }).join('');
 
-    // Attach events
+    // Attach events — Nấu Ăn (cho shopped entries)
     container.querySelectorAll('.history-cook-btn').forEach(btn => {
       btn.addEventListener('click', function() {
         const id = this.dataset.id;
         const entry = filtered.find(e => e.id === id);
         if (entry && entry.dishData) {
-          window.showRecipeDetail(entry.dishData);
+          window.showRecipeDetail(entry.dishData, 'cook');
         } else {
-          MealPlan.showToast('Không có công thức chi tiết cho món này!', 'warning');
+          MealPlan.showToast('Không có công thức chi tiết!', 'warning');
         }
       });
     });
 
+    // Xem lại (cho cooked entries)
+    container.querySelectorAll('.history-view-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const id = this.dataset.id;
+        const entry = filtered.find(e => e.id === id);
+        if (entry && entry.dishData) {
+          window.showRecipeDetail(entry.dishData, 'cook');
+        } else {
+          MealPlan.showToast('Không có công thức!', 'warning');
+        }
+      });
+    });
+
+    // Đi Chợ (cho cả shopped và cooked)
     container.querySelectorAll('.history-cart-btn').forEach(btn => {
       btn.addEventListener('click', function() {
         const id = this.dataset.id;
@@ -462,6 +491,7 @@
         if (entry && entry.dishData && entry.dishData.ingredients) {
           MealPlan.setCart(entry.dishData.ingredients);
           MealPlan.state.currentMealName = entry.dishData.name;
+          MealPlan.state.currentDishData = entry.dishData;
           MealPlan.saveState();
           MealPlan.navigate('cart');
           if (window.renderCart) window.renderCart();

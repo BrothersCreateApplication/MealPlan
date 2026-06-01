@@ -187,22 +187,44 @@
       // Get dish name — use currentMealName if set, otherwise fallback
       const dishName = MealPlan.state.currentMealName || `Bữa ăn (${summary.items} món)`;
 
+      // Lấy dishData đã lưu (nếu có)
+      const savedDish = MealPlan.state.currentDishData || {};
+
       // Add to history with full tracking
       MealPlan.state.history.unshift({
         id: MealPlan.generateId(),
         dishName: dishName,
+        status: 'shopped', // đã đi chợ, chưa nấu
         date: new Date().toLocaleDateString('vi-VN'),
         dateISO: new Date().toISOString(),
-        calories: '--',
+        calories: savedDish.calories || '--',
         cost: summary.totalNeeded,
         items: itemSummary,
         owned: MealPlan.state.cart.filter(i => i.status === 'owned').length,
         totalItems: summary.items,
-        image: ''
+        image: '',
+        dishData: savedDish.name ? {
+          name: savedDish.name,
+          time: savedDish.time || '',
+          calories: savedDish.calories || '',
+          difficulty: savedDish.difficulty || '',
+          description: savedDish.description || '',
+          ingredients: savedDish.ingredients || [],
+          instructions: savedDish.instructions || ''
+        } : {
+          name: dishName,
+          ingredients: MealPlan.state.cart.map(i => ({ name: i.name, quantity: i.quantity })),
+          instructions: '',
+          time: '',
+          calories: '',
+          difficulty: '',
+          description: ''
+        }
       });
 
-      // Reset current meal name
+      // Reset current meal name and dish data
       MealPlan.state.currentMealName = '';
+      MealPlan.state.currentDishData = null;
 
       // Clear cart
       MealPlan.clearCart();

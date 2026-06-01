@@ -174,6 +174,7 @@
         if (s && s.dish) {
           MealPlan.setCart(s.dish.ingredients || []);
           MealPlan.state.currentMealName = s.dish.name;
+          MealPlan.state.currentDishData = s.dish;
           MealPlan.saveState();
           MealPlan.navigate('cart');
           if (window.renderCart) window.renderCart();
@@ -187,35 +188,8 @@
         const idx = parseInt(this.dataset.idx);
         const s = state.suggestions[idx];
         if (s && s.dish) {
-          const dish = s.dish;
-          const ings = dish.ingredients || [];
-          const itemsStr = ings.map(i => `${i.name} (${i.quantity})`).join(', ');
-          MealPlan.state.history.unshift({
-            id: MealPlan.generateId(),
-            dishName: dish.name,
-            date: new Date().toLocaleDateString('vi-VN'),
-            dateISO: new Date().toISOString(),
-            calories: dish.calories || '--',
-            cost: 0,
-            items: itemsStr,
-            owned: 0,
-            totalItems: ings.length,
-            image: '',
-            dishData: {
-              name: dish.name,
-              time: dish.time,
-              calories: dish.calories,
-              difficulty: dish.difficulty,
-              description: dish.description,
-              ingredients: ings,
-              instructions: dish.instructions
-            }
-          });
-          MealPlan.state.currentMealName = '';
-          MealPlan.saveState();
-          MealPlan.navigate('history');
-          if (window.renderHistory) window.renderHistory();
-          MealPlan.showToast(`Đã lưu "${dish.name}" vào lịch sử!`, 'success', 2000);
+          // Mở recipe ở chế độ cook
+          window.showRecipeDetail(s.dish, 'cook');
         }
       });
     });
@@ -281,35 +255,7 @@
         const idx = parseInt(this.dataset.idx);
         const s = suggestions[idx];
         if (s && s.dish) {
-          const dish = s.dish;
-          const ings = dish.ingredients || [];
-          const itemsStr = ings.map(i => `${i.name} (${i.quantity})`).join(', ');
-          MealPlan.state.history.unshift({
-            id: MealPlan.generateId(),
-            dishName: dish.name,
-            date: new Date().toLocaleDateString('vi-VN'),
-            dateISO: new Date().toISOString(),
-            calories: dish.calories || '--',
-            cost: 0,
-            items: itemsStr,
-            owned: 0,
-            totalItems: ings.length,
-            image: '',
-            dishData: {
-              name: dish.name,
-              time: dish.time,
-              calories: dish.calories,
-              difficulty: dish.difficulty,
-              description: dish.description,
-              ingredients: ings,
-              instructions: dish.instructions
-            }
-          });
-          MealPlan.state.currentMealName = '';
-          MealPlan.saveState();
-          MealPlan.navigate('history');
-          if (window.renderHistory) window.renderHistory();
-          MealPlan.showToast(`Đã lưu "${dish.name}" vào lịch sử!`, 'success', 2000);
+          window.showRecipeDetail(s.dish, 'cook');
         }
       });
     });
@@ -557,49 +503,17 @@
       const ings = dish.ingredients || [];
       MealPlan.setCart(ings);
       MealPlan.state.currentMealName = dish.name;
+      MealPlan.state.currentDishData = dish;
       MealPlan.saveState();
       overlay.remove();
       MealPlan.navigate('cart');
       if (window.renderCart) window.renderCart();
     });
 
-    // Nấu Ăn handler — lưu vào history
+    // Nấu Ăn handler — mở recipe ở chế độ cook
     overlay.querySelector('.suggestion-cook-now-btn')?.addEventListener('click', () => {
-      if (typeof window.createHistoryEntry === 'function') {
-        const entry = window.createHistoryEntry(dish);
-        MealPlan.state.history.unshift(entry);
-      } else {
-        // Fallback nếu createHistoryEntry chưa có
-        const ings = dish.ingredients || [];
-        const itemsStr = ings.map(i => `${i.name} (${i.quantity})`).join(', ');
-        MealPlan.state.history.unshift({
-          id: MealPlan.generateId(),
-          dishName: dish.name,
-          date: new Date().toLocaleDateString('vi-VN'),
-          dateISO: new Date().toISOString(),
-          calories: dish.calories || '--',
-          cost: 0,
-          items: itemsStr,
-          owned: 0,
-          totalItems: ings.length,
-          image: '',
-          dishData: {
-            name: dish.name,
-            time: dish.time,
-            calories: dish.calories,
-            difficulty: dish.difficulty,
-            description: dish.description,
-            ingredients: ings,
-            instructions: dish.instructions
-          }
-        });
-      }
-      MealPlan.state.currentMealName = '';
-      MealPlan.saveState();
       overlay.remove();
-      MealPlan.navigate('history');
-      if (window.renderHistory) window.renderHistory();
-      MealPlan.showToast(`Đã lưu "${dish.name}" vào lịch sử!`, 'success', 2000);
+      window.showRecipeDetail(dish, 'cook');
     });
   }
 
