@@ -425,9 +425,193 @@ const MealPlan = (function() {
   }
 
 
+  // ---- PWA Install Prompt ----
+  let deferredPrompt = null;
+  let installPromptShown = false;
+
+  function initPWAInstall() {
+    // Bắt sự kiện beforeinstallprompt (Chrome/Android)
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+
+      // Hiện prompt sau 5 giây nếu chưa cài và chưa hiện lần nào
+      const dismissed = sessionStorage.getItem('pwa-prompt-dismissed');
+      if (!dismissed && !installPromptShown) {
+        setTimeout(() => showInstallPrompt(), 5000);
+      }
+    });
+
+    // Kiểm tra đã cài chưa
+    window.addEventListener('appinstalled', () => {
+      deferredPrompt = null;
+      installPromptShown = true;
+      sessionStorage.setItem('pwa-installed', '1');
+    });
+
+    // Safari/iPhone: show hướng dẫn sau 8 giây (không có beforeinstallprompt)
+    const isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    if (isIOS && !isStandalone) {
+      const dismissed = sessionStorage.getItem('pwa-prompt-dismissed');
+      if (!dismissed) {
+        setTimeout(() => showIOSInstallGuide(), 8000);
+      }
+    }
+  }
+
+  function showInstallPrompt() {
+    if (installPromptShown) return;
+    installPromptShown = true;
+
+    const existing = document.querySelector('.pwa-install-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'pwa-install-overlay fixed inset-0 z-[350] bg-black/60 flex items-end md:items-center justify-center animate-fade-in';
+    overlay.innerHTML = `
+      <div class="bg-white w-full md:max-w-sm md:rounded-3xl rounded-t-3xl shadow-2xl animate-slide-up overflow-hidden">
+        <!-- Header gradient -->
+        <div class="bg-gradient-to-br from-primary to-emerald-400 p-6 text-center relative">
+          <div class="w-20 h-20 mx-auto bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg mb-3">
+            <span class="text-5xl">🥘</span>
+          </div>
+          <h3 class="font-headline-lg text-white text-lg">Cài app Vào Bếp</h3>
+          <p class="text-white/70 text-sm mt-1">Nấu ăn nhanh hơn, không cần mở trình duyệt</p>
+          <button class="pwa-close absolute top-3 right-3 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-all">
+            <span class="material-symbols-outlined text-white text-lg">close</span>
+          </button>
+        </div>
+
+        <!-- Benefits -->
+        <div class="p-5 space-y-3">
+          <div class="flex items-center gap-3 bg-emerald-50 rounded-xl p-3">
+            <span class="material-symbols-outlined text-emerald-600 text-2xl">bolt</span>
+            <div>
+              <p class="font-label-md text-sm text-on-surface">Mở nhanh 1 chạm</p>
+              <p class="text-xs text-on-surface-variant">Icon ngay trên màn hình chính</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 bg-indigo-50 rounded-xl p-3">
+            <span class="material-symbols-outlined text-indigo-600 text-2xl">phone_iphone</span>
+            <div>
+              <p class="font-label-md text-sm text-on-surface">Full màn hình</p>
+              <p class="text-xs text-on-surface-variant">Không thanh địa chỉ, trải nghiệm như app</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 bg-amber-50 rounded-xl p-3">
+            <span class="material-symbols-outlined text-amber-600 text-2xl">wifi_off</span>
+            <div>
+              <p class="font-label-md text-sm text-on-surface">Dùng offline</p>
+              <p class="text-xs text-on-surface-variant">Xem công thức đã lưu kể cả khi không có mạng</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="p-5 pt-0 flex gap-3">
+          <button class="pwa-dismiss flex-1 py-3.5 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-high transition-all">
+            Để sau
+          </button>
+          <button class="pwa-install flex-1 py-3.5 rounded-xl bg-primary text-on-primary font-title-md hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-primary/25 flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined">download</span>
+            Cài đặt ngay
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Events
+    overlay.querySelector('.pwa-close')?.addEventListener('click', () => dismiss());
+    overlay.querySelector('.pwa-dismiss')?.addEventListener('click', () => dismiss());
+    overlay.querySelector('.pwa-install')?.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        if (outcome === 'accepted') {
+          sessionStorage.setItem('pwa-installed', '1');
+        }
+      }
+      dismiss();
+    });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) dismiss();
+    });
+
+    function dismiss() {
+      sessionStorage.setItem('pwa-prompt-dismissed', '1');
+      overlay.classList.add('animate-fade-out');
+      setTimeout(() => overlay.remove(), 200);
+    }
+  }
+
+  // Safari/iPhone: không có beforeinstallprompt, show hướng dẫn thủ công
+  function showIOSInstallGuide() {
+    if (installPromptShown) return;
+    installPromptShown = true;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'pwa-install-overlay fixed inset-0 z-[350] bg-black/60 flex items-end md:items-center justify-center animate-fade-in';
+    overlay.innerHTML = `
+      <div class="bg-white w-full md:max-w-sm md:rounded-3xl rounded-t-3xl shadow-2xl animate-slide-up overflow-hidden">
+        <div class="bg-gradient-to-br from-primary to-emerald-400 p-6 text-center relative">
+          <div class="w-20 h-20 mx-auto bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg mb-3">
+            <span class="text-5xl">🥘</span>
+          </div>
+          <h3 class="font-headline-lg text-white text-lg">Cài Vào Bếp lên iPhone</h3>
+          <p class="text-white/70 text-sm mt-1">2 bước đơn giản</p>
+          <button class="pwa-close absolute top-3 right-3 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-all">
+            <span class="material-symbols-outlined text-white text-lg">close</span>
+          </button>
+        </div>
+        <div class="p-6 space-y-4">
+          <div class="flex items-start gap-4">
+            <div class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold flex-shrink-0">1</div>
+            <div>
+              <p class="font-label-md text-sm text-on-surface">Bấm nút Share</p>
+              <p class="text-xs text-on-surface-variant mt-0.5">Nút <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-100 rounded text-[11px]"><span class="material-symbols-outlined text-[14px]">ios_share</span> Share</span> ở góc dưới màn hình Safari</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-4">
+            <div class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold flex-shrink-0">2</div>
+            <div>
+              <p class="font-label-md text-sm text-on-surface">Chọn "Add to Home Screen"</p>
+              <p class="text-xs text-on-surface-variant mt-0.5">Kéo xuống chọn <strong>Add to Home Screen</strong> → bấm <strong>Add</strong></p>
+            </div>
+          </div>
+        </div>
+        <div class="p-5 pt-0">
+          <button class="pwa-dismiss w-full py-3.5 rounded-xl bg-primary text-on-primary font-title-md hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-primary/25">
+            Đã hiểu!
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('.pwa-close')?.addEventListener('click', () => dismiss());
+    overlay.querySelector('.pwa-dismiss')?.addEventListener('click', () => dismiss());
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) dismiss();
+    });
+
+    function dismiss() {
+      sessionStorage.setItem('pwa-prompt-dismissed', '1');
+      overlay.classList.add('animate-fade-out');
+      setTimeout(() => overlay.remove(), 200);
+    }
+  }
+
   // ---- Init ----
   function init() {
     loadState();
+
+    // Init PWA install prompt
+    initPWAInstall();
 
     // Set up navigation
     document.querySelectorAll('[data-page]').forEach(el => {

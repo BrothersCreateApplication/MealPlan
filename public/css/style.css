@@ -149,6 +149,18 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
 }
 
+/* PWA Install Prompt */
+.pwa-install-overlay {
+  backdrop-filter: blur(4px);
+}
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; transform: translateY(20px); }
+}
+.animate-fade-out {
+  animation: fadeOut 0.2s ease-in forwards;
+}
+
 /* Health Analysis Overlay */
 .health-analysis-overlay {
   backdrop-filter: blur(4px);
