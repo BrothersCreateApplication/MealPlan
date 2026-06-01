@@ -5,6 +5,7 @@
   let isSearchMode = false;
   let lastSearchQuery = '';
   let isLoadingMore = false;
+  let currentAbortController = null; // để huỷ search cũ khi search mới
 
   // ---- Dish image helpers ----
   // Sắp xếp keyword dài nhất trước để ưu tiên khớp chính xác hơn
@@ -781,6 +782,17 @@
 
     isSearchMode = true;
     lastSearchQuery = query;
+    currentDishes = []; // Reset dishes từ search trước
+
+    // Huỷ search cũ nếu có
+    if (currentAbortController) {
+      currentAbortController.abort();
+    }
+    currentAbortController = new AbortController();
+    const signal = currentAbortController.signal;
+    signal.addEventListener('abort', () => {
+      // Search cũ đã bị huỷ — bỏ qua
+    });
 
     const grid = document.getElementById('dish-grid');
     if (grid) {
@@ -797,7 +809,7 @@
     let seenNames = new Set();
 
     try {
-      const res = await fetch(`/api/search-dishes-stream?query=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/search-dishes-stream?query=${encodeURIComponent(query)}`, { signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const reader = res.body.getReader();
@@ -896,6 +908,9 @@
         }
       }
     } catch (e) {
+      // Nếu là do tự huỷ (search mới), bỏ qua — không fallback
+      if (e.name === 'AbortError') return;
+
       console.warn('Search stream error, falling back to regular API:', e);
 
       // Fallback: gọi POST API cũ
