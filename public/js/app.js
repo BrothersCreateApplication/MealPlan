@@ -318,15 +318,100 @@ const MealPlan = (function() {
 
     // Start camera
     let stream = null;
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-      .then(s => {
-        stream = s;
-        video.srcObject = s;
-      })
-      .catch(() => {
-        showToast('Không thể mở camera, bạn có thể tải ảnh lên!', 'warning');
+    let permissionError = false;
+
+    async function startCamera() {
+      try {
+        // Thử dùng camera sau trước (environment), fallback về trước (user)
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 } }
+        });
+        video.srcObject = stream;
+        // Đảm bảo video bắt đầu play (quan trọng trên Android PWA)
+        await video.play();
+        console.log('[Camera] Stream started successfully');
+        return true;
+      } catch (err) {
+        console.error('[Camera] Error:', err.name, err.message);
+        stream = null;
+
+        if (err.name === 'NotAllowedError') {
+          permissionError = true;
+          showCameraPermissionHelp();
+        } else if (err.name === 'NotFoundError') {
+          showToast('Thiết bị không có camera!', 'warning');
+        } else {
+          showToast('Không thể mở camera, bạn có thể tải ảnh lên!', 'warning');
+        }
         shoot.classList.add('hidden');
+        return false;
+      }
+    }
+
+    function showCameraPermissionHelp() {
+      const existing = document.querySelector('.camera-perm-overlay');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.className = 'camera-perm-overlay fixed inset-0 z-[260] bg-black/60 flex items-center justify-center p-4 animate-fade-in';
+      overlay.innerHTML = `
+        <div class="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-slide-up">
+          <div class="bg-gradient-to-br from-amber-500 to-orange-500 p-5 text-center">
+            <span class="material-symbols-outlined text-4xl text-white mb-2">no_photography</span>
+            <h3 class="font-title-md text-white">Camera bị chặn</h3>
+            <p class="text-white/70 text-xs mt-1">Vui lòng cấp quyền camera để chụp ảnh</p>
+          </div>
+          <div class="p-5 space-y-3">
+            <div class="flex items-start gap-3">
+              <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span class="font-bold text-amber-700 text-sm">1</span>
+              </div>
+              <div>
+                <p class="font-label-md text-sm text-on-surface">Mở Cài đặt Chrome</p>
+                <p class="text-xs text-on-surface-variant">Bấm icon 🔒 trên thanh địa chỉ → Quyền → Camera</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3">
+              <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span class="font-bold text-amber-700 text-sm">2</span>
+              </div>
+              <div>
+                <p class="font-label-md text-sm text-on-surface">Chọn "Cho phép"</p>
+                <p class="text-xs text-on-surface-variant">Chuyển từ "Đã chặn" → "Cho phép" rồi tải lại trang</p>
+              </div>
+            </div>
+            <div class="bg-amber-50 rounded-xl p-3 text-xs text-amber-800">
+              💡 <strong>Mẹo:</strong> Vào Cài đặt Android → Ứng dụng → Chrome → Quyền → Camera → Cho phép
+            </div>
+          </div>
+          <div class="p-5 pt-0 flex gap-3">
+            <button class="cam-perm-retry flex-1 py-3 rounded-xl bg-primary text-on-primary font-label-md hover:opacity-90 active:scale-[0.98] transition-all">
+              🔄 Thử lại
+            </button>
+            <button class="cam-perm-dismiss px-5 py-3 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-high transition-all">
+              Đóng
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      overlay.querySelector('.cam-perm-retry')?.addEventListener('click', async () => {
+        overlay.remove();
+        // Reset video và thử lại
+        video.classList.remove('hidden');
+        shoot.classList.remove('hidden');
+        capture.classList.add('hidden');
+        retake.classList.add('hidden');
+        confirmBtn.classList.add('hidden');
+        uploadLabel.classList.remove('hidden');
+        await startCamera();
       });
+      overlay.querySelector('.cam-perm-dismiss')?.addEventListener('click', () => overlay.remove());
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    }
+
+    startCamera();
 
     function closeModal() {
       if (stream) stream.getTracks().forEach(t => t.stop());
