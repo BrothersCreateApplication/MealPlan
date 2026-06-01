@@ -425,13 +425,13 @@
         <div class="flex flex-wrap gap-2 mb-3 min-h-[40px] p-2 bg-surface-container-low rounded-lg" id="fridge-tags-container">
           <span class="text-on-surface-variant text-sm italic">Nhập nguyên liệu bên dưới...</span>
         </div>
-        <div class="flex gap-2">
-          <input id="fridge-input" class="flex-1 px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-body-md" placeholder="VD: thịt bò, trứng, rau muống..." type="text"/>
-          <button id="btn-add-ingredient" class="bg-primary-container text-on-primary-container px-4 rounded-xl font-label-md hover:opacity-80 active:scale-95 transition-all flex items-center gap-1">
+        <div class="flex gap-2 flex-nowrap">
+          <input id="fridge-input" class="min-w-0 flex-1 px-3 py-3 bg-surface-container-low border border-outline-variant rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm md:text-body-md" placeholder="VD: thịt bò, trứng, rau muống..." type="text"/>
+          <button id="btn-add-ingredient" class="flex-shrink-0 bg-primary-container text-on-primary-container px-3 md:px-4 rounded-xl font-label-md text-sm hover:opacity-80 active:scale-95 transition-all flex items-center gap-1">
             <span class="material-symbols-outlined text-xl">add</span>
-            Thêm
+            <span class="hidden md:inline">Thêm</span>
           </button>
-          <button id="btn-fridge-camera" class="bg-surface-container-high text-on-surface-variant px-3 rounded-xl font-label-md hover:bg-primary-container/30 active:scale-95 transition-all flex items-center" title="Chụp ảnh tủ lạnh">
+          <button id="btn-fridge-camera" class="flex-shrink-0 bg-surface-container-high text-on-surface-variant px-3 rounded-xl font-label-md hover:bg-primary-container/30 active:scale-95 transition-all flex items-center" title="Chụp ảnh tủ lạnh">
             <span class="material-symbols-outlined text-[20px]">photo_camera</span>
           </button>
         </div>
