@@ -499,11 +499,10 @@
     const overlay = document.createElement('div');
     overlay.className = 'recipe-overlay fixed inset-0 z-[200] bg-black/50 flex md:items-center justify-center animate-fade-in';
     overlay.innerHTML = `
-      <div class="bg-surface-container-lowest w-full h-full md:h-auto md:max-h-[85vh] md:max-w-lg md:rounded-2xl md:mx-4 shadow-2xl flex flex-col animate-slide-up">
+      <div class="bg-surface-container-lowest w-full max-h-[100dvh] md:max-h-[85vh] md:max-w-lg md:rounded-2xl md:mx-4 shadow-2xl flex flex-col animate-slide-up">
         <!-- Scrollable body -->
-        <div class="flex-1 overflow-y-auto md:overflow-y-visible">
+        <div class="flex-1 overflow-y-auto min-h-0">
           <div class="p-5 md:p-6">
-            <!-- Close button -->
             <div class="flex justify-end mb-2">
               <button class="bg-surface-container-high text-on-surface-variant p-1.5 rounded-full hover:bg-surface-container-highest transition-all" id="recipe-close">
                 <span class="material-symbols-outlined text-[20px]">close</span>
@@ -586,11 +585,12 @@
         <div class="flex-shrink-0 p-4 md:p-6 border-t border-outline-variant/20 bg-surface-container-lowest">
           <div class="flex gap-gutter-md">
             <button class="flex-1 bg-primary text-on-primary py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg" id="recipe-cook-btn">
+              <span class="material-symbols-outlined">shopping_cart</span>
+              Đi Chợ
+            </button>
+            <button class="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg" id="recipe-cook-now-btn">
               <span class="material-symbols-outlined">cooking</span>
               Nấu Ăn
-            </button>
-            <button class="px-5 py-3.5 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-high transition-all" id="recipe-close-alt">
-              Đóng
             </button>
           </div>
         </div>
@@ -609,7 +609,7 @@
       if (e.target === overlay) overlay.remove();
     });
 
-    // Nấu Ăn handler — thay thế giỏ hàng cũ
+    // Đi Chợ handler — thay thế giỏ hàng cũ
     overlay.querySelector('#recipe-cook-btn')?.addEventListener('click', () => {
       const ings = dish.ingredients || [];
       MealPlan.setCart(ings);
@@ -620,10 +620,51 @@
       if (window.renderCart) window.renderCart();
     });
 
+    // Nấu Ăn handler — lưu vào history ngay + mở history để xem
+    overlay.querySelector('#recipe-cook-now-btn')?.addEventListener('click', () => {
+      // Lưu đầy đủ dish vào history
+      const entry = createHistoryEntry(dish);
+      MealPlan.state.history.unshift(entry);
+      MealPlan.state.currentMealName = '';
+      MealPlan.saveState();
+      overlay.remove();
+      MealPlan.navigate('history');
+      if (window.renderHistory) window.renderHistory();
+      MealPlan.showToast(`Đã lưu "${dish.name}" vào lịch sử!`, 'success', 2000);
+    });
+
     // Phân tích sức khỏe handler
     overlay.querySelector('#health-analysis-btn')?.addEventListener('click', async () => {
       await showHealthAnalysis(dish);
     });
+  }
+
+  // ---- Lưu dish vào history với đầy đủ thông tin ----
+  function createHistoryEntry(dish) {
+    const ings = dish.ingredients || [];
+    const itemsStr = ings.map(i => `${i.name} (${i.quantity})`).join(', ');
+    return {
+      id: MealPlan.generateId(),
+      dishName: dish.name,
+      date: new Date().toLocaleDateString('vi-VN'),
+      dateISO: new Date().toISOString(),
+      calories: dish.calories || '--',
+      cost: 0,
+      items: itemsStr,
+      owned: 0,
+      totalItems: ings.length,
+      image: '',
+      // Lưu full dish data để khi bấm Nấu ăn trong history có thể hiện lại công thức
+      dishData: {
+        name: dish.name,
+        time: dish.time,
+        calories: dish.calories,
+        difficulty: dish.difficulty,
+        description: dish.description,
+        ingredients: ings,
+        instructions: dish.instructions
+      }
+    };
   }
 
   // ---- Phân tích sức khỏe món ăn (Heart, Kidneys, Liver) ----
@@ -634,7 +675,7 @@
     const overlay = document.createElement('div');
     overlay.className = 'health-analysis-overlay fixed inset-0 z-[250] bg-black/50 flex md:items-center justify-center animate-fade-in';
     overlay.innerHTML = `
-      <div class="bg-surface-container-lowest w-full h-full md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-2xl md:mx-4 shadow-2xl flex flex-col animate-slide-up">
+      <div class="bg-surface-container-lowest w-full max-h-[100dvh] md:max-h-[90vh] md:max-w-lg md:rounded-2xl md:mx-4 shadow-2xl flex flex-col animate-slide-up">
         <!-- Header -->
         <div class="flex-shrink-0 p-5 md:p-6 border-b border-outline-variant/20">
           <div class="flex items-center justify-between">
@@ -654,7 +695,7 @@
         </div>
 
         <!-- Scrollable body -->
-        <div id="health-analysis-body" class="flex-1 overflow-y-auto p-5 md:p-6">
+        <div id="health-analysis-body" class="flex-1 overflow-y-auto p-5 md:p-6 min-h-0">
           <!-- Loading state -->
           <div class="text-center py-8" id="health-loading">
             <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600 mx-auto mb-4"></div>
@@ -676,7 +717,11 @@
         <!-- Footer -->
         <div class="flex-shrink-0 p-4 md:p-6 border-t border-outline-variant/20 bg-surface-container-lowest">
           <div class="flex gap-gutter-md">
-            <button class="health-cook-btn flex-1 bg-primary text-on-primary py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg">
+            <button class="health-cart-btn flex-1 bg-primary text-on-primary py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg">
+              <span class="material-symbols-outlined">shopping_cart</span>
+              Đi Chợ
+            </button>
+            <button class="health-cook-now-btn flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg">
               <span class="material-symbols-outlined">cooking</span>
               Nấu Ăn
             </button>
@@ -695,17 +740,50 @@
     overlay.querySelectorAll('.health-analysis-close').forEach(el => el.addEventListener('click', close));
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
-    // Nấu Ăn handler
-    overlay.querySelector('.health-cook-btn')?.addEventListener('click', () => {
+    // Đi Chợ handler
+    overlay.querySelector('.health-cart-btn')?.addEventListener('click', () => {
       const ings = dish.ingredients || [];
       MealPlan.setCart(ings);
       MealPlan.state.currentMealName = dish.name;
       MealPlan.saveState();
       overlay.remove();
-      // Đóng luôn recipe overlay đang mở bên dưới (nếu có)
       document.querySelector('.recipe-overlay')?.remove();
       MealPlan.navigate('cart');
       if (window.renderCart) window.renderCart();
+    });
+
+    // Nấu Ăn handler — lưu vào history
+    overlay.querySelector('.health-cook-now-btn')?.addEventListener('click', () => {
+      const ings = dish.ingredients || [];
+      const itemsStr = ings.map(i => `${i.name} (${i.quantity})`).join(', ');
+      MealPlan.state.history.unshift({
+        id: MealPlan.generateId(),
+        dishName: dish.name,
+        date: new Date().toLocaleDateString('vi-VN'),
+        dateISO: new Date().toISOString(),
+        calories: dish.calories || '--',
+        cost: 0,
+        items: itemsStr,
+        owned: 0,
+        totalItems: ings.length,
+        image: '',
+        dishData: {
+          name: dish.name,
+          time: dish.time,
+          calories: dish.calories,
+          difficulty: dish.difficulty,
+          description: dish.description,
+          ingredients: ings,
+          instructions: dish.instructions
+        }
+      });
+      MealPlan.state.currentMealName = '';
+      MealPlan.saveState();
+      overlay.remove();
+      document.querySelector('.recipe-overlay')?.remove();
+      MealPlan.navigate('history');
+      if (window.renderHistory) window.renderHistory();
+      MealPlan.showToast(`Đã lưu "${dish.name}" vào lịch sử!`, 'success', 2000);
     });
 
     // Gọi API phân tích
@@ -1505,8 +1583,13 @@
             <span class="material-symbols-outlined text-[15px]">article</span>
             Xem chi tiết
           </button>
-          <button class="body-dish-cook flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-2 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1 shadow-sm">
+          <button class="body-dish-cart flex-1 bg-primary text-white py-2 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1 shadow-sm">
+            <span class="material-symbols-outlined text-[15px]">shopping_cart</span>
+            Đi Chợ
+          </button>
+          <button class="body-dish-cook flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-2 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1 shadow-sm">
             <span class="material-symbols-outlined text-[15px]">cooking</span>
+            Nấu Ăn
             Nấu Ăn
           </button>
         </div>
@@ -1516,11 +1599,10 @@
     // Attach events
     card.querySelector('.body-dish-detail')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      // Ẩn result overlay để xem công thức
       document.getElementById('body-result-overlay')?.classList.add('hidden');
       showRecipeDetail(dish);
     });
-    card.querySelector('.body-dish-cook')?.addEventListener('click', (e) => {
+    card.querySelector('.body-dish-cart')?.addEventListener('click', (e) => {
       e.stopPropagation();
       const ings = dish.ingredients || [];
       MealPlan.setCart(ings);
@@ -1530,7 +1612,41 @@
       document.querySelector('.recipe-overlay')?.remove();
       MealPlan.navigate('cart');
       if (window.renderCart) window.renderCart();
-      MealPlan.showToast(`Đã thêm "${dish.name}" vào danh sách nấu!`, 'success');
+      MealPlan.showToast(`Đã thêm "${dish.name}" vào giỏ!`, 'success');
+    });
+    card.querySelector('.body-dish-cook')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dishFull = dish;
+      const ings = dishFull.ingredients || [];
+      const itemsStr = ings.map(i => `${i.name} (${i.quantity})`).join(', ');
+      MealPlan.state.history.unshift({
+        id: MealPlan.generateId(),
+        dishName: dishFull.name,
+        date: new Date().toLocaleDateString('vi-VN'),
+        dateISO: new Date().toISOString(),
+        calories: dishFull.calories || '--',
+        cost: 0,
+        items: itemsStr,
+        owned: 0,
+        totalItems: ings.length,
+        image: '',
+        dishData: {
+          name: dishFull.name,
+          time: dishFull.time,
+          calories: dishFull.calories,
+          difficulty: dishFull.difficulty,
+          description: dishFull.description,
+          ingredients: ings,
+          instructions: dishFull.instructions
+        }
+      });
+      MealPlan.state.currentMealName = '';
+      MealPlan.saveState();
+      document.getElementById('body-result-overlay')?.classList.add('hidden');
+      document.querySelector('.recipe-overlay')?.remove();
+      MealPlan.navigate('history');
+      if (window.renderHistory) window.renderHistory();
+      MealPlan.showToast(`Đã lưu "${dishFull.name}" vào lịch sử!`, 'success', 2000);
     });
 
     list.appendChild(card);
@@ -1732,6 +1848,8 @@
   // Expose globally for fridge module to use
   window.renderHomeDishes = renderDishes;
   window.showHealthAnalysis = showHealthAnalysis;
+  window.showRecipeDetail = showRecipeDetail;
+  window.createHistoryEntry = createHistoryEntry;
 
   document.addEventListener('DOMContentLoaded', initHome);
 })();

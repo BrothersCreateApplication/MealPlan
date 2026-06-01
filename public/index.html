@@ -107,9 +107,47 @@
     };
   </script>
 </head>
-<body class="bg-background text-on-surface min-h-screen">
+<body class="bg-background text-on-surface min-h-screen lg:pb-0">
+  <!-- Desktop Sidebar (hidden on mobile) -->
+  <aside id="desktop-sidebar" class="hidden lg:flex lg:flex-col lg:w-[280px] lg:h-screen lg:fixed lg:inset-y-0 lg:left-0 lg:bg-surface lg:border-r lg:border-outline-variant/30 lg:shadow-sm lg:z-50">
+    <!-- Logo area -->
+    <div class="p-6 border-b border-outline-variant/20">
+      <div class="font-headline-lg text-primary font-bold text-xl flex items-center gap-2">
+        <span>🥘</span>
+        <span>Vào Bếp</span>
+      </div>
+      <p class="text-xs text-on-surface-variant mt-1">Hôm nay nấu gì?</p>
+    </div>
+    <!-- Nav items -->
+    <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+      <button class="nav-link active w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-label-md transition-all" data-page="home">
+        <span class="material-symbols-outlined text-2xl" style="font-variation-settings:'FILL'1;">cottage</span>
+        Trang chủ
+      </button>
+      <button class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-label-md transition-all text-on-surface-variant hover:bg-surface-container-high" data-page="fridge">
+        <span class="material-symbols-outlined text-2xl">nutrition</span>
+        Tủ lạnh
+      </button>
+      <button class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-label-md transition-all text-on-surface-variant hover:bg-surface-container-high" data-page="cart">
+        <span class="material-symbols-outlined text-2xl">shopping_cart</span>
+        Giỏ hàng
+      </button>
+      <button class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-label-md transition-all text-on-surface-variant hover:bg-surface-container-high" data-page="history">
+        <span class="material-symbols-outlined text-2xl">auto_awesome</span>
+        Lịch sử
+      </button>
+    </nav>
+    <!-- Footer -->
+    <div class="p-4 border-t border-outline-variant/20">
+      <div class="bg-surface-container-low rounded-xl p-3 text-xs text-on-surface-variant">
+        <p>🍳 Vào Bếp v1.0</p>
+        <p class="mt-0.5">Nấu ăn mỗi ngày</p>
+      </div>
+    </div>
+  </aside>
+
   <!-- Top Header Bar -->
-  <header class="bg-surface shadow-sm sticky top-0 z-50">
+  <header class="bg-surface shadow-sm sticky top-0 z-40 lg:ml-[280px]">
     <nav class="flex items-center justify-center w-full px-4 py-3">
       <div class="font-headline-lg text-primary font-bold text-xl flex items-center gap-2">
         <span>🥘</span>
@@ -119,7 +157,7 @@
   </header>
 
   <!-- Main Content -->
-  <main class="px-4 py-4 pb-24">
+  <main class="px-4 py-4 pb-24 lg:ml-[280px] lg:pb-8">
     <!-- PAGE: Trang Chủ -->
     <div id="page-home" class="page active">
       <section class="mb-5">
@@ -165,7 +203,7 @@
             Xem thêm
           </button>
         </div>
-        <div id="dish-grid" class="grid grid-cols-1 gap-4">
+        <div id="dish-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <!-- Rendered by JS -->
         </div>
       </section>
@@ -224,7 +262,7 @@
     </div>
 
     <!-- PAGE: Giỏ Đi Chợ -->
-    <div id="page-cart" class="page hidden pb-36">
+    <div id="page-cart" class="page hidden pb-36 lg:pb-28">
       <div class="flex-shrink-0">
         <h1 class="font-headline-lg font-bold text-primary mb-4 text-xl">Giỏ Đi Chợ</h1>
         <!-- Summary Bar -->
@@ -246,7 +284,7 @@
         <!-- Rendered by JS -->
       </div>
       <!-- Summary Card (fixed dưới cùng, trên nav) -->
-      <div id="cart-summary-card" class="fixed bottom-16 left-4 right-4 z-40 bg-surface-container rounded-xl p-3 shadow-xl border border-primary/10">
+      <div id="cart-summary-card" class="fixed bottom-16 left-4 right-4 lg:bottom-4 z-40 bg-surface-container rounded-xl p-3 shadow-xl border border-primary/10">
         <h2 class="font-label-md font-bold text-primary mb-2">Tổng quan đơn hàng</h2>
         <div class="flex items-center gap-3 mb-2 pb-2 border-b border-outline-variant/50">
           <div class="flex-1">
@@ -643,7 +681,7 @@
   </main>
 
   <!-- Bottom Navigation - 4 icons -->
-  <nav class="fixed bottom-0 left-0 w-full bg-surface shadow-[0_-4px_20px_rgba(0,0,0,0.08)] z-50">
+  <nav class="fixed bottom-0 left-0 w-full bg-surface shadow-[0_-4px_20px_rgba(0,0,0,0.08)] z-30 lg:hidden">
     <div class="flex justify-around items-center h-16 px-2">
       <button class="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 nav-link active" data-page="home">
         <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">cottage</span>

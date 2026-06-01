@@ -167,7 +167,7 @@
       });
     });
 
-    container.querySelectorAll('.suggestion-cook-btn').forEach(btn => {
+    container.querySelectorAll('.suggestion-cart-list-btn').forEach(btn => {
       btn.addEventListener('click', function() {
         const idx = parseInt(this.dataset.idx);
         const s = state.suggestions[idx];
@@ -177,7 +177,45 @@
           MealPlan.saveState();
           MealPlan.navigate('cart');
           if (window.renderCart) window.renderCart();
-          MealPlan.showToast(`Đã thêm "${s.dish.name}" vào danh sách nấu!`, 'success');
+          MealPlan.showToast(`Đã thêm "${s.dish.name}" vào giỏ!`, 'success');
+        }
+      });
+    });
+
+    container.querySelectorAll('.suggestion-cook-list-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const idx = parseInt(this.dataset.idx);
+        const s = state.suggestions[idx];
+        if (s && s.dish) {
+          const dish = s.dish;
+          const ings = dish.ingredients || [];
+          const itemsStr = ings.map(i => `${i.name} (${i.quantity})`).join(', ');
+          MealPlan.state.history.unshift({
+            id: MealPlan.generateId(),
+            dishName: dish.name,
+            date: new Date().toLocaleDateString('vi-VN'),
+            dateISO: new Date().toISOString(),
+            calories: dish.calories || '--',
+            cost: 0,
+            items: itemsStr,
+            owned: 0,
+            totalItems: ings.length,
+            image: '',
+            dishData: {
+              name: dish.name,
+              time: dish.time,
+              calories: dish.calories,
+              difficulty: dish.difficulty,
+              description: dish.description,
+              ingredients: ings,
+              instructions: dish.instructions
+            }
+          });
+          MealPlan.state.currentMealName = '';
+          MealPlan.saveState();
+          MealPlan.navigate('history');
+          if (window.renderHistory) window.renderHistory();
+          MealPlan.showToast(`Đã lưu "${dish.name}" vào lịch sử!`, 'success', 2000);
         }
       });
     });
@@ -222,7 +260,7 @@
       });
     });
 
-    container.querySelectorAll('.suggestion-cook-btn').forEach(btn => {
+    container.querySelectorAll('.suggestion-cart-list-btn').forEach(btn => {
       btn.addEventListener('click', function() {
         const idx = parseInt(this.dataset.idx);
         const s = suggestions[idx];
@@ -233,7 +271,45 @@
           MealPlan.saveState();
           MealPlan.navigate('cart');
           if (window.renderCart) window.renderCart();
-          MealPlan.showToast(`Đã thêm "${s.dish.name}" vào danh sách nấu!`, 'success');
+          MealPlan.showToast(`Đã thêm "${s.dish.name}" vào giỏ!`, 'success');
+        }
+      });
+    });
+
+    container.querySelectorAll('.suggestion-cook-list-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const idx = parseInt(this.dataset.idx);
+        const s = suggestions[idx];
+        if (s && s.dish) {
+          const dish = s.dish;
+          const ings = dish.ingredients || [];
+          const itemsStr = ings.map(i => `${i.name} (${i.quantity})`).join(', ');
+          MealPlan.state.history.unshift({
+            id: MealPlan.generateId(),
+            dishName: dish.name,
+            date: new Date().toLocaleDateString('vi-VN'),
+            dateISO: new Date().toISOString(),
+            calories: dish.calories || '--',
+            cost: 0,
+            items: itemsStr,
+            owned: 0,
+            totalItems: ings.length,
+            image: '',
+            dishData: {
+              name: dish.name,
+              time: dish.time,
+              calories: dish.calories,
+              difficulty: dish.difficulty,
+              description: dish.description,
+              ingredients: ings,
+              instructions: dish.instructions
+            }
+          });
+          MealPlan.state.currentMealName = '';
+          MealPlan.saveState();
+          MealPlan.navigate('history');
+          if (window.renderHistory) window.renderHistory();
+          MealPlan.showToast(`Đã lưu "${dish.name}" vào lịch sử!`, 'success', 2000);
         }
       });
     });
@@ -309,7 +385,10 @@
             <button class="suggestion-detail-btn flex-1 bg-surface-container-high text-primary py-2 rounded-lg text-xs font-label-md hover:bg-primary-container/30 active:scale-[0.98] transition-all" data-idx="${idx}">
               <span class="material-symbols-outlined text-[16px] align-middle">article</span> Xem công thức
             </button>
-            <button class="suggestion-cook-btn bg-primary text-on-primary py-2 px-4 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center gap-1" data-idx="${idx}">
+            <button class="suggestion-cart-list-btn flex-1 bg-primary text-on-primary py-2 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1" data-idx="${idx}">
+              <span class="material-symbols-outlined text-[16px]">shopping_cart</span> Đi Chợ
+            </button>
+            <button class="suggestion-cook-list-btn bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-2 px-3 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center gap-1" data-idx="${idx}">
               <span class="material-symbols-outlined text-[16px]">cooking</span> Nấu
             </button>
           </div>
@@ -342,10 +421,10 @@
     const overlay = document.createElement('div');
     overlay.className = 'recipe-overlay fixed inset-0 z-[200] bg-black/50 flex md:items-center justify-center animate-fade-in';
     overlay.innerHTML = `
-      <div class="bg-surface-container-lowest w-full h-full md:h-auto md:max-h-[85vh] md:max-w-lg md:rounded-2xl md:mx-4 shadow-2xl flex flex-col animate-slide-up">
+      <div class="bg-surface-container-lowest w-full max-h-[100dvh] md:max-h-[85vh] md:max-w-lg md:rounded-2xl md:mx-4 shadow-2xl flex flex-col animate-slide-up">
 
         <!-- Scrollable body -->
-        <div class="flex-1 overflow-y-auto md:overflow-y-visible">
+        <div class="flex-1 overflow-y-auto min-h-0">
           <div class="p-5 md:p-6">
             <!-- Close + Match badge -->
             <div class="flex items-center justify-between mb-2">
@@ -439,12 +518,13 @@
         <!-- Sticky bottom buttons -->
         <div class="flex-shrink-0 p-4 md:p-6 border-t border-outline-variant/20 bg-surface-container-lowest">
           <div class="flex gap-gutter-md">
-            <button class="suggestion-overlay-cook flex-1 bg-primary text-on-primary py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg">
+            <button class="suggestion-cart-btn flex-1 bg-primary text-on-primary py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg">
+              <span class="material-symbols-outlined">shopping_cart</span>
+              Đi Chợ
+            </button>
+            <button class="suggestion-cook-now-btn flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg">
               <span class="material-symbols-outlined">cooking</span>
               Nấu Ăn
-            </button>
-            <button class="px-5 py-3.5 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-high transition-all" id="recipe-close-alt">
-              Đóng
             </button>
           </div>
         </div>
@@ -472,8 +552,8 @@
       }
     });
 
-    // Cook handler
-    overlay.querySelector('.suggestion-overlay-cook')?.addEventListener('click', () => {
+    // Đi Chợ handler
+    overlay.querySelector('.suggestion-cart-btn')?.addEventListener('click', () => {
       const ings = dish.ingredients || [];
       MealPlan.setCart(ings);
       MealPlan.state.currentMealName = dish.name;
@@ -481,6 +561,45 @@
       overlay.remove();
       MealPlan.navigate('cart');
       if (window.renderCart) window.renderCart();
+    });
+
+    // Nấu Ăn handler — lưu vào history
+    overlay.querySelector('.suggestion-cook-now-btn')?.addEventListener('click', () => {
+      if (typeof window.createHistoryEntry === 'function') {
+        const entry = window.createHistoryEntry(dish);
+        MealPlan.state.history.unshift(entry);
+      } else {
+        // Fallback nếu createHistoryEntry chưa có
+        const ings = dish.ingredients || [];
+        const itemsStr = ings.map(i => `${i.name} (${i.quantity})`).join(', ');
+        MealPlan.state.history.unshift({
+          id: MealPlan.generateId(),
+          dishName: dish.name,
+          date: new Date().toLocaleDateString('vi-VN'),
+          dateISO: new Date().toISOString(),
+          calories: dish.calories || '--',
+          cost: 0,
+          items: itemsStr,
+          owned: 0,
+          totalItems: ings.length,
+          image: '',
+          dishData: {
+            name: dish.name,
+            time: dish.time,
+            calories: dish.calories,
+            difficulty: dish.difficulty,
+            description: dish.description,
+            ingredients: ings,
+            instructions: dish.instructions
+          }
+        });
+      }
+      MealPlan.state.currentMealName = '';
+      MealPlan.saveState();
+      overlay.remove();
+      MealPlan.navigate('history');
+      if (window.renderHistory) window.renderHistory();
+      MealPlan.showToast(`Đã lưu "${dish.name}" vào lịch sử!`, 'success', 2000);
     });
   }
 

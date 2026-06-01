@@ -405,14 +405,43 @@ app.get('/api/youtube-video', async (req, res) => {
 
   try {
     const ytSearch = require('yt-search');
-    // Chỉ search tiếng Việt, ưu tiên video có "cách nấu" hoặc "cách làm"
-    const query = `cách nấu ${dish} cách làm ${dish} hướng dẫn nấu`;
-    const result = await ytSearch({ query, pageStart: 1, pageEnd: 1 });
-    const videos = result?.videos || [];
-    // Ưu tiên video tiếng Việt — title có từ "cách nấu", "cách làm", "hướng dẫn", "công thức"
-    const findBest = videos.find(v =>
+    // Trích xuất từ khoá chính từ tên món (bỏ từ phụ)
+    const dishLower = dish.toLowerCase();
+    const stopWords = ['cách', 'làm', 'nấu', 'món', 'với', 'và', 'của', 'có', 'thịt', 'bằng'];
+    const tokens = dishLower.split(' ').filter(t => t.length > 1 && !stopWords.includes(t));
+    const coreTokens = tokens.slice(0, 3); // lấy tối đa 3 từ khoá chính
+
+    // 1. Thử search chính xác tên món trước
+    const exactQuery = `cách nấu ${dish} hướng dẫn`;
+    let result = await ytSearch({ query: exactQuery, pageStart: 1, pageEnd: 1 });
+    let videos = result?.videos || [];
+
+    // 2. Nếu không đủ kết quả, search rộng hơn với từ khoá chính
+    if (videos.length < 3 && coreTokens.length > 0) {
+      const broadQuery = `cách nấu ${coreTokens.join(' ')}`;
+      result = await ytSearch({ query: broadQuery, pageStart: 1, pageEnd: 1 });
+      videos = [...videos, ...(result?.videos || [])];
+    }
+
+    // 3. Lọc video có title chứa ít nhất 1 từ khoá chính (không dấu)
+    const normalize = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const filtered = videos.filter(v => {
+      const title = normalize(v.title);
+      const dishNorm = normalize(dishLower);
+      // Ưu tiên title chứa chính xác tên món
+      if (title.includes(dishNorm)) return true;
+      // Hoặc chứa ít nhất 2 từ khoá chính
+      const matchCount = coreTokens.filter(t => title.includes(t)).length;
+      return matchCount >= Math.min(2, coreTokens.length);
+    });
+
+    // Ưu tiên video có từ "cách nấu", "cách làm", "hướng dẫn", "công thức"
+    const findBest = filtered.find(v =>
+      /cách (nấu|làm)|hướng dẫn|công thức/i.test(v.title)
+    ) || filtered[0] || videos.find(v =>
       /cách (nấu|làm)|hướng dẫn|công thức|món/i.test(v.title)
     ) || videos[0];
+
     res.json({ videoId: findBest?.videoId || null, title: findBest?.title || '' });
   } catch (err) {
     console.error('[YouTube] Search error:', err.message);

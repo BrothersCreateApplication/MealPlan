@@ -373,29 +373,104 @@
 
     container.innerHTML = display.map((item, idx) => {
       const dateStr = item.date || formatISOToVN(item.dateISO);
+      const ings = (item.dishData && item.dishData.ingredients) || [];
+      // Phân loại đã mua / đã có (nếu có item.owned thì ước lượng)
+      const ownCount = item.owned || 0;
+      const needCount = Math.max(0, ings.length - ownCount);
       return `
-        <div class="flex items-stretch gap-3 p-3 rounded-xl hover:bg-surface-container-low transition-all group ${idx > 0 ? 'border-t border-outline-variant/10 pt-4' : ''}">
-          <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 flex items-center justify-center flex-shrink-0">
-            <span class="material-symbols-outlined text-emerald-600 text-2xl">cooking</span>
-          </div>
-          <div class="flex-1 min-w-0 flex flex-col justify-center">
-            <div class="flex items-start justify-between gap-2">
-              <h4 class="font-label-md text-on-surface font-semibold">${item.dishName}</h4>
+        <div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/20 hover:shadow-md transition-all" data-history-id="${item.id}">
+          <div class="p-4">
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex-1 min-w-0">
+                <h4 class="font-title-md text-on-surface font-semibold">${item.dishName}</h4>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="text-[11px] text-on-surface-variant flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[12px]">calendar_today</span>
+                    ${dateStr}
+                  </span>
+                  ${item.calories && item.calories !== '--' ? `
+                  <span class="text-[11px] text-on-surface-variant flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[12px]">local_fire_department</span>
+                    ${item.calories}
+                  </span>` : ''}
+                  ${item.cost ? `
+                  <span class="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[12px]">payments</span>
+                    ${MealPlan.formatCurrency(item.cost)}
+                  </span>` : ''}
+                </div>
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-semibold">${ings.length} nguyên liệu</span>
+              </div>
             </div>
-            <div class="flex items-center gap-3 mt-0.5">
-              <span class="text-[11px] text-on-surface-variant flex items-center gap-1">
-                <span class="material-symbols-outlined text-[12px]">calendar_today</span>
-                ${dateStr}
-              </span>
-              ${item.cost ? `<span class="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
-                <span class="material-symbols-outlined text-[12px]">payments</span>
-                ${MealPlan.formatCurrency(item.cost)}
-              </span>` : ''}
+
+            <!-- Danh sách nguyên liệu + trạng thái -->
+            ${ings.length > 0 ? `
+            <div class="bg-surface-container-low rounded-xl divide-y divide-outline-variant/10 overflow-hidden mb-3">
+              ${ings.slice(0, 4).map(ing => `
+                <div class="flex items-center justify-between px-3 py-2">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[16px] text-primary">check_circle</span>
+                    <span class="text-xs font-label-md text-on-surface">${ing.name}</span>
+                  </div>
+                  <span class="text-[11px] text-on-surface-variant">${ing.quantity}</span>
+                </div>
+              `).join('')}
+              ${ings.length > 4 ? `
+                <div class="flex items-center justify-between px-3 py-2 text-[11px] text-on-surface-variant italic">
+                  + ${ings.length - 4} nguyên liệu khác
+                </div>
+              ` : ''}
+            </div>` : `
+            <div class="bg-surface-container-low rounded-xl px-3 py-2 mb-3">
+              <p class="text-[11px] text-on-surface-variant italic">${item.items || 'Không có chi tiết nguyên liệu'}</p>
+            </div>`}
+
+            <!-- Actions -->
+            <div class="flex gap-2">
+              <button class="history-cook-btn flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-2.5 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-sm" data-id="${item.id}">
+                <span class="material-symbols-outlined text-[16px]">cooking</span>
+                Nấu Ăn
+              </button>
+              <button class="history-cart-btn flex-1 bg-primary text-on-primary py-2.5 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-sm" data-id="${item.id}">
+                <span class="material-symbols-outlined text-[16px]">shopping_cart</span>
+                Đi Chợ
+              </button>
             </div>
-            ${item.items ? `<p class="text-[10px] text-on-surface-variant mt-1 truncate" title="${item.items}">${item.totalItems ? `${item.totalItems} nguyên liệu` : ''}${item.owned > 0 ? `, ${item.owned} đã có` : ''}</p>` : ''}
           </div>
         </div>`;
     }).join('');
+
+    // Attach events
+    container.querySelectorAll('.history-cook-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const id = this.dataset.id;
+        const entry = filtered.find(e => e.id === id);
+        if (entry && entry.dishData) {
+          window.showRecipeDetail(entry.dishData);
+        } else {
+          MealPlan.showToast('Không có công thức chi tiết cho món này!', 'warning');
+        }
+      });
+    });
+
+    container.querySelectorAll('.history-cart-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const id = this.dataset.id;
+        const entry = filtered.find(e => e.id === id);
+        if (entry && entry.dishData && entry.dishData.ingredients) {
+          MealPlan.setCart(entry.dishData.ingredients);
+          MealPlan.state.currentMealName = entry.dishData.name;
+          MealPlan.saveState();
+          MealPlan.navigate('cart');
+          if (window.renderCart) window.renderCart();
+          MealPlan.showToast(`Đã thêm "${entry.dishData.name}" vào giỏ!`, 'success', 2000);
+        } else {
+          MealPlan.showToast('Không có nguyên liệu chi tiết!', 'warning');
+        }
+      });
+    });
 
     if (loadMoreBtn) {
       const hasMore = filtered.length > displayLimit;

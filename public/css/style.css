@@ -42,9 +42,12 @@ body {
   }
 }
 
-/* Bottom Nav */
+/* Nav links (bottom nav + desktop sidebar) */
 .nav-link {
   transition: all 0.2s ease-out;
+}
+/* Bottom nav specific */
+nav.fixed.bottom-0 .nav-link {
   border-top: 2px solid transparent;
 }
 .nav-link.active {
@@ -168,6 +171,20 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 
 .health-analysis-overlay .animate-slide-up {
   animation: slideUp 0.3s ease-out;
+}
+
+/* Sidebar nav styles */
+#desktop-sidebar .nav-link {
+  border-top: none;
+  transition: all 0.2s ease-out;
+}
+#desktop-sidebar .nav-link.active {
+  background-color: #e5eeff;
+  color: #006c49;
+  font-weight: 600;
+}
+#desktop-sidebar .nav-link.active .material-symbols-outlined {
+  font-variation-settings: 'FILL' 1;
 }
 
 /* Health result card */
