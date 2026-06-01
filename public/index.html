@@ -107,7 +107,7 @@
     };
   </script>
 </head>
-<body class="bg-background text-on-surface min-h-screen">
+<body class="bg-background text-on-surface min-h-screen flex flex-col">
   <!-- Top Header Bar -->
   <header class="bg-surface shadow-sm sticky top-0 z-50">
     <nav class="flex items-center justify-center w-full px-4 py-3">
@@ -119,7 +119,7 @@
   </header>
 
   <!-- Main Content -->
-  <main class="px-4 py-4 pb-24">
+  <main class="px-4 py-4 flex-1 overflow-y-auto min-h-0">
     <!-- PAGE: Trang Chủ -->
     <div id="page-home" class="page active">
       <section class="mb-5">
@@ -299,7 +299,7 @@
     </div>
 
     <!-- PAGE: Giỏ Đi Chợ -->
-    <div id="page-cart" class="page hidden flex flex-col h-[calc(100vh-8rem)]">
+    <div id="page-cart" class="page-cart-inner page hidden flex flex-col h-full">
       <div class="flex-shrink-0">
         <h1 class="font-headline-lg font-bold text-primary mb-4 text-xl">Giỏ Đi Chợ</h1>
         <!-- Summary Bar -->
