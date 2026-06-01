@@ -485,7 +485,8 @@ app.get('/api/weather', async (req, res) => {
     }
 
     const response = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,precipitation&timezone=auto`
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,precipitation&timezone=auto`,
+      { signal: AbortSignal.timeout(5000) }
     );
     if (!response.ok) throw new Error(`Open-Meteo HTTP ${response.status}`);
     const data = await response.json();

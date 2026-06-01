@@ -77,8 +77,9 @@
     state.weather = { condition: 'unknown', temp: 25, tempLabel: 'moderate', icon: 'help', precipitation: 0 };
     updateWeatherBanner();
 
-    // Gọi ipapi.co song song để có city name backup
-    const ipPromise = fetch('https://ipapi.co/json/').then(r => r.ok ? r.json() : {}).catch(() => ({}));
+    // Gọi ipapi.co song song để có city name backup (3s timeout)
+    const ipPromise = fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok ? r.json() : {}).catch(() => ({}));
 
     // Try geolocation (giảm timeout xuống 3s)
     if ('geolocation' in navigator) {
@@ -309,8 +310,6 @@
       if (loadBtn) loadBtn.classList.add('hidden');
 
       if (!results || results.length === 0) {
-        const isSearching = document.querySelector('.animate-spin');
-        if (isSearching) return; // still loading, keep spinner
         grid.innerHTML = `
           <div class="bg-surface-container-lowest rounded-xl p-8 text-center col-span-full border border-outline-variant/20">
             <span class="material-symbols-outlined text-4xl text-outline mb-2">search_off</span>
@@ -833,17 +832,23 @@
     if (!searchInput || !btnSchedule) return;
 
     // 1. Detect context + Load dishes SONG SONG — không để GPS block grid
-    const [hasDishes] = await Promise.all([
+    // Dùng Promise.allSettled để cả 2 cùng chạy, nếu 1 cái fail vẫn render
+    await Promise.allSettled([
       loadAllDishes(),
       detectContext(),   // weather/city chạy nền, không block dishes
     ]);
 
-    if (!hasDishes) {
+    if (!state.allDishes || state.allDishes.length === 0) {
       const grid = document.getElementById('dish-grid');
       if (grid) grid.innerHTML = `<div class="bg-surface-container-lowest rounded-xl p-8 text-center col-span-full border border-outline-variant/20">
         <span class="material-symbols-outlined text-4xl text-outline mb-2">search_off</span>
         <p class="text-sm text-on-surface-variant">Không thể tải dữ liệu món ăn</p>
       </div>`;
+      // Vẫn render meal tab cho đúng buổi dù không có món
+      const defaultMeal = state.mealPeriod || 'breakfast';
+      if (document.getElementById('meal-grid-title')) {
+        document.getElementById('meal-grid-title').textContent = tabConfig[defaultMeal]?.title || defaultMeal;
+      }
       return;
     }
 
