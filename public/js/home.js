@@ -1299,7 +1299,273 @@
     }
   }
 
-  // ===================== Camera / Upload =====================
+  // ===================== Gợi ý món theo thể trạng =====================
+
+  // ---- Tính BMI, BMR, TDEE ----
+  function calculateBodyMetrics(gender, age, weight, height, goal) {
+    // BMI
+    const heightM = height / 100;
+    const bmi = weight / (heightM * heightM);
+
+    // BMI status
+    let bmiStatus, bmiColor;
+    if (bmi < 18.5) { bmiStatus = 'Gầy'; bmiColor = 'text-blue-600'; }
+    else if (bmi < 23) { bmiStatus = 'Bình thường'; bmiColor = 'text-emerald-600'; }
+    else if (bmi < 25) { bmiStatus = 'Thừa cân'; bmiColor = 'text-amber-600'; }
+    else if (bmi < 30) { bmiStatus = 'Béo phì độ I'; bmiColor = 'text-orange-600'; }
+    else { bmiStatus = 'Béo phì độ II'; bmiColor = 'text-red-600'; }
+
+    // BMR — Mifflin-St Jeor
+    let bmr;
+    if (gender === 'male') {
+      bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+    } else {
+      bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+    }
+
+    // TDEE — giả định sedentary (1.2), có thể thêm activity level sau
+    const activityFactor = 1.2;
+    const tdee = bmr * activityFactor;
+
+    // Calorie target theo mục tiêu
+    let calTarget, goalLabel;
+    switch (goal) {
+      case 'lose':
+        calTarget = tdee - 500;
+        goalLabel = 'Giảm cân';
+        break;
+      case 'gain':
+        calTarget = tdee + 300;
+        goalLabel = 'Tăng cơ';
+        break;
+      default:
+        calTarget = tdee;
+        goalLabel = 'Giữ dáng';
+    }
+
+    return {
+      bmi: Math.round(bmi * 10) / 10,
+      bmiStatus,
+      bmiColor,
+      bmr: Math.round(bmr),
+      tdee: Math.round(tdee),
+      calTarget: Math.round(calTarget),
+      goalLabel,
+      // Protein gợi ý: 1.2-1.6g/kg tùy mục tiêu
+      proteinMin: Math.round(weight * (goal === 'gain' ? 1.6 : 1.0)),
+      proteinMax: Math.round(weight * (goal === 'gain' ? 2.0 : 1.4)),
+    };
+  }
+
+  // ---- Mở bottom sheet nhập liệu ----
+  function openBodyForm() {
+    const overlay = document.getElementById('body-recommend-overlay');
+    if (overlay) overlay.classList.remove('hidden');
+  }
+
+  function closeBodyForm() {
+    const overlay = document.getElementById('body-recommend-overlay');
+    if (overlay) overlay.classList.add('hidden');
+  }
+
+  function closeBodyResult() {
+    const overlay = document.getElementById('body-result-overlay');
+    if (overlay) overlay.classList.add('hidden');
+    // Clear content để lần sau mở lại thấy loading
+    const content = document.getElementById('body-result-content');
+    if (content) { content.classList.add('hidden'); content.innerHTML = ''; }
+    const loading = document.getElementById('body-result-loading');
+    if (loading) loading.classList.remove('hidden');
+    const error = document.getElementById('body-result-error');
+    if (error) error.classList.add('hidden');
+  }
+
+  // ---- Hàm lấy calories từ dish string ----
+  function extractCalories(dish) {
+    if (!dish) return null;
+    const calStr = (dish.calories || '').replace(/[^0-9]/g, '');
+    return calStr ? parseInt(calStr) : null;
+  }
+
+  // ---- Render kết quả ----
+  function renderBodyResults(metrics, dishes) {
+    const loading = document.getElementById('body-result-loading');
+    const content = document.getElementById('body-result-content');
+    const error = document.getElementById('body-result-error');
+    if (!content) return;
+
+    loading.classList.add('hidden');
+    error.classList.add('hidden');
+    content.classList.remove('hidden');
+
+    // Metric cards
+    const metricsHtml = `
+      <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-5 text-white shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-title-md text-sm font-semibold text-white/90">Chỉ số cơ thể</h3>
+          <span class="bg-white/20 backdrop-blur-sm px-3 py-0.5 rounded-full text-xs">${metrics.goalLabel}</span>
+        </div>
+        <div class="grid grid-cols-3 gap-3 mb-4">
+          <div class="bg-white/15 backdrop-blur-sm rounded-xl p-3 text-center">
+            <div class="text-2xl font-bold">${metrics.bmi}</div>
+            <div class="text-xs text-white/70">BMI</div>
+            <div class="text-[10px] font-semibold ${metrics.bmiColor.replace('text-', 'text-white/')}">${metrics.bmiStatus}</div>
+          </div>
+          <div class="bg-white/15 backdrop-blur-sm rounded-xl p-3 text-center">
+            <div class="text-2xl font-bold">${metrics.bmr}</div>
+            <div class="text-xs text-white/70">BMR</div>
+            <div class="text-[10px] text-white/60">kcal/ngày</div>
+          </div>
+          <div class="bg-white/15 backdrop-blur-sm rounded-xl p-3 text-center">
+            <div class="text-2xl font-bold">${metrics.tdee}</div>
+            <div class="text-xs text-white/70">TDEE</div>
+            <div class="text-[10px] text-white/60">kcal/ngày</div>
+          </div>
+        </div>
+        <div class="bg-white/15 backdrop-blur-sm rounded-lg p-3 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-lg">local_fire_department</span>
+            <span class="text-sm text-white/80">Nên nạp mỗi ngày</span>
+          </div>
+          <div class="text-right">
+            <span class="text-2xl font-bold">${metrics.calTarget}</span>
+            <span class="text-xs text-white/70"> kcal</span>
+          </div>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-white/70">
+          <div class="bg-white/10 rounded-lg px-3 py-2">
+            Protein: <strong class="text-white">${metrics.proteinMin}-${metrics.proteinMax}g/ngày</strong>
+          </div>
+          <div class="bg-white/10 rounded-lg px-3 py-2">
+            Mỗi bữa ≈ <strong class="text-white">${Math.round(metrics.calTarget / 3)} kcal</strong>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Dishes section
+    let dishesHtml = '';
+    if (dishes && dishes.length > 0) {
+      dishesHtml = `
+        <div>
+          <h3 class="font-title-md text-on-surface flex items-center gap-2 mb-3">
+            <span class="material-symbols-outlined text-indigo-500">restaurant</span>
+            Gợi ý món ăn phù hợp
+          </h3>
+          <div class="space-y-3">
+            ${dishes.map((d, i) => {
+              const cal = extractCalories(d.dish || d);
+              const matchPct = d.matchPercent || (d.suitability ? Math.round(d.suitability * 100) : null);
+              const dish = d.dish || d;
+              const calDiff = cal ? Math.abs(cal - Math.round(metrics.calTarget / 3)) : null;
+              const badgeColor = calDiff !== null && calDiff < 100 ? 'bg-emerald-100 text-emerald-700' :
+                                calDiff !== null && calDiff < 250 ? 'bg-amber-100 text-amber-700' : 'bg-surface-container-high text-on-surface-variant';
+              return `
+                <div class="bg-surface-container-low rounded-xl p-4 border border-outline-variant/20 hover:shadow-sm transition-all cursor-pointer body-recommend-dish" data-dish-name="${dish.name}" data-idx="${i}">
+                  <div class="flex items-start justify-between">
+                    <div class="flex-1 min-w-0">
+                      <h4 class="font-title-md text-sm text-on-surface">${dish.name}</h4>
+                      <div class="flex items-center gap-3 mt-1">
+                        <span class="flex items-center gap-1 text-xs text-on-surface-variant">
+                          <span class="material-symbols-outlined text-[14px]">schedule</span> ${dish.time || '--'}
+                        </span>
+                        <span class="flex items-center gap-1 text-xs text-on-surface-variant">
+                          <span class="material-symbols-outlined text-[14px]">local_fire_department</span> ${dish.calories || '--'}
+                        </span>
+                      </div>
+                    </div>
+                    ${matchPct ? `<div class="flex flex-col items-center ml-2">
+                      <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
+                        <span class="font-price-tag font-bold text-sm text-indigo-600">${matchPct}%</span>
+                      </div>
+                      <span class="text-[10px] text-on-surface-variant mt-0.5">phù hợp</span>
+                    </div>` : ''}
+                  </div>
+                  ${dish.description ? `<p class="text-xs text-on-surface-variant mt-2 line-clamp-1">${dish.description}</p>` : ''}
+                  <div class="flex flex-wrap gap-1.5 mt-2">
+                    <span class="px-2 py-0.5 ${badgeColor} rounded-full text-[10px] font-semibold">
+                      ${calDiff !== null ? `${calDiff} kcal lệch` : ''}
+                    </span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    } else {
+      dishesHtml = `
+        <div class="bg-surface-container-low rounded-xl p-6 text-center">
+          <span class="material-symbols-outlined text-3xl text-outline mb-2">search_off</span>
+          <p class="text-sm text-on-surface-variant">Không tìm thấy món ăn phù hợp</p>
+        </div>
+      `;
+    }
+
+    content.innerHTML = metricsHtml + dishesHtml;
+
+    // Attach dish click events
+    content.querySelectorAll('.body-recommend-dish').forEach(el => {
+      el.addEventListener('click', function() {
+        const name = this.dataset.dishName;
+        const idx = parseInt(this.dataset.idx);
+        const dish = (dishes[idx] && dishes[idx].dish) ? dishes[idx].dish : (dishes[idx] || {});
+        if (dish && dish.name) {
+          // Use home's showRecipeDetail
+          showRecipeDetail(dish);
+        }
+      });
+    });
+  }
+
+  // ---- Gọi API ----
+  async function handleBodyRecommend() {
+    const gender = document.querySelector('input[name="body-gender"]:checked')?.value || 'male';
+    const age = parseInt(document.getElementById('body-age')?.value || '30');
+    const weight = parseFloat(document.getElementById('body-weight')?.value || '65');
+    const height = parseInt(document.getElementById('body-height')?.value || '165');
+    const goal = document.querySelector('input[name="body-goal"]:checked')?.value || 'maintain';
+
+    // Validate
+    if (!age || age < 10 || age > 120 || !weight || weight < 20 || !height || height < 80) {
+      MealPlan.showToast('Vui lòng nhập thông tin hợp lệ!', 'warning');
+      return;
+    }
+
+    // Đóng form, mở result overlay
+    closeBodyForm();
+    const resultOverlay = document.getElementById('body-result-overlay');
+    if (resultOverlay) resultOverlay.classList.remove('hidden');
+
+    const metrics = calculateBodyMetrics(gender, age, weight, height, goal);
+
+    // Gọi API đề xuất
+    try {
+      const res = await fetch('/api/recommend-by-body', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gender, age, weight, height, goal,
+          bmi: metrics.bmi,
+          bmr: metrics.bmr,
+          tdee: metrics.tdee,
+          calTarget: metrics.calTarget
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.dishes) {
+        renderBodyResults(metrics, data.dishes);
+      } else {
+        // Fallback: render chỉ số + thông báo
+        renderBodyResults(metrics, []);
+      }
+    } catch (err) {
+      console.error('Body recommend error:', err);
+      renderBodyResults(metrics, []);
+    }
+  }
+
+  // ---- Camera / Upload ----
   // Dùng MealPlan.openCamera({ mode: 'dish', onResult: callback }) từ app.js
 
   // ---- Init ----
@@ -1340,6 +1606,17 @@
         setTimeout(() => feedback.classList.add('hidden'), 3000);
       }
     });
+
+    // Body recommend card — mở form
+    document.getElementById('btn-body-recommend')?.addEventListener('click', openBodyForm);
+
+    // Body recommend form
+    document.getElementById('body-recommend-close')?.addEventListener('click', closeBodyForm);
+    document.getElementById('body-recommend-close-alt')?.addEventListener('click', closeBodyForm);
+    document.getElementById('btn-body-analyze')?.addEventListener('click', handleBodyRecommend);
+
+    // Body recommend result
+    document.querySelectorAll('.body-result-close').forEach(el => el.addEventListener('click', closeBodyResult));
 
     // Camera button
     if (btnCamera) {

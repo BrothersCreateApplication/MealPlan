@@ -141,6 +141,22 @@
         <div id="schedule-feedback" class="mt-2 text-sm text-primary font-label-md hidden"></div>
       </section>
 
+      <!-- Body Recommendation Card -->
+      <section class="mb-5">
+        <button id="btn-body-recommend" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-4 text-white shadow-lg shadow-indigo-200/40 hover:shadow-xl hover:opacity-95 active:scale-[0.99] transition-all flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+            <span class="material-symbols-outlined text-2xl">personal_injury</span>
+          </div>
+          <div class="flex-1 text-left">
+            <h3 class="font-title-md text-sm font-semibold">Gợi ý món theo thể trạng</h3>
+            <p class="text-white/70 text-xs mt-0.5">Nhập cân nặng, chiều cao, tuổi — AI đề xuất thực đơn phù hợp</p>
+          </div>
+          <div class="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+            <span class="material-symbols-outlined text-lg">chevron_right</span>
+          </div>
+        </button>
+      </section>
+
       <section>
         <div class="flex justify-between items-center mb-3">
           <h2 class="font-title-md text-on-surface font-semibold">Gợi ý món ăn</h2>
@@ -480,6 +496,144 @@
           Xem thêm gợi ý
         </span>
       </button>
+    </div>
+
+    <!-- BODY RECOMMEND OVERLAY -->
+    <div id="body-recommend-overlay" class="fixed inset-0 z-[200] bg-black/50 flex items-end md:items-center justify-center animate-fade-in hidden">
+      <div class="bg-surface-container-lowest w-full md:max-w-lg md:rounded-2xl md:mx-4 md:max-h-[90vh] shadow-2xl flex flex-col animate-slide-up rounded-t-2xl max-h-[95vh]">
+        <!-- Header -->
+        <div class="flex-shrink-0 p-5 pb-3 border-b border-outline-variant/20">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md">
+                <span class="material-symbols-outlined text-white">personal_injury</span>
+              </div>
+              <div>
+                <h2 class="font-title-md text-on-surface">Gợi ý món theo thể trạng</h2>
+                <p class="text-xs text-on-surface-variant">Điền thông tin để AI đề xuất thực đơn</p>
+              </div>
+            </div>
+            <button id="body-recommend-close" class="p-1.5 rounded-full hover:bg-surface-container-high transition-all">
+              <span class="material-symbols-outlined text-on-surface-variant">close</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Scrollable form -->
+        <div class="flex-1 overflow-y-auto p-5 space-y-4">
+          <!-- Giới tính -->
+          <div>
+            <label class="font-label-md text-sm text-on-surface mb-2 block">Giới tính</label>
+            <div class="flex gap-3">
+              <label class="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-outline-variant/40 cursor-pointer hover:border-indigo-300 transition-all has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 has-[:checked]:text-indigo-700">
+                <input type="radio" name="body-gender" value="male" class="hidden" checked/>
+                <span class="material-symbols-outlined text-xl">male</span>
+                <span class="font-label-md text-sm">Nam</span>
+              </label>
+              <label class="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-outline-variant/40 cursor-pointer hover:border-indigo-300 transition-all has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 has-[:checked]:text-indigo-700">
+                <input type="radio" name="body-gender" value="female" class="hidden"/>
+                <span class="material-symbols-outlined text-xl">female</span>
+                <span class="font-label-md text-sm">Nữ</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Tuổi + Cân nặng + Chiều cao -->
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="font-label-md text-xs text-on-surface-variant mb-1 block">Tuổi</label>
+              <input type="number" id="body-age" value="30" min="10" max="100" class="w-full px-3 py-3 bg-surface-container-low border border-outline-variant rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 text-center text-body-md"/>
+            </div>
+            <div>
+              <label class="font-label-md text-xs text-on-surface-variant mb-1 block">Cân nặng (kg)</label>
+              <input type="number" id="body-weight" value="65" min="30" max="250" step="0.5" class="w-full px-3 py-3 bg-surface-container-low border border-outline-variant rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 text-center text-body-md"/>
+            </div>
+            <div>
+              <label class="font-label-md text-xs text-on-surface-variant mb-1 block">Chiều cao (cm)</label>
+              <input type="number" id="body-height" value="165" min="100" max="250" class="w-full px-3 py-3 bg-surface-container-low border border-outline-variant rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 text-center text-body-md"/>
+            </div>
+          </div>
+
+          <!-- Mục tiêu -->
+          <div>
+            <label class="font-label-md text-sm text-on-surface mb-2 block">🎯 Mục tiêu</label>
+            <div class="grid grid-cols-3 gap-2">
+              <label class="flex flex-col items-center gap-1 p-3 rounded-xl border-2 border-outline-variant/40 cursor-pointer hover:border-emerald-300 transition-all has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700">
+                <input type="radio" name="body-goal" value="lose" class="hidden"/>
+                <span class="material-symbols-outlined text-2xl">trending_down</span>
+                <span class="font-label-md text-xs text-center">Giảm cân</span>
+              </label>
+              <label class="flex flex-col items-center gap-1 p-3 rounded-xl border-2 border-outline-variant/40 cursor-pointer hover:border-amber-300 transition-all has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50 has-[:checked]:text-amber-700">
+                <input type="radio" name="body-goal" value="maintain" class="hidden" checked/>
+                <span class="material-symbols-outlined text-2xl">balance</span>
+                <span class="font-label-md text-xs text-center">Giữ dáng</span>
+              </label>
+              <label class="flex flex-col items-center gap-1 p-3 rounded-xl border-2 border-outline-variant/40 cursor-pointer hover:border-orange-300 transition-all has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50 has-[:checked]:text-orange-700">
+                <input type="radio" name="body-goal" value="gain" class="hidden"/>
+                <span class="material-symbols-outlined text-2xl">trending_up</span>
+                <span class="font-label-md text-xs text-center">Tăng cơ</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex-shrink-0 p-5 pt-3 border-t border-outline-variant/20 flex gap-3">
+          <button id="body-recommend-close-alt" class="px-5 py-3 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-high transition-all">Đóng</button>
+          <button id="btn-body-analyze" class="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-200/40">
+            <span class="material-symbols-outlined">auto_awesome</span>
+            Phân tích & Gợi ý
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BODY RECOMMEND RESULT OVERLAY -->
+    <div id="body-result-overlay" class="fixed inset-0 z-[210] bg-black/50 flex items-end md:items-center justify-center animate-fade-in hidden">
+      <div class="bg-surface-container-lowest w-full md:max-w-lg md:rounded-2xl md:mx-4 md:max-h-[90vh] shadow-2xl flex flex-col animate-slide-up rounded-t-2xl max-h-[95vh]">
+        <!-- Header -->
+        <div class="flex-shrink-0 p-5 pb-3 border-b border-outline-variant/20">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md">
+                <span class="material-symbols-outlined text-white">monitor_weight</span>
+              </div>
+              <div>
+                <h2 class="font-title-md text-on-surface">Kết quả phân tích</h2>
+                <p class="text-xs text-on-surface-variant">Chỉ số cơ thể & gợi ý món ăn</p>
+              </div>
+            </div>
+            <button class="body-result-close p-1.5 rounded-full hover:bg-surface-container-high transition-all">
+              <span class="material-symbols-outlined text-on-surface-variant">close</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Scrollable -->
+        <div id="body-result-body" class="flex-1 overflow-y-auto p-5 space-y-4">
+          <!-- Loading -->
+          <div id="body-result-loading" class="text-center py-10">
+            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p class="text-on-surface font-label-md mb-1">AI đang phân tích...</p>
+            <p class="text-xs text-on-surface-variant">Tính toán chỉ số & tìm món phù hợp</p>
+          </div>
+
+          <!-- Results (hidden initally) -->
+          <div id="body-result-content" class="hidden space-y-4"></div>
+
+          <!-- Error -->
+          <div id="body-result-error" class="hidden text-center py-8">
+            <span class="material-symbols-outlined text-4xl text-error mb-3">error_outline</span>
+            <p class="text-on-surface font-label-md">Không thể phân tích</p>
+            <p class="text-xs text-on-surface-variant mt-1">Vui lòng thử lại sau</p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex-shrink-0 p-5 pt-3 border-t border-outline-variant/20 flex gap-3">
+          <button class="body-result-close px-5 py-3 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-high transition-all">Đóng</button>
+        </div>
+      </div>
     </div>
   </main>
 

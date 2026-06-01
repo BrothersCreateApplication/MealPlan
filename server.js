@@ -819,6 +819,148 @@ app.post('/api/analyze-image', async (req, res) => {
   }
 });
 
+// ===================== Recommend By Body API (BMI/BMR + AI) =====================
+app.post('/api/recommend-by-body', async (req, res) => {
+  const { gender, age, weight, height, goal, bmi, bmr, tdee, calTarget } = req.body;
+  if (!age || !weight || !height) {
+    return res.json({ success: false, error: 'Missing body metrics' });
+  }
+
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+
+  if (apiKey) {
+    // Dùng AI đề xuất
+    const systemPrompt = `Bạn là chuyên gia dinh dưỡng và đầu bếp. Dựa trên chỉ số cơ thể người dùng, hãy đề xuất các món ăn phù hợp.
+
+Trả về JSON hợp lệ (không markdown, không code block) với format:
+{
+  "dishes": [
+    {
+      "name": "tên món",
+      "time": "thời gian nấu (VD: 15 ph, 30 ph)",
+      "calories": "số kcal (VD: 350 kcal)",
+      "difficulty": "Dễ | Trung bình | Khó",
+      "description": "mô tả ngắn (1 câu)",
+      "ingredients": [
+        { "name": "nguyên liệu", "quantity": "định lượng", "price": 0 }
+      ],
+      "instructions": "các bước nấu, mỗi bước 1 dòng, có số thứ tự"
+    }
+  ],
+  "summary": "lời khuyên dinh dưỡng ngắn (1-2 câu)"
+}
+
+QUY TẮC:
+- Mỗi món phải có đủ ingredients và instructions
+- Đảm bảo tổng calories mỗi món phù hợp với calTarget cho 1 bữa (calTarget/3)
+- Nếu mục tiêu giảm cân: ưu tiên món ít dầu mỡ, nhiều rau, protein nạc
+- Nếu mục tiêu tăng cơ: ưu tiên món giàu protein, carb vừa phải
+- Nếu giữ dáng: cân bằng dinh dưỡng
+- Đề xuất 4-6 món đa dạng`;
+
+    const userPrompt = `Người dùng: ${gender === 'male' ? 'Nam' : 'Nữ'}, ${age} tuổi, ${weight}kg, ${height}cm.
+BMI: ${bmi} (${bmi >= 25 ? 'thừa cân' : bmi >= 23 ? 'nguy cơ thừa cân' : bmi >= 18.5 ? 'bình thường' : 'gầy'})
+BMR: ${bmr} kcal/ngày, TDEE: ${tdee} kcal/ngày.
+Mục tiêu: ${goal === 'lose' ? 'Giảm cân' : goal === 'gain' ? 'Tăng cơ' : 'Giữ dáng'}.
+Mỗi bữa nên nạp khoảng ${Math.round(calTarget / 3)} kcal.
+
+Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục tiêu này.`;
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.4,
+          max_tokens: 4000
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) throw new Error(`DeepSeek API error: ${response.status}`);
+
+      const data = await response.json();
+      const content = data?.choices?.[0]?.message?.content;
+
+      if (content) {
+        let clean = content.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
+        const result = JSON.parse(clean);
+        if (result.dishes && result.dishes.length > 0) {
+          // Thêm matchPercent dựa trên độ phù hợp calo
+          const dishesWithScore = result.dishes.map(d => {
+            const cal = parseInt((d.calories || '').replace(/[^0-9]/g, '')) || 0;
+            const perMeal = Math.round(calTarget / 3);
+            const diff = Math.abs(cal - perMeal);
+            let matchPercent;
+            if (diff < 50) matchPercent = 95;
+            else if (diff < 100) matchPercent = 85;
+            else if (diff < 200) matchPercent = 75;
+            else matchPercent = 60;
+            return { dish: d, matchPercent };
+          });
+          return res.json({ success: true, dishes: dishesWithScore, summary: result.summary || '' });
+        }
+      }
+      throw new Error('Failed to parse AI response');
+    } catch (err) {
+      console.error('Body recommend AI error:', err.message);
+      // Fallback xuống mock
+    }
+  }
+
+  // ---- Mock fallback: lấy dishes từ DB và sắp xếp ----
+  try {
+    const dishes = await getCachedDishes();
+    if (!dishes || dishes.length === 0) {
+      return res.json({ success: true, dishes: [], summary: '' });
+    }
+
+    const perMealTarget = Math.round(calTarget / 3);
+    const scored = dishes.map(d => {
+      const cal = parseInt((d.calories || '').replace(/[^0-9]/g, '')) || 300;
+      const diff = Math.abs(cal - perMealTarget);
+      let matchPercent;
+      if (diff < 50) matchPercent = 95;
+      else if (diff < 100) matchPercent = 85;
+      else if (diff < 200) matchPercent = 75;
+      else if (diff < 300) matchPercent = 60;
+      else matchPercent = 45;
+
+      // Penalty cho món chiên nếu giảm cân, bonus cho protein nếu tăng cơ
+      let penalty = 0;
+      if (goal === 'lose') {
+        const ingNames = (d.ingredients || []).map(i => (i.name || '').toLowerCase());
+        if (ingNames.some(n => /chiên|rán|dầu|mỡ/.test(n))) penalty = 15;
+      } else if (goal === 'gain') {
+        const ingNames = (d.ingredients || []).map(i => (i.name || '').toLowerCase());
+        if (ingNames.some(n => /thịt|bò|gà|cá|tôm|trứng|đậu/.test(n))) matchPercent += 5;
+      }
+
+      return { dish: d, matchPercent: Math.min(99, matchPercent - penalty) };
+    });
+
+    // Sort by matchPercent descending, lấy top 10
+    scored.sort((a, b) => b.matchPercent - a.matchPercent);
+    const top = scored.slice(0, 10);
+
+    return res.json({ success: true, dishes: top });
+  } catch (err) {
+    console.error('Body recommend fallback error:', err);
+    return res.json({ success: false, error: err.message });
+  }
+});
+
 // ===================== Health Analysis API =====================
 app.post('/api/health-analysis', async (req, res) => {
   const { dish } = req.body;
