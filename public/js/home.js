@@ -35,10 +35,10 @@
   };
 
   const mealKeywords = {
-    breakfast: { tags: ['sáng', 'bánh', 'cháo', 'phở', 'bún', 'mì', 'ốp la', 'trứng', 'sữa', 'xôi', 'bánh mì', 'ngũ cốc'], vibe: 'nhẹ nhàng' },
-    lunch:     { tags: ['cơm', 'canh', 'xào', 'kho', 'mặn', 'lẩu', 'bún', 'phở', 'salad', 'cuốn'], vibe: 'đầy đủ' },
-    dinner:    { tags: ['cơm', 'canh', 'xào', 'kho', 'lẩu', 'hấp', 'nướng', 'salad', 'soup', 'súp'], vibe: 'ấm cúng' },
-    night:     { tags: ['nhẹ', 'cháo', 'súp', 'salad', 'trái cây', 'bánh', 'mì', 'sữa'], vibe: 'nhẹ nhàng' },
+    breakfast: { tags: ['bánh canh', 'nui', 'bún', 'phở', 'cơm sườn', 'bánh mì', 'cháo', 'xôi', 'mì', 'ốp la', 'trứng', 'sữa', 'bánh cuốn', 'bánh ướt', 'bánh bèo', 'hủ tiếu', 'miến'], vibe: 'nhẹ nhàng' },
+    lunch:     { tags: ['cơm', 'cơm tấm', 'cơm chiên', 'cơm rang', 'cơm gà'], vibe: 'đầy đủ' },
+    dinner:    { tags: ['canh', 'xào', 'kho', 'lẩu', 'hấp', 'nướng', 'salad', 'soup', 'súp', 'cơm', 'bún', 'phở', 'cuốn', 'nem', 'gỏi', 'rau'], vibe: 'ấm cúng' },
+    night:     { tags: ['cháo', 'súp', 'mì', 'phở nhẹ', 'salad', 'trái cây', 'bánh', 'sữa'], vibe: 'nhẹ nhàng' },
   };
 
   // ---- Determine meal period from current hour ----
@@ -386,7 +386,7 @@
     });
   }
 
-  // ---- Refresh / cycle a section ----
+  // ---- Refresh / cycle a section (advance by 3 dishes) ----
   function handleRefresh(mealId) {
     const dishes = state.sectionData[mealId] || [];
     if (dishes.length <= 3) {
@@ -394,8 +394,8 @@
       return;
     }
 
-    // Advance index by 1 and render
-    state.sectionIndex[mealId] = (state.sectionIndex[mealId] + 1) % dishes.length;
+    // Advance index by 3 (skip the current 3, get next 3 new dishes)
+    state.sectionIndex[mealId] = (state.sectionIndex[mealId] + 3) % dishes.length;
     renderSection(mealId);
   }
 
