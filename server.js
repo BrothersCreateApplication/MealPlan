@@ -429,6 +429,58 @@ app.get('/api/dish-image', async (req, res) => {
   }
 });
 
+// ===================== Weather API (Open-Meteo, free, no key needed) =====================
+app.get('/api/weather', async (req, res) => {
+  const { lat, lon } = req.query;
+  if (!lat || !lon) {
+    return res.json({ success: false, error: 'Missing lat/lon' });
+  }
+  try {
+    const response = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,precipitation&timezone=auto`
+    );
+    if (!response.ok) throw new Error(`Open-Meteo HTTP ${response.status}`);
+    const data = await response.json();
+    const current = data.current || {};
+    const code = current.weather_code ?? 0;
+
+    // Map WMO weather codes to conditions
+    let condition = 'unknown', icon = 'help';
+    if (code === 0) { condition = 'clear'; icon = 'sunny'; }
+    else if (code <= 3) { condition = 'cloudy'; icon = 'cloud'; }
+    else if (code <= 48) { condition = 'foggy'; icon = 'foggy'; }
+    else if (code <= 57) { condition = 'drizzly'; icon = 'rainy_light'; }
+    else if (code <= 67) { condition = 'rainy'; icon = 'rainy'; }
+    else if (code <= 77) { condition = 'snowy'; icon = 'snowy'; }
+    else if (code <= 82) { condition = 'rainy'; icon = 'rainy'; }
+    else if (code <= 86) { condition = 'snowy'; icon = 'snowy'; }
+    else if (code <= 99) { condition = 'stormy'; icon = 'thunderstorm'; }
+
+    const temp = current.temperature_2m ?? 25;
+    // Determine hot/cold
+    let tempLabel = 'moderate';
+    if (temp >= 33) tempLabel = 'hot';
+    else if (temp <= 18) tempLabel = 'cold';
+
+    res.json({
+      success: true,
+      weather: {
+        condition,
+        icon,
+        temp: Math.round(temp),
+        apparentTemp: Math.round(current.apparent_temperature ?? temp),
+        humidity: current.relative_humidity_2m,
+        precipitation: current.precipitation ?? 0,
+        tempLabel,
+        code
+      }
+    });
+  } catch (err) {
+    console.error('[Weather] Error:', err.message);
+    res.json({ success: false, error: err.message });
+  }
+});
+
 // ===================== Dish Management API =====================
 
 app.get('/api/dishes', async (req, res) => {
