@@ -656,6 +656,182 @@ app.post('/api/analyze-image', async (req, res) => {
   }
 });
 
+// ===================== Health Analysis API =====================
+app.post('/api/health-analysis', async (req, res) => {
+  const { dish } = req.body;
+  if (!dish || !dish.name) {
+    return res.json({ success: false, error: 'Missing dish data' });
+  }
+
+  // Extract nutrients from dish
+  const name = dish.name || '';
+  const calories = dish.calories || '';
+  const ingredients = Array.isArray(dish.ingredients) ? dish.ingredients.map(i => i.name) : [];
+
+  // Xây prompt phân tích sức khỏe
+  const systemPrompt = `Bạn là chuyên gia dinh dưỡng. Phân tích tác động của món ăn lên sức khỏe.
+Trả về JSON hợp lệ (không markdown, không code block) với format:
+{
+  "nutrients": {
+    "calories": "số kcal (chỉ lấy số, VD: 350)",
+    "protein": "ước tính protein (g)",
+    "carbs": "ước tính carbs (g)",
+    "fats": "ước tính chất béo (g)",
+    "sodium": "ước tính natri (mg)"
+  },
+  "heart": {
+    "level": "positive" | "warning" | "danger",
+    "title": "tiêu đề ngắn",
+    "summary": "phân tích chi tiết về tác động lên tim mạch (dựa trên natri, chất béo bão hòa)",
+    "advice": "lời khuyên"
+  },
+  "kidneys": {
+    "level": "positive" | "warning" | "danger",
+    "title": "tiêu đề ngắn",
+    "summary": "phân tích chi tiết về tác động lên thận (dựa trên protein, natri, kali)",
+    "advice": "lời khuyên"
+  },
+  "liver": {
+    "level": "positive" | "warning" | "danger",
+    "title": "tiêu đề ngắn",
+    "summary": "phân tích chi tiết về tác động lên gan (dựa trên đường, chất béo không lành mạnh)",
+    "advice": "lời khuyên"
+  },
+  "overall": "đánh giá tổng quan về mức độ lành mạnh của món ăn này (2-3 câu)"
+}
+
+QUY TẮC ĐÁNH GIÁ:
+- "danger": thành phần có hại ở mức cao (natri >800mg, chất béo bão hòa >15g, protein >40g món, đường >20g)
+- "warning": ở mức trung bình cần chú ý
+- "positive": lành mạnh, tốt cho cơ quan đó`;
+
+  const userPrompt = `Phân tích món ăn: "${name}" - ${calories}.
+Các nguyên liệu chính: ${ingredients.join(', ') || 'không rõ'}.
+Hãy phân tích tác động lên tim, thận, gan dựa trên các nguyên liệu này. Ước tính các chỉ số dinh dưỡng một cách hợp lý.`;
+
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+
+  if (!apiKey) {
+    // Mock response khi không có API key
+    return res.json({
+      success: true,
+      mock: true,
+      analysis: getMockHealthAnalysis(name, ingredients)
+    });
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 2000
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      throw new Error(`DeepSeek API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content;
+
+    if (content) {
+      // Parse JSON từ response
+      let clean = content.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
+      const analysis = JSON.parse(clean);
+
+      // Validate structure
+      if (analysis.heart && analysis.kidneys && analysis.liver) {
+        return res.json({ success: true, analysis });
+      }
+    }
+
+    throw new Error('Failed to parse analysis');
+  } catch (err) {
+    console.error('Health analysis error:', err.message);
+    // Fallback to mock
+    return res.json({
+      success: true,
+      mock: true,
+      analysis: getMockHealthAnalysis(name, ingredients)
+    });
+  }
+});
+
+// Mock health analysis khi không có DeepSeek
+function getMockHealthAnalysis(name, ingredients) {
+  const ings = ingredients.map(i => i.toLowerCase());
+  const hasFried = ings.some(i => /chiên|rán|dầu|mỡ/.test(i));
+  const hasRedMeat = ings.some(i => /thịt bò|thịt heo|thịt lợn|ba chỉ|xá xíu/.test(i));
+  const hasHighSalt = ings.some(i => /mắm|muối|tương|xì dầu|hạt nêm/.test(i));
+  const hasSugar = ings.some(i => /đường|ngọt|syrup|mật ong/.test(i));
+  const hasProcessed = ings.some(i => /chả|lạp xưởng|xúc xích|jambon/.test(i));
+  const isGreen = ings.some(i => /rau|xà lách|cải|bông cải|giá|đậu|nấm/.test(i));
+
+  const heartScore = (hasFried || hasRedMeat ? -2 : 0) + (hasHighSalt ? -2 : 0) + (isGreen ? 2 : 0) + (hasProcessed ? -2 : 0);
+  const kidneyScore = (hasHighSalt ? -3 : 0) + (hasRedMeat ? -1 : 0) + (isGreen ? 1 : 0);
+  const liverScore = (hasFried || hasProcessed ? -2 : 0) + (hasSugar ? -2 : 0) + (isGreen ? 2 : 0);
+
+  function getLevel(score) {
+    if (score >= 2) return 'positive';
+    if (score >= -1) return 'warning';
+    return 'danger';
+  }
+
+  return {
+    nutrients: {
+      calories: '350',
+      protein: '25g',
+      carbs: '30g',
+      fats: '15g',
+      sodium: '650mg'
+    },
+    heart: {
+      level: getLevel(heartScore),
+      title: heartScore >= 0 ? 'Tốt cho tim mạch' : 'Cần chú ý',
+      summary: heartScore >= 2
+        ? 'Món ăn này ít chất béo bão hòa và natri, tốt cho sức khỏe tim mạch.'
+        : heartScore >= -1
+        ? 'Món ăn có lượng natri và chất béo ở mức trung bình. Không quá lo ngại nếu ăn với lượng vừa phải.'
+        : 'Món ăn chứa nhiều chất béo bão hòa và/hoặc natri, có thể gây áp lực lên tim mạch và tăng cholesterol xấu.',
+      advice: heartScore >= 0
+        ? 'Kết hợp với rau xanh và ngũ cốc nguyên hạt để tăng thêm chất xơ cho tim.'
+        : 'Nên giảm lượng muối khi nấu. Dùng dầu thực vật thay mỡ động vật. Kết hợp nhiều rau xanh hơn.'
+    },
+    kidneys: {
+      level: getLevel(kidneyScore),
+      title: kidneyScore >= 0 ? 'Thân thiện với thận' : 'Cần lưu ý',
+      summary: kidneyScore >= 0
+        ? 'Món ăn có lượng protein và natri phù hợp, không gây áp lực lên thận.'
+        : 'Món ăn chứa lượng đạm và muối nhất định. Người có vấn đề về thận nên ăn lượng vừa phải.',
+      advice: 'Uống đủ nước (1.5-2 lít/ngày) để hỗ trợ thận đào thải chất dư thừa. Hạn chế thêm muối.'
+    },
+    liver: {
+      level: getLevel(liverScore),
+      title: liverScore >= 0 ? 'Tốt cho gan' : 'Cần chú ý',
+      summary: liverScore >= 0
+        ? 'Món ăn ít đường và chất béo không lành mạnh, không gây áp lực lên gan.'
+        : 'Món ăn chứa chất béo hoặc đường ở mức cần theo dõi, có thể ảnh hưởng đến gan nếu ăn thường xuyên.',
+      advice: 'Hạn chế đồ chiên rán và đường tinh luyện. Tăng cường rau xanh và thực phẩm giàu chất xơ.'
+    },
+    overall: 'Món ăn này có giá trị dinh dưỡng trung bình. Nên ăn kèm với rau xanh và điều chỉnh lượng muối/dầu khi chế biến để tốt cho sức khỏe tổng thể.'
+  };
+}
+
 // ---- Serve SPA ----
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

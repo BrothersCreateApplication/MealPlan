@@ -148,3 +148,27 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 input[type="date"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
 }
+
+/* Health Analysis Overlay */
+.health-analysis-overlay {
+  backdrop-filter: blur(4px);
+}
+
+.health-analysis-overlay .animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Health result card */
+.health-card-enter {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* Staggered animation for cards */
+#health-results > div {
+  animation: fadeIn 0.4s ease-out;
+}
+#health-results > div:nth-child(1) { animation-delay: 0.05s; }
+#health-results > div:nth-child(2) { animation-delay: 0.1s; }
+#health-results > div:nth-child(3) { animation-delay: 0.15s; }
+#health-results > div:nth-child(4) { animation-delay: 0.2s; }
+#health-results > div:nth-child(5) { animation-delay: 0.25s; }

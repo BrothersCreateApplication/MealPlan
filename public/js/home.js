@@ -549,8 +549,17 @@
               </div>
             </div>
 
+            <!-- Health Analysis Button -->
+            <div class="mt-5 mb-5">
+              <button id="health-analysis-btn" class="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all shadow-md">
+                <span class="material-symbols-outlined">monitor_heart</span>
+                Phân tích sức khỏe
+              </button>
+              <p class="text-xs text-on-surface-variant text-center mt-1">Đánh giá tác động lên tim, thận, gan</p>
+            </div>
+
             <!-- YouTube video embed -->
-            <div class="mt-5">
+            <div class="mt-3">
               <h3 class="font-title-md flex items-center gap-2 text-error mb-3">
                 <span class="material-symbols-outlined">smart_display</span>
                 Video hướng dẫn
@@ -602,6 +611,232 @@
       MealPlan.navigate('cart');
       if (window.renderCart) window.renderCart();
     });
+
+    // Phân tích sức khỏe handler
+    overlay.querySelector('#health-analysis-btn')?.addEventListener('click', async () => {
+      await showHealthAnalysis(dish);
+    });
+  }
+
+  // ---- Phân tích sức khỏe món ăn (Heart, Kidneys, Liver) ----
+  async function showHealthAnalysis(dish) {
+    const existing = document.querySelector('.health-analysis-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'health-analysis-overlay fixed inset-0 z-[250] bg-black/50 flex md:items-center justify-center animate-fade-in';
+    overlay.innerHTML = `
+      <div class="bg-surface-container-lowest w-full h-full md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-2xl md:mx-4 shadow-2xl flex flex-col animate-slide-up">
+        <!-- Header -->
+        <div class="flex-shrink-0 p-5 md:p-6 border-b border-outline-variant/20">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md">
+                <span class="material-symbols-outlined text-white">monitor_heart</span>
+              </div>
+              <div>
+                <h2 class="font-title-md text-on-surface">Phân tích sức khỏe</h2>
+                <p class="text-xs text-on-surface-variant">${dish.name}</p>
+              </div>
+            </div>
+            <button class="health-analysis-close p-1.5 rounded-full hover:bg-surface-container-high transition-all">
+              <span class="material-symbols-outlined text-on-surface-variant">close</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Scrollable body -->
+        <div id="health-analysis-body" class="flex-1 overflow-y-auto p-5 md:p-6">
+          <!-- Loading state -->
+          <div class="text-center py-8" id="health-loading">
+            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+            <p class="text-on-surface font-label-md mb-1">AI đang phân tích...</p>
+            <p class="text-xs text-on-surface-variant">Đánh giá tác động lên tim, thận và gan</p>
+          </div>
+
+          <!-- Results (hidden initially) -->
+          <div id="health-results" class="hidden space-y-5"></div>
+
+          <!-- Error state -->
+          <div id="health-error" class="hidden text-center py-8">
+            <span class="material-symbols-outlined text-4xl text-error mb-3">error_outline</span>
+            <p class="text-on-surface font-label-md">Không thể phân tích món ăn</p>
+            <p class="text-xs text-on-surface-variant mt-1">Vui lòng thử lại sau</p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex-shrink-0 p-4 md:p-6 border-t border-outline-variant/20 bg-surface-container-lowest">
+          <button class="health-analysis-close w-full py-3.5 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-high transition-all">
+            Đóng
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Close handlers
+    const close = () => overlay.remove();
+    overlay.querySelectorAll('.health-analysis-close').forEach(el => el.addEventListener('click', close));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+    // Gọi API phân tích
+    try {
+      const res = await fetch('/api/health-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dish })
+      });
+      const data = await res.json();
+
+      if (data.success && data.analysis) {
+        renderHealthResults(data.analysis);
+      } else {
+        showHealthError();
+      }
+    } catch (err) {
+      console.error('Health analysis error:', err);
+      showHealthError();
+    }
+  }
+
+  // ---- Render kết quả phân tích ----
+  function renderHealthResults(analysis) {
+    const loading = document.getElementById('health-loading');
+    const results = document.getElementById('health-results');
+    const error = document.getElementById('health-error');
+    if (!results) return;
+
+    if (loading) loading.classList.add('hidden');
+    if (error) error.classList.add('hidden');
+    if (results) results.classList.remove('hidden');
+
+    const n = analysis.nutrients || {};
+
+    function getLevelConfig(level) {
+      switch (level) {
+        case 'positive': return {
+          bg: 'bg-emerald-50 border-emerald-200',
+          icon: 'check_circle',
+          iconBg: 'bg-emerald-500',
+          iconColor: 'text-white',
+          badge: 'bg-emerald-100 text-emerald-700',
+          badgeText: 'Tốt',
+          label: 'Lành mạnh'
+        };
+        case 'warning': return {
+          bg: 'bg-amber-50 border-amber-200',
+          icon: 'warning',
+          iconBg: 'bg-amber-500',
+          iconColor: 'text-white',
+          badge: 'bg-amber-100 text-amber-700',
+          badgeText: 'Trung bình',
+          label: 'Cần chú ý'
+        };
+        case 'danger': return {
+          bg: 'bg-red-50 border-red-200',
+          icon: 'error',
+          iconBg: 'bg-red-500',
+          iconColor: 'text-white',
+          badge: 'bg-red-100 text-red-700',
+          badgeText: 'Cao',
+          label: 'Cần hạn chế'
+        };
+        default: return getLevelConfig('warning');
+      }
+    }
+
+    function renderOrganCard(organKey, organData, organLabel, organIcon) {
+      const cfg = getLevelConfig(organData.level);
+      return `
+        <div class="rounded-xl border ${cfg.bg} p-4 transition-all hover:shadow-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-lg ${cfg.iconBg} flex items-center justify-center shadow-sm">
+              <span class="material-symbols-outlined text-white text-xl">${organIcon}</span>
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <h4 class="font-title-md text-on-surface font-semibold">${organLabel}</h4>
+                <span class="text-xs px-2 py-0.5 rounded-full font-semibold ${cfg.badge}">${cfg.badgeText}</span>
+              </div>
+              <p class="text-xs font-semibold mt-0.5 ${organData.level === 'positive' ? 'text-emerald-600' : organData.level === 'danger' ? 'text-red-600' : 'text-amber-600'}">${organData.title}</p>
+            </div>
+            <span class="material-symbols-outlined ${organData.level === 'positive' ? 'text-emerald-500' : organData.level === 'danger' ? 'text-red-500' : 'text-amber-500'}">${cfg.icon}</span>
+          </div>
+          <p class="text-sm text-on-surface-variant leading-relaxed mb-2">${organData.summary}</p>
+          <div class="bg-white/60 rounded-lg p-3">
+            <p class="text-xs font-label-md flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[16px] text-primary">lightbulb</span>
+              <span>${organData.advice}</span>
+            </p>
+          </div>
+        </div>
+      `;
+    }
+
+    // Nutrients bar
+    const nutrientsHtml = `
+      <div class="bg-surface-container-low rounded-xl p-4 border border-outline-variant/20">
+        <h4 class="font-label-md text-on-surface-variant text-xs uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[16px]">bar_chart</span>
+          Chỉ số dinh dưỡng ước tính
+        </h4>
+        <div class="grid grid-cols-5 gap-2 text-center">
+          <div class="bg-white rounded-lg p-2.5">
+            <div class="font-title-md font-bold text-orange-600 text-sm">${n.calories || '--'}</div>
+            <div class="text-[10px] text-on-surface-variant">Calories</div>
+          </div>
+          <div class="bg-white rounded-lg p-2.5">
+            <div class="font-title-md font-bold text-blue-600 text-sm">${n.protein || '--'}</div>
+            <div class="text-[10px] text-on-surface-variant">Protein</div>
+          </div>
+          <div class="bg-white rounded-lg p-2.5">
+            <div class="font-title-md font-bold text-amber-600 text-sm">${n.carbs || '--'}</div>
+            <div class="text-[10px] text-on-surface-variant">Carbs</div>
+          </div>
+          <div class="bg-white rounded-lg p-2.5">
+            <div class="font-title-md font-bold text-purple-600 text-sm">${n.fats || '--'}</div>
+            <div class="text-[10px] text-on-surface-variant">Chất béo</div>
+          </div>
+          <div class="bg-white rounded-lg p-2.5">
+            <div class="font-title-md font-bold text-red-600 text-sm">${n.sodium || '--'}</div>
+            <div class="text-[10px] text-on-surface-variant">Natri</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Organ cards
+    const heartHtml = renderOrganCard('heart', analysis.heart, 'Tim mạch', 'favorite');
+    const kidneysHtml = renderOrganCard('kidneys', analysis.kidneys, 'Thận', 'kidney');
+    const liverHtml = renderOrganCard('liver', analysis.liver, 'Gan', 'liver');
+
+    const overall = analysis.overall || '';
+
+    results.innerHTML = `
+      ${nutrientsHtml}
+      ${heartHtml}
+      ${kidneysHtml}
+      ${liverHtml}
+      ${overall ? `
+      <div class="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl p-4 text-white shadow-md">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="material-symbols-outlined">summarize</span>
+          <h4 class="font-title-md font-semibold">Đánh giá tổng quan</h4>
+        </div>
+        <p class="text-sm text-white/90 leading-relaxed">${overall}</p>
+      </div>` : ''}
+    `;
+  }
+
+  function showHealthError() {
+    const loading = document.getElementById('health-loading');
+    const results = document.getElementById('health-results');
+    const error = document.getElementById('health-error');
+    if (loading) loading.classList.add('hidden');
+    if (results) results.classList.add('hidden');
+    if (error) error.classList.remove('hidden');
   }
 
   // ---- Tìm video YouTube cho món ăn ----
