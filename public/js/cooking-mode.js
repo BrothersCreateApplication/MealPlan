@@ -11,7 +11,7 @@
     const normalized = raw.replace(/\\n/g, '\n');
     const lines = normalized.split('\n').filter(l => l.trim());
 
-    // Phát hiện step header: "1. ...", "1) ...", "Bước 1: ..."
+    // Dùng regex phát hiện "1. ...", "1) ...", "Bước 1: ..."
     const stepHeaderRe = /^(\d+)[\.\)]\s*(.*)|^Bước\s*(\d+)[:\s]*(.*)/i;
     const steps = [];
     let current = null;
@@ -20,22 +20,11 @@
       const m = line.match(stepHeaderRe);
       if (m) {
         if (current) steps.push(current);
-        // (.*) chứa toàn bộ nội dung — đây CHÍNH là instruction
-        const fullInstruction = (m[2] || m[4] || line).trim();
-        // Title: lấy ngắn gọn (trước dấu phẩy/chấm đầu tiên, hoặc 40 ký tự đầu)
-        let shortTitle = fullInstruction.replace(/^💡\s*/, '').split(/[.,;:]/)[0]?.trim() || '';
-        if (shortTitle.length > 45) shortTitle = shortTitle.slice(0, 42) + '...';
-        current = {
-          number: steps.length + 1,
-          title: shortTitle || `Bước ${steps.length + 1}`,
-          instructions: fullInstruction ? [fullInstruction] : [],
-          tip: '',
-          timerSeconds: 0
-        };
+        const text = (m[2] || m[4] || line).trim();
+        current = { number: steps.length + 1, instructions: [text], tip: '', timerSeconds: 0 };
       } else if (current) {
-        // Line thuộc step hiện tại (không có header số)
         const clean = line.trim();
-        if (clean.startsWith('💡') || clean.toLowerCase().includes('mẹo')) {
+        if (clean.includes('💡') || clean.toLowerCase().includes('mẹo')) {
           const tipText = clean.replace(/^💡\s*/i, '').replace(/^Mẹo[:\s]*/i, '').trim();
           if (tipText) current.tip = tipText;
         } else {
@@ -45,24 +34,16 @@
     }
     if (current) steps.push(current);
 
-    // Fallback: nếu không có header số, mỗi dòng là 1 bước riêng
+    // Fallback: không có số thứ tự → mỗi dòng là 1 bước
     if (steps.length === 0 && lines.length > 0) {
-      lines.forEach((line, i) => {
+      lines.forEach(line => {
         const clean = line.replace(/^💡\s*/i, '').replace(/^Mẹo[:\s]*/i, '').trim();
         if (!clean) return;
-        // Dòng tip → gán vào step trước đó
         if (line.includes('💡') || line.toLowerCase().includes('mẹo')) {
           if (steps.length > 0) steps[steps.length - 1].tip = clean;
           return;
         }
-        const shortTitle = clean.split(/[.,;:]/)[0]?.trim() || '';
-        steps.push({
-          number: steps.length + 1,
-          title: shortTitle.length > 45 ? shortTitle.slice(0, 42) + '...' : (shortTitle || `Bước ${steps.length + 1}`),
-          instructions: [clean],
-          tip: '',
-          timerSeconds: 0
-        });
+        steps.push({ number: steps.length + 1, instructions: [clean], tip: '', timerSeconds: 0 });
       });
     }
 
@@ -135,16 +116,7 @@
           <!-- Current Step Card -->
           <div id="cooking-step-card" class="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/20 overflow-hidden">
             <div class="p-5">
-              <div class="flex items-start gap-4 mb-4">
-                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0 shadow-sm">
-                  <span class="text-2xl" id="cooking-step-icon">🍳</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <h3 id="cooking-step-title" class="font-title-md text-on-surface font-bold text-lg"></h3>
-                  <p id="cooking-step-number" class="text-xs text-on-surface-variant mt-0.5"></p>
-                </div>
-              </div>
-              <div id="cooking-step-instructions" class="text-body-md text-on-surface leading-relaxed space-y-2">
+              <div id="cooking-step-instructions" class="text-body-lg text-on-surface font-semibold leading-relaxed space-y-2">
                 <!-- Rendered by JS -->
               </div>
             </div>
@@ -265,25 +237,14 @@
     document.getElementById('cooking-progress-text').textContent = `Bước ${idx + 1} / ${state.steps.length}`;
     document.getElementById('cooking-step-indicator').textContent = `${idx + 1}/${state.steps.length}`;
 
-    // Step icon (dựa vào step number — có thể cải thiện sau)
-    const icons = ['🍳', '🔥', '🥘', '🍲', '🧑‍🍳', '✨', '👨‍🍳'];
-    document.getElementById('cooking-step-icon').textContent = icons[idx % icons.length];
-
-    // Step title
-    document.getElementById('cooking-step-title').textContent = step.title || `Bước ${idx + 1}`;
-    document.getElementById('cooking-step-number').textContent = `Bước ${idx + 1} / ${state.steps.length}`;
-
     // Instructions
     const instEl = document.getElementById('cooking-step-instructions');
     if (step.instructions.length > 0) {
       instEl.innerHTML = step.instructions.map(line =>
-        `<p class="flex items-start gap-2">
-          <span class="material-symbols-outlined text-primary text-[16px] mt-0.5 flex-shrink-0">chevron_right</span>
-          <span>${line}</span>
-        </p>`
+        `<p class="text-[18px] text-on-surface leading-relaxed font-semibold">${line}</p>`
       ).join('');
     } else {
-      instEl.innerHTML = '<p class="text-on-surface-variant italic">Không có hướng dẫn chi tiết</p>';
+      instEl.innerHTML = '<p class="text-[18px] text-on-surface-variant italic">Không có hướng dẫn chi tiết</p>';
     }
 
     // Ingredients per step
@@ -537,7 +498,7 @@
               <div class="flex items-center gap-3 px-3 py-2.5 rounded-xl border ${bg} transition-all cursor-pointer hover:brightness-95 step-item" data-step="${idx}">
                 <span class="material-symbols-outlined ${statusColor} text-xl">${statusIcon}</span>
                 <div class="flex-1 min-w-0">
-                  <p class="text-sm font-label-md text-on-surface ${isDone ? 'line-through opacity-60' : ''}">${step.title || `Bước ${idx + 1}`}</p>
+                  <p class="text-sm font-label-md text-on-surface ${isDone ? 'line-through opacity-60' : ''}">${step.instructions[0]?.slice(0, 50) || `Bước ${idx + 1}`}</p>
                   <p class="text-xs text-on-surface-variant truncate">${step.instructions[0] || ''}</p>
                 </div>
                 <span class="text-xs text-on-surface-variant">B${idx + 1}</span>
@@ -575,7 +536,7 @@
     const step = cookingState.steps[cookingState.currentStep];
     if (!step) return;
 
-    const text = `Bước ${step.number}: ${step.title}. ` +
+    const text = `Bước ${step.number}: ` +
       step.instructions.join('. ') +
       (step.tip ? `. Mẹo: ${step.tip}` : '');
 
