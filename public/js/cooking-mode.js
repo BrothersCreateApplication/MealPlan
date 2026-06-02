@@ -21,7 +21,14 @@
       if (m) {
         if (current) steps.push(current);
         const text = (m[2] || m[4] || line).trim();
-        current = { number: steps.length + 1, instructions: [text], tip: '', timerSeconds: 0 };
+        // Tự động phát hiện timer từ instruction
+        let timerSeconds = 0;
+        const timerMatch = text.match(/(\d+)\s*(phút|giây|s|min)/i);
+        if (timerMatch) {
+          const val = parseInt(timerMatch[1]);
+          timerSeconds = timerMatch[2].match(/phút|min/i) ? val * 60 : val;
+        }
+        current = { number: steps.length + 1, instructions: [text], tip: '', timerSeconds };
       } else if (current) {
         const clean = line.trim();
         if (clean.includes('💡') || clean.toLowerCase().includes('mẹo')) {
@@ -43,7 +50,13 @@
           if (steps.length > 0) steps[steps.length - 1].tip = clean;
           return;
         }
-        steps.push({ number: steps.length + 1, instructions: [clean], tip: '', timerSeconds: 0 });
+        let timerSeconds = 0;
+        const timerMatch = clean.match(/(\d+)\s*(phút|giây|s|min)/i);
+        if (timerMatch) {
+          const val = parseInt(timerMatch[1]);
+          timerSeconds = timerMatch[2].match(/phút|min/i) ? val * 60 : val;
+        }
+        steps.push({ number: steps.length + 1, instructions: [clean], tip: '', timerSeconds });
       });
     }
 
@@ -87,36 +100,41 @@
     overlay.className = 'cooking-mode-overlay fixed inset-0 z-[300] bg-surface flex flex-col animate-fade-in';
     overlay.innerHTML = `
       <!-- Top Bar -->
-      <div class="flex-shrink-0 bg-surface border-b border-outline-variant/20 px-4 py-3">
+      <div class="flex-shrink-0 bg-surface border-b border-outline-variant/20 px-3 py-2.5">
         <div class="flex items-center gap-2">
-          <button class="cooking-back-btn p-1 -ml-1 rounded-lg hover:bg-surface-container-high transition-all" title="Thoát nấu">
+          <button class="cooking-back-btn p-0.5 -ml-1 rounded-lg hover:bg-surface-container-high transition-all" title="Thoát nấu">
             <span class="material-symbols-outlined text-on-surface">close</span>
           </button>
           <div class="flex-1 min-w-0">
             <h2 class="font-title-md text-sm text-on-surface truncate">${dish.name}</h2>
-            <p class="text-[11px] text-on-surface-variant">${dish.time || '--'} • ${dish.calories || '--'}</p>
           </div>
-          <span id="cooking-step-indicator" class="text-xs text-on-surface-variant font-label-md bg-surface-container-high px-2 py-1 rounded-lg">1/${steps.length}</span>
+          <span id="cooking-step-indicator" class="text-xs text-on-surface-variant font-label-md bg-surface-container-high px-2 py-0.5 rounded-lg">1/${steps.length}</span>
         </div>
       </div>
 
       <!-- Progress Bar -->
-      <div class="flex-shrink-0 px-4 py-2 bg-surface border-b border-outline-variant/10">
-        <div class="flex items-center gap-3">
-          <div class="flex-1 h-2 bg-surface-container-high rounded-full overflow-hidden">
+      <div class="flex-shrink-0 px-3 py-1.5 bg-surface border-b border-outline-variant/10">
+        <div class="flex items-center gap-2">
+          <div class="flex-1 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
             <div id="cooking-progress-bar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500" style="width: 0%"></div>
           </div>
-          <span id="cooking-progress-text" class="text-xs text-on-surface-variant font-label-md whitespace-nowrap">Bước 1 / ${steps.length}</span>
+          <span id="cooking-progress-text" class="text-[11px] text-on-surface-variant font-label-md whitespace-nowrap">1 / ${steps.length}</span>
         </div>
       </div>
 
       <!-- Scrollable Body -->
       <div class="flex-1 overflow-y-auto min-h-0" id="cooking-body">
-        <div class="p-4 space-y-4">
+        <div class="p-3 md:p-4 space-y-3">
           <!-- Current Step Card -->
-          <div id="cooking-step-card" class="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/20 overflow-hidden">
-            <div class="p-5">
-              <div id="cooking-step-instructions" class="text-body-lg text-on-surface font-semibold leading-relaxed space-y-2">
+          <div class="bg-primary-container/10 rounded-2xl border border-primary/10 overflow-hidden">
+            <div class="p-4">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="w-9 h-9 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <span id="cooking-step-number" class="text-white font-bold text-sm"></span>
+                </div>
+                <span class="text-sm text-on-surface-variant font-label-md">Bước <span id="cooking-step-current"></span> / ${steps.length}</span>
+              </div>
+              <div id="cooking-step-instructions" class="text-body-lg text-on-surface font-semibold leading-relaxed">
                 <!-- Rendered by JS -->
               </div>
             </div>
@@ -124,7 +142,7 @@
 
           <!-- Dùng ở bước này -->
           <div id="cooking-step-ingredients" class="bg-surface-container-low rounded-xl overflow-hidden border border-outline-variant/20 hidden">
-            <div class="px-4 py-3 border-b border-outline-variant/20">
+            <div class="px-3 py-2.5 border-b border-outline-variant/20">
               <h4 class="font-label-md text-xs text-on-surface-variant flex items-center gap-1.5">
                 <span class="material-symbols-outlined text-[16px]">checklist</span>
                 Dùng ở bước này
@@ -136,22 +154,22 @@
           </div>
 
           <!-- Tip -->
-          <div id="cooking-tip" class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 hidden">
+          <div id="cooking-tip" class="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 hidden">
             <div class="flex items-start gap-2.5">
-              <span class="material-symbols-outlined text-amber-500 flex-shrink-0 text-xl">lightbulb</span>
+              <span class="material-symbols-outlined text-amber-500 flex-shrink-0 text-lg">lightbulb</span>
               <p id="cooking-tip-text" class="text-sm text-amber-800 leading-relaxed"></p>
             </div>
           </div>
 
           <!-- Timer -->
-          <div id="cooking-timer" class="bg-surface-container-low rounded-xl px-4 py-3 border border-outline-variant/20 hidden">
+          <div id="cooking-timer" class="bg-surface-container-low rounded-xl px-3 py-2.5 border border-outline-variant/20 hidden">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-primary">timer</span>
                 <span id="cooking-timer-display" class="font-title-md text-lg font-bold text-on-surface">00:00</span>
               </div>
               <div class="flex gap-2">
-                <button id="cooking-timer-toggle" class="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-95 transition-all flex items-center gap-1">
+                <button id="cooking-timer-toggle" class="bg-primary text-on-primary px-3 py-1.5 rounded-lg text-xs font-label-md hover:opacity-90 active:scale-95 transition-all flex items-center gap-1">
                   <span class="material-symbols-outlined text-[16px]">play_arrow</span>
                   <span>Bắt đầu</span>
                 </button>
@@ -165,8 +183,8 @@
       </div>
 
       <!-- Bottom Actions -->
-      <div class="flex-shrink-0 border-t border-outline-variant/20 bg-surface px-4 py-3">
-        <div class="flex gap-3">
+      <div class="flex-shrink-0 border-t border-outline-variant/20 bg-surface px-3 py-2.5">
+        <div class="flex gap-2">
           <button id="cooking-prev-btn" class="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-high active:scale-[0.98] transition-all disabled:opacity-30 disabled:pointer-events-none">
             <span class="material-symbols-outlined text-[18px]">arrow_back</span>
             Quay lại
@@ -234,8 +252,12 @@
     // Progress bar
     const progress = ((idx + 1) / state.steps.length) * 100;
     document.getElementById('cooking-progress-bar').style.width = progress + '%';
-    document.getElementById('cooking-progress-text').textContent = `Bước ${idx + 1} / ${state.steps.length}`;
+    document.getElementById('cooking-progress-text').textContent = `${idx + 1} / ${state.steps.length}`;
     document.getElementById('cooking-step-indicator').textContent = `${idx + 1}/${state.steps.length}`;
+
+    // Step number
+    document.getElementById('cooking-step-number').textContent = idx + 1;
+    document.getElementById('cooking-step-current').textContent = idx + 1;
 
     // Instructions
     const instEl = document.getElementById('cooking-step-instructions');
