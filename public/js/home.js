@@ -494,29 +494,6 @@
     const existing = document.querySelector('.recipe-overlay');
     if (existing) existing.remove();
 
-    // ---- Overview steps: chỉ lấy tên bước ngắn gọn (không chi tiết) ----
-    function extractStepTitle(text) {
-      // Bỏ số thứ tự đầu dòng: "1. ...", "Bước 1: ...", "1) ..."
-      const cleaned = text.replace(/^(Bước|Step)\s*\d+[:\s)]*\s*/i, '').replace(/^\d+[\.\s)]+\s*/, '');
-      // Bỏ 💡 Mẹo ở cuối, lấy phần trước dấu chấm câu đầu tiên
-      const title = cleaned.split(/[.,;:]/).filter(Boolean)[0] || cleaned;
-      // Giới hạn độ dài
-      return title.length > 60 ? title.slice(0, 60) + '...' : title;
-    }
-
-    const rawLines = (dish.instructions || '').split('\n').filter(s => s.trim());
-    const overviewSteps = rawLines
-      .filter(line => !line.includes('💡') && !line.toLowerCase().includes('mẹo')) // bỏ dòng tip khỏi overview
-      .map((s, i) => {
-        const title = extractStepTitle(s);
-        return `<li class="flex gap-3">
-          <div class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-on-primary text-xs font-bold flex-shrink-0 mt-0.5">${i + 1}</div>
-          <div class="flex-1 pt-0.5">
-            <span class="font-label-md text-on-surface">${title}</span>
-          </div>
-        </li>`;
-      }).join('<li class="my-2 border-t border-outline-variant/20"></li>');
-
     const bottomButtons = `
       <button class="flex-1 bg-primary text-on-primary py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg" id="recipe-cook-btn">
         <span class="material-symbols-outlined">shopping_cart</span>
@@ -572,19 +549,6 @@
                     <span class="text-on-surface-variant font-body-md">${ing.quantity}</span>
                   </div>
                 `).join('')}
-              </div>
-            </div>
-
-            <!-- Instructions with internal scroll -->
-            <div>
-              <h3 class="font-title-md flex items-center gap-2 text-secondary mb-3">
-                <span class="material-symbols-outlined">menu_book</span>
-                Cách nấu
-              </h3>
-              <div class="bg-surface-container-low rounded-xl px-5 py-4 max-h-[40vh] overflow-y-auto">
-                <ul class="space-y-2 list-none">
-                  ${overviewSteps || '<li class="text-on-surface-variant italic">Không có hướng dẫn chi tiết</li>'}
-                </ul>
               </div>
             </div>
 

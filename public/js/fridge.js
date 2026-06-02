@@ -295,6 +295,7 @@
     const availableNames = s.matched ? s.matched.map(m => m.name.toLowerCase()) : [];
 
     const steps = (dish.instructions || '')
+      .replace(/\\n/g, '\n')
       .split('\n')
       .filter(s => s.trim())
       .map((step, i) => {

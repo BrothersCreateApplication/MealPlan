@@ -7,7 +7,9 @@
   // ---- Parse instructions thành steps ----
   function parseSteps(dish) {
     const raw = dish.instructions || '';
-    const lines = raw.split('\n').filter(l => l.trim());
+    // Xử lý cả newline thật \n và literal "\n"
+    const normalized = raw.replace(/\\n/g, '\n');
+    const lines = normalized.split('\n').filter(l => l.trim());
 
     // Phát hiện step header: "1. ...", "1) ...", "Bước 1: ..."
     const stepHeaderRe = /^(\d+)[\.\)]\s*(.*)|^Bước\s*(\d+)[:\s]*(.*)/i;
