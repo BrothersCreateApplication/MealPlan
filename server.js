@@ -576,102 +576,108 @@ app.get('/api/weather', async (req, res) => {
 
 // ===================== Dish Management API =====================
 
-// ---- Gợi ý món theo buổi (server-side filter, AI fallback) ----
-const MEAL_KEYWORDS = {
-  breakfast: ['bánh canh', 'nui', 'bún', 'phở', 'cơm sườn', 'bánh mì', 'cháo', 'xôi', 'mì', 'ốp la', 'trứng', 'sữa', 'bánh cuốn', 'bánh ướt', 'bánh bèo', 'hủ tiếu', 'miến', 'bánh tằm', 'bánh căn', 'bánh khọt', 'bánh xèo', 'bột chiên', 'bò kho', 'bún bò huế', 'hủ tiếu nam vang', 'mì quảng', 'bánh ít', 'bánh dày'],
-  lunch:     ['cơm', 'cơm tấm', 'cơm chiên', 'cơm rang', 'cơm gà', 'cơm sườn', 'mì xào', 'bún thịt nướng', 'bún chả', 'cơm bình dân'],
-  dinner:    ['canh', 'xào', 'kho', 'lẩu', 'hấp', 'nướng', 'salad', 'soup', 'súp', 'cuốn', 'nem', 'gỏi', 'rau', 'thịt luộc', 'cá', 'tôm', 'mực'],
-  night:     ['cháo', 'súp', 'mì', 'phở', 'salad', 'trái cây', 'bánh', 'sữa', 'bánh tráng trộn', 'bắp xào'],
-};
+// ---- Gợi ý món theo buổi (AI chính, DB là cache) ----
+const MEAL_PERIODS = { breakfast: 'sáng', lunch: 'trưa', dinner: 'tối', night: 'khuya' };
 
 app.get('/api/dishes/meal/:period', async (req, res) => {
   const period = req.params.period;
-  const keywords = MEAL_KEYWORDS[period];
-  if (!keywords) return res.json({ dishes: [] });
+  const mealName = MEAL_PERIODS[period];
+  if (!mealName) return res.json({ dishes: [] });
 
-  try {
-    const client = db.getClient();
-    if (!client) return res.json({ dishes: [] });
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  let dishes = [];
 
-    // Query các món có tên chứa bất kỳ keyword nào của buổi này
-    const orConditions = keywords.map(k => `name.ilike.%${k}%`);
-    const { data, error } = await client
-      .from('dishes')
-      .select('id, name, time, calories, difficulty, description, instructions')
-      .or(orConditions.join(','))
-      .order('name')
-      .limit(20);
-
-    if (error) {
-      console.error('[Server] Meal query error:', error.message);
-      return res.json({ dishes: [] });
-    }
-
-    let dishes = data || [];
-
-    // AI fallback nếu DB chưa đủ 6 món cho buổi này
-    if (dishes.length < 6) {
-      const apiKey = process.env.DEEPSEEK_API_KEY;
-      if (apiKey) {
-        try {
-          const mealName = period === 'breakfast' ? 'sáng' : period === 'lunch' ? 'trưa' : period === 'dinner' ? 'tối' : 'khuya';
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 8000);
-          const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-              model: 'deepseek-chat',
-              messages: [
-                { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước). Gợi ý 3-5 món ăn phù hợp cho bữa ${mealName} của người Việt. Chỉ gợi ý món phổ biến, dễ nấu. Instructions: 6-10 bước, ghi rõ lửa to/nhỏ, thời gian, mẹo.` },
-                { role: 'user', content: `Gợi ý món ăn cho bữa ${mealName}. Các từ khoá liên quan: ${keywords.join(', ')}.` }
-              ],
-              temperature: 0.7,
-              max_tokens: 2000
-            }),
-            signal: controller.signal
-          });
-          clearTimeout(timeout);
-
-          if (response.ok) {
-            const data = await response.json();
-            const content = data?.choices?.[0]?.message?.content;
-            if (content) {
-              const parsed = JSON.parse(content);
-              const aiDishes = Array.isArray(parsed) ? parsed : [parsed];
-              const normalized = aiDishes.map(normalizeDish);
-
-              // Lưu vào DB
-              const saveResults = await db.addNewDishes(normalized);
-              const inserted = saveResults.filter(r => r && r.action === 'inserted');
-              if (inserted.length > 0) {
-                console.log(`[DeepSeek] Saved ${inserted.length} new ${mealName} dishes to Supabase`);
-              }
-
-              // Merge DB + AI, loại trùng
-              const seen = new Set(dishes.map(d => d.name.toLowerCase()));
-              for (const d of normalized) {
-                if (d && d.name && !seen.has(d.name.toLowerCase())) {
-                  seen.add(d.name.toLowerCase());
-                  dishes.push(d);
-                }
-              }
-            }
-          }
-        } catch (e) {
-          console.error('[DeepSeek] Meal suggestion error:', e.message);
+  // 1. Thử lấy cache từ DB trước (nếu có AI dishes lưu từ lần trước)
+  if (apiKey) {
+    try {
+      const client = db.getClient();
+      if (client) {
+        // Lấy 10 món bất kỳ — DB đã tích luỹ từ các lần AI trước
+        const { data } = await client
+          .from('dishes')
+          .select('id, name, time, calories, difficulty, description, instructions')
+          .order('name')
+          .limit(10);
+        // Cache chỉ dùng nếu đã có ít nhất 6 món (DB đã được AI fill đủ)
+        if (data && data.length >= 6) {
+          dishes = data;
         }
       }
+    } catch (e) {
+      console.warn('[Meal] DB cache check error:', e.message);
     }
-
-    res.json({ dishes: dishes.slice(0, 10) });
-  } catch (e) {
-    console.error('[Server] Meal suggestion error:', e.message);
-    res.json({ dishes: [] });
   }
+
+  // 2. Gọi AI để gợi ý món cho buổi này (không hard code keywords)
+  if (apiKey && dishes.length < 6) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            {
+              role: 'system',
+              content: `Bạn là đầu bếp Việt Nam. Hãy gợi ý các món ăn phù hợp cho bữa ${mealName} của người Việt.
+
+Trả về JSON array. Mỗi món gồm: name, time (số phút), calories (số kcal), difficulty, description, ingredients[{name,quantity}], instructions (mỗi bước 1 dòng có số thứ tự, ghi rõ lửa to/nhỏ, thời gian, mẹo).
+
+YÊU CẦU:
+- Chỉ gợi ý món phổ biến người Việt thường ăn vào bữa ${mealName}, đúng văn hoá ẩm thực Việt Nam
+- ${period === 'breakfast' ? 'Buổi sáng: món nhẹ, nhanh gọn như bánh mì, phở, bún, cháo, xôi, bánh cuốn, hủ tiếu...' : period === 'lunch' ? 'Buổi trưa: cơm, món mặn + canh + rau, hoặc món nhanh như cơm tấm, bún thịt nướng, cơm chiên...' : period === 'dinner' ? 'Buổi tối: bữa chính đầy đủ — canh, xào, kho, lẩu, nướng, hấp, cá, tôm, thịt...' : 'Khuya: đồ ăn nhẹ, thanh đạm như cháo, súp, salad, trái cây, bánh...'}
+- Mỗi lần trả 4-6 món, đa dạng, không trùng với lần trước
+- Đủ instructions chi tiết 6-10 bước`
+            },
+            { role: 'user', content: `Gợi ý 5 món ăn sáng Việt Nam phù hợp cho bữa ${mealName} hôm nay.` }
+          ],
+          temperature: 0.8,
+          max_tokens: 3000
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data?.choices?.[0]?.message?.content;
+        if (content) {
+          const parsed = JSON.parse(content);
+          const aiDishes = Array.isArray(parsed) ? parsed : [parsed];
+          const normalized = aiDishes.map(normalizeDish).filter(d => d && d.name);
+
+          // Lưu vào DB cho lần sau (fire-and-forget)
+          db.addNewDishes(normalized).catch(() => {});
+
+          // Merge với cache DB nếu có
+          const seen = new Set(dishes.map(d => d.name.toLowerCase()));
+          for (const d of normalized) {
+            if (!seen.has(d.name.toLowerCase())) {
+              seen.add(d.name.toLowerCase());
+              dishes.push(d);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[DeepSeek] Meal suggestion error:', e.message);
+    }
+  }
+
+  // 3. Fallback cuối: nếu không có gì, lấy random từ DB
+  if (dishes.length === 0) {
+    try {
+      const random = await db.getRandomDishes(10);
+      if (random && random.length > 0) dishes = random;
+    } catch (e) {}
+  }
+
+  res.json({ dishes: dishes.slice(0, 10) });
 });
 
 app.get('/api/dishes', async (req, res) => {
