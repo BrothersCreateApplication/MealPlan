@@ -480,11 +480,19 @@
 
   // ---- Recipe Detail Overlay ----
   function showRecipeDetail(dish, mode, cookingEntryId) {
+    // Nếu là chế độ nấu ăn → dùng Cooking Mode mới
+    if (mode === 'cook') {
+      // Gọi openCookingMode từ cooking-mode.js
+      if (window.openCookingMode) {
+        window.openCookingMode(dish, cookingEntryId);
+      } else {
+        MealPlan.showToast('Chưa tải Cooking Mode!', 'error');
+      }
+      return;
+    }
+
     const existing = document.querySelector('.recipe-overlay');
     if (existing) existing.remove();
-
-    const isCookMode = mode === 'cook';
-
     const steps = (dish.instructions || '')
       .split('\n')
       .filter(s => s.trim())
@@ -498,15 +506,7 @@
         </li>`;
       }).join('<li class="my-2 border-t border-outline-variant/20"></li>');
 
-    const bottomButtons = isCookMode ? `
-      <button class="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg" id="recipe-complete-btn">
-        <span class="material-symbols-outlined">check_circle</span>
-        Hoàn thành
-      </button>
-      <button class="px-5 py-3.5 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-high transition-all" id="recipe-close-alt">
-        Đóng
-      </button>
-    ` : `
+    const bottomButtons = `
       <button class="flex-1 bg-primary text-on-primary py-3.5 rounded-xl font-title-md hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg" id="recipe-cook-btn">
         <span class="material-symbols-outlined">shopping_cart</span>
         Đi Chợ
@@ -618,7 +618,6 @@
 
     // Close handlers
     overlay.querySelector('#recipe-close')?.addEventListener('click', () => overlay.remove());
-    overlay.querySelector('#recipe-close-alt')?.addEventListener('click', () => overlay.remove());
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) overlay.remove();
     });

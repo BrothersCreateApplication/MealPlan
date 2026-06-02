@@ -109,7 +109,7 @@
         const entryId = this.dataset.entryId;
         const entry = MealPlan.state.history.find(h => h.id === entryId);
         if (entry && entry.dishData) {
-          window.showRecipeDetail(entry.dishData, 'cook', entryId);
+          window.openCookingMode(entry.dishData, entryId);
         } else {
           MealPlan.showToast('Không có công thức!', 'warning');
         }
