@@ -132,9 +132,9 @@
         <span class="material-symbols-outlined text-2xl">shopping_cart</span>
         Giỏ hàng
       </button>
-      <button class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-label-md transition-all text-on-surface-variant hover:bg-surface-container-high" data-page="history">
-        <span class="material-symbols-outlined text-2xl">auto_awesome</span>
-        Lịch sử
+      <button class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-label-md transition-all text-on-surface-variant hover:bg-surface-container-high" data-page="cooking">
+        <span class="material-symbols-outlined text-2xl">cooking</span>
+        Nấu ăn
       </button>
     </nav>
     <!-- Footer -->
@@ -317,154 +317,57 @@
       </div>
     </div>
 
-    <!-- PAGE: Lịch Sử & Thói Quen -->
-    <div id="page-history" class="page hidden">
+    <!-- PAGE: Nấu Ăn -->
+    <div id="page-cooking" class="page hidden">
       <div class="max-w-4xl mx-auto space-y-6">
-        <h1 class="font-headline-lg font-bold text-on-surface mb-1 text-2xl">Lịch Sử &amp; Thói Quen</h1>
-        <p class="text-on-surface-variant text-sm -mt-4">Theo dõi hành trình nấu nướng của bạn</p>
+        <div class="flex items-center gap-3 mb-2">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md">
+            <span class="material-symbols-outlined text-white">cooking</span>
+          </div>
+          <div>
+            <h1 class="font-headline-lg font-bold text-on-surface text-2xl">Nấu Ăn</h1>
+            <p class="text-on-surface-variant text-sm">Chọn món và bắt đầu nấu</p>
+          </div>
+        </div>
 
-        <!-- Empty State (hidden when data exists) -->
-        <div id="history-empty-state" class="bg-white rounded-2xl shadow-sm border border-outline-variant/20 p-8 text-center hidden">
+        <!-- Empty State -->
+        <div id="cooking-empty-state" class="bg-white rounded-2xl shadow-sm border border-outline-variant/20 p-8 text-center">
           <div class="max-w-sm mx-auto">
             <div class="w-24 h-24 mx-auto mb-5 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
-              <span class="material-symbols-outlined text-4xl text-emerald-500" style="font-variation-settings: 'FILL' 1;">auto_awesome_star</span>
+              <span class="material-symbols-outlined text-4xl text-emerald-500" style="font-variation-settings: 'FILL' 1;">cooking</span>
             </div>
-            <h3 class="font-title-md text-on-surface mb-2 text-lg">Chưa có dữ liệu nấu ăn</h3>
-            <p class="text-on-surface-variant text-sm mb-6 leading-relaxed">Bắt đầu lên kế hoạch bữa ăn để xem thống kê và gợi ý thông minh nhé!</p>
-            <button id="btn-go-home-empty" class="inline-flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl font-label-md hover:bg-emerald-700 active:scale-[0.97] transition-all shadow-lg shadow-emerald-200/50">
-              <span class="material-symbols-outlined text-[18px]">cooking</span>
-              Lên kế hoạch ngay
+            <h3 class="font-title-md text-on-surface mb-2 text-lg">Chưa có món nào để nấu</h3>
+            <p class="text-on-surface-variant text-sm mb-6 leading-relaxed">Hãy đi chợ trước, sau đó quay lại đây để bắt đầu nấu nhé!</p>
+            <button id="btn-go-home-cooking" class="inline-flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl font-label-md hover:bg-emerald-700 active:scale-[0.97] transition-all shadow-lg shadow-emerald-200/50">
+              <span class="material-symbols-outlined text-[18px]">cottage</span>
+              Chọn món ngay
             </button>
           </div>
         </div>
 
-        <!-- AI Insights Banner -->
-        <div id="ai-insights-banner" class="bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-2xl p-5 shadow-lg shadow-emerald-200/40 text-white">
-          <div class="flex items-start gap-4">
-            <div class="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-              <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
-            </div>
-            <div class="flex-1 min-w-0">
-              <h3 class="font-title-md text-sm font-semibold mb-1 text-white/90">Phân tích thói quen</h3>
-              <p id="ai-insight-text" class="text-white/80 text-sm leading-relaxed">Đang tải...</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Spending Habits Chart -->
-        <div class="bg-white rounded-2xl shadow-sm border border-outline-variant/20 p-5">
-          <div class="flex items-center justify-between mb-5">
-            <h2 class="font-title-md font-semibold flex items-center gap-2 text-on-surface">
-              <span class="material-symbols-outlined text-emerald-600">insights</span>
-              Thói quen ăn uống
-            </h2>
-            <span id="spending-trend-badge" class="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold">Chưa có dữ liệu</span>
-          </div>
-          <!-- Chart with grid lines -->
-          <div class="relative">
-            <div class="absolute inset-0 flex flex-col justify-between pointer-events-none">
-              <div class="border-b border-outline-variant/10"></div>
-              <div class="border-b border-outline-variant/10"></div>
-              <div class="border-b border-outline-variant/10"></div>
-              <div class="border-b border-outline-variant/10"></div>
-            </div>
-            <div id="spending-chart" class="h-44 flex items-end justify-around gap-3 px-2 relative z-10">
-              <!-- Bars rendered by JS -->
-            </div>
-          </div>
-          <!-- X-axis labels -->
-          <div id="chart-labels" class="flex justify-around gap-3 px-2 mt-2">
-            <span class="text-[11px] text-on-surface-variant/60 flex-1 text-center">Tuần 1</span>
-            <span class="text-[11px] text-on-surface-variant/60 flex-1 text-center">Tuần 2</span>
-            <span class="text-[11px] text-on-surface-variant/60 flex-1 text-center">Tuần 3</span>
-            <span class="text-[11px] text-on-surface-variant/60 flex-1 text-center">Tuần 4</span>
-            <span class="text-[11px] text-on-surface-variant/60 flex-1 text-center">Tuần 5</span>
-          </div>
-          <p class="text-center font-label-md text-xs text-on-surface-variant mt-3" id="spending-trend"></p>
-        </div>
-
-        <!-- Top Purchased Products -->
-        <div class="bg-white rounded-2xl shadow-sm border border-outline-variant/20 p-5">
-          <h3 class="font-label-md text-on-surface-variant mb-4 text-xs uppercase tracking-wider font-semibold flex items-center gap-2">
-            <span class="material-symbols-outlined text-[16px] text-emerald-600">trending_up</span>
-            Sản phẩm mua nhiều nhất
-          </h3>
-          <div id="top-items" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <!-- Rendered by JS -->
-          </div>
-        </div>
-
-        <!-- History List + Filter -->
-        <div class="bg-white rounded-2xl shadow-sm border border-outline-variant/20 p-5">
-          <div class="flex items-center justify-between mb-5">
-            <h2 class="font-title-md font-semibold flex items-center gap-2 text-on-surface">
-              <span class="material-symbols-outlined text-emerald-600">cooking</span>
-              Lịch sử nấu ăn
-            </h2>
-            <span id="history-count-badge" class="bg-surface-container-high text-on-surface-variant px-2.5 py-0.5 rounded-full text-xs font-semibold"></span>
-          </div>
-
-          <!-- Sleek Filter Bar -->
-          <div class="bg-surface-container-low rounded-xl p-3 mb-5">
-            <div class="flex flex-col sm:flex-row gap-2">
-              <!-- Search -->
-              <div class="relative flex-1">
-                <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                  <span class="material-symbols-outlined text-outline text-[18px]">search</span>
-                </span>
-                <input id="history-search" class="w-full pl-9 pr-4 py-2.5 bg-white border border-outline-variant rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 text-sm transition-all" placeholder="Tìm tên món..." type="text"/>
-              </div>
-              <!-- Date from -->
-              <div class="relative w-full sm:w-40">
-                <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                  <span class="material-symbols-outlined text-outline text-[16px]">calendar_today</span>
-                </span>
-                <input id="history-date-from" class="w-full pl-8 pr-3 py-2.5 bg-white border border-outline-variant rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 text-sm transition-all text-on-surface-variant" type="date"/>
-              </div>
-              <!-- Date to -->
-              <div class="relative w-full sm:w-40">
-                <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                  <span class="material-symbols-outlined text-outline text-[16px]">calendar_month</span>
-                </span>
-                <input id="history-date-to" class="w-full pl-8 pr-3 py-2.5 bg-white border border-outline-variant rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 text-sm transition-all text-on-surface-variant" type="date"/>
-              </div>
-              <!-- Action buttons -->
-              <div class="flex gap-1.5">
-                <button id="btn-apply-history-filter" class="bg-emerald-600 text-white p-2.5 rounded-xl hover:bg-emerald-700 active:scale-[0.97] transition-all shadow-sm" title="Lọc">
-                  <span class="material-symbols-outlined text-[18px]">filter_alt</span>
-                </button>
-                <button id="btn-clear-history-filter" class="p-2.5 rounded-xl border border-outline-variant text-on-surface-variant hover:bg-surface-container-high transition-all" title="Xoá bộ lọc">
-                  <span class="material-symbols-outlined text-[18px]">clear</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div id="history-list" class="space-y-2">
-            <!-- Rendered by JS -->
-          </div>
-          <button id="load-more-history" class="w-full mt-4 py-3 border-2 border-dashed border-outline-variant/50 rounded-xl text-on-surface-variant font-label-md text-sm hover:bg-surface-container-low hover:border-outline-variant transition-all">
-            <span class="flex items-center justify-center gap-2">
-              <span class="material-symbols-outlined text-[18px]">expand_more</span>
-              Tải thêm lịch sử
-            </span>
-          </button>
-          <p id="history-empty-filter" class="hidden text-center py-8 text-on-surface-variant text-sm">
-            <span class="material-symbols-outlined text-3xl text-outline block mx-auto mb-2">search_off</span>
-            Không tìm thấy món nào phù hợp.
-          </p>
-        </div>
-
-        <!-- Favorite Meals -->
-        <section id="favorites-section">
-          <h2 class="font-title-md font-semibold mb-4 flex items-center gap-2 text-on-surface">
-            <span class="material-symbols-outlined text-amber-500">star</span>
-            Món ăn yêu thích
+        <!-- Section 1: Sẵn sàng nấu (shopped, ready to cook) -->
+        <div id="cooking-ready-section" class="hidden">
+          <h2 class="font-title-md font-semibold flex items-center gap-2 text-on-surface mb-3">
+            <span class="material-symbols-outlined text-emerald-600">checklist</span>
+            Sẵn sàng nấu
+            <span id="cooking-ready-count" class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-semibold ml-auto">0</span>
           </h2>
-          <div id="favorite-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div id="cooking-ready-list" class="space-y-3">
             <!-- Rendered by JS -->
           </div>
-        </section>
+        </div>
+
+        <!-- Section 2: Đã nấu (cooked history) -->
+        <div id="cooking-done-section" class="hidden">
+          <h2 class="font-title-md font-semibold flex items-center gap-2 text-on-surface mb-3">
+            <span class="material-symbols-outlined text-amber-500">history</span>
+            Đã nấu
+            <span id="cooking-done-count" class="bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-full text-xs font-semibold ml-auto">0</span>
+          </h2>
+          <div id="cooking-done-list" class="space-y-2">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
       </div>
     </div>
 
@@ -695,9 +598,9 @@
         <span class="material-symbols-outlined text-2xl">shopping_cart</span>
         <span class="text-[10px]">Giỏ hàng</span>
       </button>
-      <button class="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 nav-link text-on-surface-variant" data-page="history">
-        <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
-        <span class="text-[10px]">Lịch sử</span>
+      <button class="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 nav-link text-on-surface-variant" data-page="cooking">
+        <span class="material-symbols-outlined text-2xl">cooking</span>
+        <span class="text-[10px]">Nấu ăn</span>
       </button>
     </div>
   </nav>
@@ -706,7 +609,7 @@
   <script src="/js/home.js"></script>
   <script src="/js/fridge.js"></script>
   <script src="/js/cart.js"></script>
-  <script src="/js/history.js"></script>
+  <script src="/js/cooking.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

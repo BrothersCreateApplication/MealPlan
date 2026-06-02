@@ -479,7 +479,7 @@
   }
 
   // ---- Recipe Detail Overlay ----
-  function showRecipeDetail(dish, mode) {
+  function showRecipeDetail(dish, mode, cookingEntryId) {
     const existing = document.querySelector('.recipe-overlay');
     if (existing) existing.remove();
 
@@ -641,15 +641,26 @@
     if (overlay.querySelector('#recipe-cook-now-btn')) {
       overlay.querySelector('#recipe-cook-now-btn').addEventListener('click', () => {
         overlay.remove();
-        showRecipeDetail(dish, 'cook');
+        showRecipeDetail(dish, 'cook', cookingEntryId);
       });
     }
 
     // Hoàn thành handler (chế độ cook) — lưu vào history với status 'cooked'
     if (overlay.querySelector('#recipe-complete-btn')) {
       overlay.querySelector('#recipe-complete-btn').addEventListener('click', () => {
-        const entry = createHistoryEntry(dish, 'cooked');
-        MealPlan.state.history.unshift(entry);
+        if (cookingEntryId) {
+          // Cập nhật entry đã tồn tại (từ Sẵn sàng nấu)
+          const existing = MealPlan.state.history.find(h => h.id === cookingEntryId);
+          if (existing) {
+            existing.status = 'cooked';
+            existing.date = new Date().toLocaleDateString('vi-VN');
+            existing.dateISO = new Date().toISOString();
+          }
+        } else {
+          // Tạo mới entry
+          const entry = createHistoryEntry(dish, 'cooked');
+          MealPlan.state.history.unshift(entry);
+        }
         MealPlan.state.currentMealName = '';
         MealPlan.saveState();
         overlay.remove();

@@ -707,7 +707,7 @@ const MealPlan = (function() {
         // Trigger page-specific refresh
         switch (page) {
           case 'cart': if (window.renderCart) window.renderCart(); break;
-          case 'history': if (window.renderHistory) window.renderHistory(); break;
+          case 'cooking': if (window.renderCooking) window.renderCooking(); break;
         }
       });
     });
