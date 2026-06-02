@@ -20,25 +20,20 @@
       const m = line.match(stepHeaderRe);
       if (m) {
         if (current) steps.push(current);
-        const title = (m[2] || m[4] || '').trim();
+        // (.*) chứa toàn bộ nội dung — đây CHÍNH là instruction
+        const fullInstruction = (m[2] || m[4] || line).trim();
+        // Title: lấy ngắn gọn (trước dấu phẩy/chấm đầu tiên, hoặc 40 ký tự đầu)
+        let shortTitle = fullInstruction.replace(/^💡\s*/, '').split(/[.,;:]/)[0]?.trim() || '';
+        if (shortTitle.length > 45) shortTitle = shortTitle.slice(0, 42) + '...';
         current = {
           number: steps.length + 1,
-          title: title || `Bước ${steps.length + 1}`,
-          instructions: [],
+          title: shortTitle || `Bước ${steps.length + 1}`,
+          instructions: fullInstruction ? [fullInstruction] : [],
           tip: '',
           timerSeconds: 0
         };
-        // Check nếu có timer trong title
-        const timerMatch = title.match(/(\d+)\s*(phút|giây|s|min)/i);
-        if (timerMatch) {
-          const val = parseInt(timerMatch[1]);
-          current.timerSeconds = timerMatch[2].match(/phút|min/i) ? val * 60 : val;
-        }
-        // Check nếu có tip trong title
-        const tipMatch = title.match(/💡\s*(.+)/);
-        if (tipMatch) current.tip = tipMatch[1].trim();
       } else if (current) {
-        // Line thuộc step hiện tại
+        // Line thuộc step hiện tại (không có header số)
         const clean = line.trim();
         if (clean.startsWith('💡') || clean.toLowerCase().includes('mẹo')) {
           const tipText = clean.replace(/^💡\s*/i, '').replace(/^Mẹo[:\s]*/i, '').trim();
@@ -50,14 +45,24 @@
     }
     if (current) steps.push(current);
 
-    // Fallback: nếu không parse được header, tạo 1 step với toàn bộ instructions
+    // Fallback: nếu không có header số, mỗi dòng là 1 bước riêng
     if (steps.length === 0 && lines.length > 0) {
-      steps.push({
-        number: 1,
-        title: dish.name || 'Nấu ăn',
-        instructions: lines.map(l => l.replace(/^💡\s*/, '').trim()).filter(Boolean),
-        tip: '',
-        timerSeconds: 0
+      lines.forEach((line, i) => {
+        const clean = line.replace(/^💡\s*/i, '').replace(/^Mẹo[:\s]*/i, '').trim();
+        if (!clean) return;
+        // Dòng tip → gán vào step trước đó
+        if (line.includes('💡') || line.toLowerCase().includes('mẹo')) {
+          if (steps.length > 0) steps[steps.length - 1].tip = clean;
+          return;
+        }
+        const shortTitle = clean.split(/[.,;:]/)[0]?.trim() || '';
+        steps.push({
+          number: steps.length + 1,
+          title: shortTitle.length > 45 ? shortTitle.slice(0, 42) + '...' : (shortTitle || `Bước ${steps.length + 1}`),
+          instructions: [clean],
+          tip: '',
+          timerSeconds: 0
+        });
       });
     }
 
