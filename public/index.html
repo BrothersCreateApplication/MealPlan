@@ -161,7 +161,14 @@
     <!-- PAGE: Trang Chủ -->
     <div id="page-home" class="page active">
       <section class="mb-5">
-        <h1 class="font-headline-lg text-on-surface mb-4 text-2xl font-bold">Hôm nay nấu gì?</h1>
+        <div class="flex items-start gap-3 mb-4">
+          <div class="flex-1">
+            <h1 class="font-headline-lg text-on-surface text-2xl font-bold">
+              <span id="greeting-text">Chào buổi</span> 👋
+            </h1>
+            <p id="greeting-sub" class="text-on-surface-variant text-sm mt-0.5">Hôm nay muốn nấu món gì?</p>
+          </div>
+        </div>
         <div class="relative">
           <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
             <span class="material-symbols-outlined text-outline">search</span>
@@ -196,9 +203,15 @@
       </section>
 
       <section>
-        <div class="flex justify-between items-center mb-3">
-          <h2 class="font-title-md text-on-surface font-semibold">Gợi ý món ăn</h2>
-          <button id="btn-load-more" class="text-primary font-label-md text-sm flex items-center gap-1 hover:opacity-80 transition-opacity">
+        <div class="flex items-center gap-2 mb-3">
+          <div id="period-icon" class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0">
+            <span class="material-symbols-outlined text-white text-[16px]">wb_sunny</span>
+          </div>
+          <div class="flex-1">
+            <h2 id="period-title" class="font-title-md text-on-surface font-semibold">🌅 Gợi ý món sáng</h2>
+            <p id="period-sub" class="text-xs text-on-surface-variant">Những món ăn sáng phổ biến người Việt hay ăn</p>
+          </div>
+          <button id="btn-load-more" class="text-primary font-label-md text-sm flex items-center gap-1 hover:opacity-80 transition-opacity whitespace-nowrap">
             <span class="material-symbols-outlined text-[18px]">refresh</span>
             Xem thêm
           </button>

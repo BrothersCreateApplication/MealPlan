@@ -576,12 +576,12 @@ app.get('/api/weather', async (req, res) => {
 
 // ===================== Dish Management API =====================
 
-// ---- Gợi ý món theo buổi (server-side filter, không load 257 món) ----
+// ---- Gợi ý món theo buổi (server-side filter, AI fallback) ----
 const MEAL_KEYWORDS = {
-  breakfast: ['bánh canh', 'nui', 'bún', 'phở', 'cơm sườn', 'bánh mì', 'cháo', 'xôi', 'mì', 'ốp la', 'trứng', 'sữa', 'bánh cuốn', 'bánh ướt', 'bánh bèo', 'hủ tiếu', 'miến'],
-  lunch:     ['cơm', 'cơm tấm', 'cơm chiên', 'cơm rang', 'cơm gà'],
-  dinner:    ['canh', 'xào', 'kho', 'lẩu', 'hấp', 'nướng', 'salad', 'soup', 'súp', 'cuốn', 'nem', 'gỏi', 'rau'],
-  night:     ['cháo', 'súp', 'mì', 'phở', 'salad', 'trái cây', 'bánh', 'sữa'],
+  breakfast: ['bánh canh', 'nui', 'bún', 'phở', 'cơm sườn', 'bánh mì', 'cháo', 'xôi', 'mì', 'ốp la', 'trứng', 'sữa', 'bánh cuốn', 'bánh ướt', 'bánh bèo', 'hủ tiếu', 'miến', 'bánh tằm', 'bánh căn', 'bánh khọt', 'bánh xèo', 'bột chiên', 'bò kho', 'bún bò huế', 'hủ tiếu nam vang', 'mì quảng', 'bánh ít', 'bánh dày'],
+  lunch:     ['cơm', 'cơm tấm', 'cơm chiên', 'cơm rang', 'cơm gà', 'cơm sườn', 'mì xào', 'bún thịt nướng', 'bún chả', 'cơm bình dân'],
+  dinner:    ['canh', 'xào', 'kho', 'lẩu', 'hấp', 'nướng', 'salad', 'soup', 'súp', 'cuốn', 'nem', 'gỏi', 'rau', 'thịt luộc', 'cá', 'tôm', 'mực'],
+  night:     ['cháo', 'súp', 'mì', 'phở', 'salad', 'trái cây', 'bánh', 'sữa', 'bánh tráng trộn', 'bắp xào'],
 };
 
 app.get('/api/dishes/meal/:period', async (req, res) => {
@@ -600,14 +600,74 @@ app.get('/api/dishes/meal/:period', async (req, res) => {
       .select('id, name, time, calories, difficulty, description, instructions')
       .or(orConditions.join(','))
       .order('name')
-      .limit(30);
+      .limit(20);
 
     if (error) {
       console.error('[Server] Meal query error:', error.message);
       return res.json({ dishes: [] });
     }
 
-    res.json({ dishes: data || [] });
+    let dishes = data || [];
+
+    // AI fallback nếu DB chưa đủ 6 món cho buổi này
+    if (dishes.length < 6) {
+      const apiKey = process.env.DEEPSEEK_API_KEY;
+      if (apiKey) {
+        try {
+          const mealName = period === 'breakfast' ? 'sáng' : period === 'lunch' ? 'trưa' : period === 'dinner' ? 'tối' : 'khuya';
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 8000);
+          const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              model: 'deepseek-chat',
+              messages: [
+                { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước). Gợi ý 3-5 món ăn phù hợp cho bữa ${mealName} của người Việt. Chỉ gợi ý món phổ biến, dễ nấu. Instructions: 6-10 bước, ghi rõ lửa to/nhỏ, thời gian, mẹo.` },
+                { role: 'user', content: `Gợi ý món ăn cho bữa ${mealName}. Các từ khoá liên quan: ${keywords.join(', ')}.` }
+              ],
+              temperature: 0.7,
+              max_tokens: 2000
+            }),
+            signal: controller.signal
+          });
+          clearTimeout(timeout);
+
+          if (response.ok) {
+            const data = await response.json();
+            const content = data?.choices?.[0]?.message?.content;
+            if (content) {
+              const parsed = JSON.parse(content);
+              const aiDishes = Array.isArray(parsed) ? parsed : [parsed];
+              const normalized = aiDishes.map(normalizeDish);
+
+              // Lưu vào DB
+              const saveResults = await db.addNewDishes(normalized);
+              const inserted = saveResults.filter(r => r && r.action === 'inserted');
+              if (inserted.length > 0) {
+                console.log(`[DeepSeek] Saved ${inserted.length} new ${mealName} dishes to Supabase`);
+              }
+
+              // Merge DB + AI, loại trùng
+              const seen = new Set(dishes.map(d => d.name.toLowerCase()));
+              for (const d of normalized) {
+                if (d && d.name && !seen.has(d.name.toLowerCase())) {
+                  seen.add(d.name.toLowerCase());
+                  dishes.push(d);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[DeepSeek] Meal suggestion error:', e.message);
+        }
+      }
+    }
+
+    res.json({ dishes: dishes.slice(0, 10) });
   } catch (e) {
     console.error('[Server] Meal suggestion error:', e.message);
     res.json({ dishes: [] });

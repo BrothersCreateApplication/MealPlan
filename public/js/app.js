@@ -708,6 +708,9 @@ const MealPlan = (function() {
         switch (page) {
           case 'cart': if (window.renderCart) window.renderCart(); break;
           case 'cooking': if (window.renderCooking) window.renderCooking(); break;
+          case 'home': if (window.loadMealDishes && window.getMealPeriod) {
+            window.loadMealDishes(window.getMealPeriod());
+          }; break;
         }
       });
     });

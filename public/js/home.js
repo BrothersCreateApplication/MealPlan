@@ -101,9 +101,15 @@
         const data = await res.json();
         if (data.dishes) newDishes = data.dishes;
       } else {
-        const res = await fetch('/api/random-dishes', { method: 'POST' });
-        const data = await res.json();
-        if (data.dishes) newDishes = data.dishes;
+        // "Xem thêm" — lấy random mới khác với món đã hiển thị
+        try {
+          const res = await fetch('/api/random-dishes', { method: 'POST' });
+          const data = await res.json();
+          if (data.dishes) newDishes = data.dishes;
+        } catch (e) {}
+        if (newDishes.length === 0) {
+          newDishes = getSampleDishes();
+        }
       }
     } catch (e) {
       console.warn('Load more error:', e);
@@ -1730,6 +1736,122 @@
   // ---- Camera / Upload ----
   // Dùng MealPlan.openCamera({ mode: 'dish', onResult: callback }) từ app.js
 
+  // ---- Xác định buổi trong ngày ----
+  function getMealPeriod() {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 11) return 'breakfast';   // sáng: 5h-11h
+    if (h >= 11 && h < 14) return 'lunch';       // trưa: 11h-14h
+    if (h >= 14 && h < 21) return 'dinner';      // tối: 14h-21h
+    return 'night';                               // khuya: 21h-5h
+  }
+
+  function getPeriodMeta(period) {
+    switch (period) {
+      case 'breakfast':
+        return {
+          label: '🌅 Gợi ý món sáng',
+          greeting: 'Chào buổi sáng',
+          sub: 'Những món ăn sáng phổ biến người Việt hay ăn ☀️',
+          icon: 'wb_sunny',
+          gradient: 'from-amber-400 to-orange-500',
+          query: 'món sáng'
+        };
+      case 'lunch':
+        return {
+          label: '☀️ Gợi ý món trưa',
+          greeting: 'Chào buổi trưa',
+          sub: 'Cơm trưa đầy đủ dinh dưỡng cho một ngày làm việc 🍚',
+          icon: 'light_mode',
+          gradient: 'from-orange-400 to-red-500',
+          query: 'món trưa'
+        };
+      case 'dinner':
+        return {
+          label: '🌆 Gợi ý món tối',
+          greeting: 'Chào buổi tối',
+          sub: 'Bữa tối sum họp gia đình ấm cúng 🍲',
+          icon: 'dark_mode',
+          gradient: 'from-indigo-500 to-purple-600',
+          query: 'món tối'
+        };
+      case 'night':
+        return {
+          label: '🌙 Gợi ý món khuya',
+          greeting: 'Khuya rồi còn đói không?',
+          sub: 'Đồ ăn nhẹ cho bữa khuya ⭐',
+          icon: 'bedtime',
+          gradient: 'from-slate-600 to-indigo-800',
+          query: 'món khuya'
+        };
+    }
+  }
+
+  // ---- Load dishes theo buổi ----
+  let currentPeriod = 'breakfast';
+
+  async function loadMealDishes(period) {
+    currentPeriod = period;
+    const meta = getPeriodMeta(period);
+    const grid = document.getElementById('dish-grid');
+    if (!grid) return;
+
+    isSearchMode = false;
+    lastSearchQuery = '';
+
+    // Cập nhật UI greeting & period header
+    const greetEl = document.getElementById('greeting-text');
+    if (greetEl) greetEl.textContent = meta.greeting;
+    const greetSub = document.getElementById('greeting-sub');
+    if (greetSub) greetSub.textContent = meta.sub;
+
+    const periodTitle = document.getElementById('period-title');
+    if (periodTitle) periodTitle.textContent = meta.label;
+    const periodSub = document.getElementById('period-sub');
+    if (periodSub) periodSub.textContent = meta.sub;
+    const periodIcon = document.getElementById('period-icon');
+    if (periodIcon) {
+      periodIcon.className = `w-8 h-8 rounded-lg bg-gradient-to-br ${meta.gradient} flex items-center justify-center flex-shrink-0`;
+      periodIcon.innerHTML = `<span class="material-symbols-outlined text-white text-[16px]">${meta.icon}</span>`;
+    }
+
+    // Loading state
+    grid.innerHTML = `
+      <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+        <p class="text-on-surface-variant font-body-md">Đang tìm món phù hợp cho buổi này...</p>
+      </div>`;
+
+    let dishes = [];
+    try {
+      const res = await fetch(`/api/dishes/meal/${period}`);
+      const data = await res.json();
+      if (data.dishes) dishes = data.dishes;
+    } catch (e) {
+      console.warn('Failed to load meal dishes:', e);
+    }
+
+    if (dishes.length === 0) {
+      // Fallback: nếu API không trả, dùng random
+      try {
+        const res = await fetch('/api/random-dishes', { method: 'POST' });
+        const data = await res.json();
+        if (data.dishes) dishes = data.dishes;
+      } catch (e) {}
+    }
+
+    if (dishes.length === 0) {
+      dishes = getSampleDishes();
+    }
+
+    renderDishes(dishes);
+  }
+
+  // ---- Init period-based loading ----
+  function initPeriodSuggestions() {
+    const period = getMealPeriod();
+    loadMealDishes(period);
+  }
+
   // ---- Init ----
   function initHome() {
     const searchInput = document.getElementById('dish-search');
@@ -1739,11 +1861,28 @@
 
     if (!searchInput || !btnSchedule) return;
 
-    // Auto-load random dishes on page load
-    loadRandomDishes();
+    // Auto-load dishes theo buổi
+    initPeriodSuggestions();
 
-    // Xem thêm button
-    document.getElementById('btn-load-more')?.addEventListener('click', loadMoreDishes);
+    // Xem thêm button — cũng load thêm theo buổi
+    document.getElementById('btn-load-more')?.addEventListener('click', async () => {
+      if (isSearchMode) {
+        await loadMoreDishes();
+      } else {
+        // Load thêm món từ random
+        await loadMoreDishes();
+      }
+    });
+
+    // Kiểm tra đồng hồ — tự động đổi buổi mỗi khi trang được active lại
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && document.getElementById('page-home')?.classList.contains('active')) {
+        const newPeriod = getMealPeriod();
+        if (newPeriod !== currentPeriod) {
+          loadMealDishes(newPeriod);
+        }
+      }
+    });
 
     // Live search on Enter
     searchInput.addEventListener('keydown', async (e) => {
@@ -1801,11 +1940,13 @@
     }
   }
 
-  // Expose globally for fridge module to use
+  // Expose globally for other modules
   window.renderHomeDishes = renderDishes;
   window.showHealthAnalysis = showHealthAnalysis;
   window.showRecipeDetail = showRecipeDetail;
   window.createHistoryEntry = createHistoryEntry;
+  window.loadMealDishes = loadMealDishes;
+  window.getMealPeriod = getMealPeriod;
 
   document.addEventListener('DOMContentLoaded', initHome);
 })();
