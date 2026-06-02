@@ -229,7 +229,8 @@
       // Clear cart
       MealPlan.clearCart();
       MealPlan.showToast(`Đã hoàn tất "${dishName}"!`, 'success');
-      renderCart();
+      MealPlan.navigate('cooking');
+      if (window.renderCooking) window.renderCooking();
     });
 
     document.getElementById('cart-cancel')?.addEventListener('click', () => {

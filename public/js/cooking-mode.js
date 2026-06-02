@@ -612,6 +612,9 @@
     MealPlan.saveState();
     closeCookingMode();
     MealPlan.showToast(`🎉 Đã nấu xong "${state.dish.name}"!`, 'success', 4000);
+    // Chuyển sang tab Nấu ăn để thấy trạng thái Đã nấu
+    MealPlan.navigate('cooking');
+    if (window.renderCooking) window.renderCooking();
   }
 
   function handleExit() {
