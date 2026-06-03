@@ -734,63 +734,70 @@ app.post('/api/suggest-by-ingredients', async (req, res) => {
     return res.json({ suggestions: [], fromCache: true });
   }
 
-  // 1. Tìm trong DB trước (trừ khi forceAI)
+  const apiKey = process.env.DEEPSEEK_API_KEY;
   let suggestions = [];
-  if (!forceAI) {
-    suggestions = await db.suggestDishesByIngredients(ingredients);
-  }
+  let fromCache = true;
 
-  // 2. Nếu forceAI hoặc không đủ gợi ý (dưới 3), gọi DeepSeek
-  if (forceAI || suggestions.length < 3) {
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    if (apiKey) {
-      try {
-        const ingsStr = ingredients.join(', ');
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-        const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: 'deepseek-chat',
-            messages: [
-              { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước). Có nguyên liệu: ${ingsStr}. Gợi ý 3-4 món nấu được, chỉ thêm 1-2 gia vị. Ghi ĐẦY ĐỦ nguyên liệu. time, calories là number.` },
-              { role: 'user', content: `Tôi có các nguyên liệu: ${ingsStr}. Gợi ý tôi nấu món gì?` }
-            ],
-            temperature: 0.7,
-            max_tokens: 1500
-          }),
-          signal: controller.signal
-        });
-        clearTimeout(timeout);
+  // 1. Luôn gọi AI gợi ý món dựa trên nguyên liệu (DB sạch, AI trả mới)
+  if (apiKey) {
+    try {
+      const ingsStr = ingredients.join(', ');
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            {
+              role: 'system',
+              content: `JSON array. Có nguyên liệu: ${ingsStr}. Gợi ý 4-5 món nấu được từ các nguyên liệu này, có thể thêm 1-2 gia vị.
 
-        if (response.ok) {
-          const data = await response.json();
-          const content = data?.choices?.[0]?.message?.content;
-          if (content) {
-            const parsed = JSON.parse(content);
+Mỗi món: name, time (số phút), calories (số kcal), difficulty (Dễ/Trung bình/Khó), description, ingredients[{name,quantity}], instructions (dùng \\n giữa các bước, không xuống dòng thật).`
+            },
+            { role: 'user', content: `Tôi có: ${ingsStr}. Gợi ý món gì?` }
+          ],
+          temperature: 0.7,
+          max_tokens: 3000
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data?.choices?.[0]?.message?.content;
+        if (content) {
+          try {
+            let clean = content.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
+            let parsed;
+            try {
+              parsed = JSON.parse(clean);
+            } catch (e) {
+              let fixed = clean.replace(/,\s*([}\]])/g, '$1');
+              try {
+                parsed = JSON.parse(fixed);
+              } catch (e2) {
+                const idx = Math.max(fixed.lastIndexOf(']'), fixed.lastIndexOf('}'));
+                if (idx > 10) parsed = JSON.parse(fixed.slice(0, idx + 1));
+                else throw e;
+              }
+            }
             const aiDishes = Array.isArray(parsed) ? parsed : [parsed];
+            const normalized = aiDishes.map(normalizeDish).filter(d => d && d.name);
 
-            const normalized = aiDishes.map(normalizeDish);
-            const saveResults = await db.addNewDishes(normalized);
-            const inserted = saveResults.filter(r => r && r.action === 'inserted');
-            if (inserted.length > 0) {
-              console.log(`[DeepSeek] Saved ${inserted.length} new dishes from ingredient suggestion`);
-            }
+            // Lưu vào DB (fire-and-forget)
+            db.addNewDishes(normalized).catch(() => {});
 
-            const dbSuggestions = await db.suggestDishesByIngredients(ingredients);
-            if (dbSuggestions.length >= 3) {
-              return res.json({ suggestions: dbSuggestions, fromCache: true });
-            }
-
-            // Parse AI dishes to suggestion format
+            // Parse thành format suggestion
             const baseSeasonings = db.BASIC_SEASONINGS || [];
             const normalizedAvail = ingredients.map(i => db.removeAccents(i.toLowerCase().trim()));
 
-            const aiSuggestions = normalized.map(aiDish => {
+            suggestions = normalized.map(aiDish => {
               const dishIngs = aiDish.ingredients || [];
               const results = dishIngs.map(ing => {
                 const ingName = db.removeAccents(ing.name.toLowerCase().trim());
@@ -819,22 +826,28 @@ app.post('/api/suggest-by-ingredients', async (req, res) => {
               };
             });
 
-            aiSuggestions.sort((a, b) => b.matchPercent - a.matchPercent);
-            return res.json({ suggestions: [...suggestions, ...aiSuggestions].slice(0, 5), fromCache: false });
+            suggestions.sort((a, b) => b.matchPercent - a.matchPercent);
+            fromCache = false;
+
+            console.log(`[FridgeAI] Suggested ${suggestions.length} dishes for: ${ingsStr}`);
+          } catch (parseErr) {
+            console.error('[FridgeAI] JSON parse error:', parseErr.message);
           }
         }
-      } catch (e) {
-        console.error('DeepSeek suggestion error:', e.message);
       }
-    }
-
-    // Fallback: nếu forceAI mà DeepSeek không trả về gì, lấy từ DB
-    if (forceAI && suggestions.length === 0) {
-      suggestions = await db.suggestDishesByIngredients(ingredients);
+    } catch (e) {
+      console.error('[DeepSeek] Fridge suggestion error:', e.message);
     }
   }
 
-  res.json({ suggestions: suggestions.slice(0, 5), fromCache: true });
+  // 2. Fallback: tìm trong DB (nếu có)
+  if (suggestions.length === 0) {
+    try {
+      suggestions = await db.suggestDishesByIngredients(ingredients);
+    } catch (e) {}
+  }
+
+  res.json({ suggestions: suggestions.slice(0, 5), fromCache });
 });
 
 
