@@ -88,9 +88,23 @@
 
             ${dish.ingredients && dish.ingredients.length > 0 ? `
             <div class="bg-surface-container-low rounded-xl px-3 py-2 mb-3">
-              <p class="text-xs text-on-surface-variant">
-                <span class="font-semibold">${dish.ingredients.length}</span> nguyên liệu
-              </p>
+              <div class="flex items-center justify-between">
+                <p class="text-xs text-on-surface-variant">
+                  <span class="font-semibold">${dish.ingredients.length}</span> nguyên liệu
+                </p>
+                <p class="text-xs text-primary font-semibold">
+                  Tổng: ${MealPlan.formatCurrency(dish.ingredients.reduce((sum, ing) => sum + (ing.price || 0), 0))}
+                </p>
+              </div>
+              <div class="mt-1.5 space-y-0.5 max-h-20 overflow-y-auto">
+                ${dish.ingredients.slice(0, 8).map(ing => `
+                  <div class="flex items-center justify-between text-[11px] text-on-surface-variant">
+                    <span>${ing.name}</span>
+                    <span>${ing.price ? MealPlan.formatCurrency(ing.price) : '—'}</span>
+                  </div>
+                `).join('')}
+                ${dish.ingredients.length > 8 ? `<p class="text-[10px] text-on-surface-variant italic">+${dish.ingredients.length - 8} nguyên liệu khác</p>` : ''}
+              </div>
             </div>` : ''}
 
             <div class="flex gap-2">
