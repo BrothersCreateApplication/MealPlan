@@ -645,26 +645,7 @@ YÊU CẦU:
     }
   }
 
-  // 2. Nếu AI không trả về gì, fallback xuống DB
-  if (dishes.length === 0) {
-    try {
-      const client = db.getClient();
-      if (client) {
-        const { data } = await client
-          .from('dishes')
-          .select('id, name, time, calories, difficulty, description, instructions')
-          .order('name')
-          .limit(10);
-        if (data && data.length >= 1) {
-          dishes = data;
-        }
-      }
-    } catch (e) {
-      console.warn('[Meal] DB fallback error:', e.message);
-    }
-  }
-
-  // 3. Fallback cuối: random từ DB
+  // 2. Fallback: random từ DB (tránh trả cùng 10 món theo alphabet)
   if (dishes.length === 0) {
     try {
       const random = await db.getRandomDishes(10);
