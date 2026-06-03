@@ -1823,7 +1823,7 @@
 
     let dishes = [];
     try {
-      const res = await fetch(`/api/dishes/meal/${period}`);
+      const res = await fetch(`/api/dishes/meal/${period}?_=${Date.now()}`);
       const data = await res.json();
       if (data.dishes) dishes = data.dishes;
     } catch (e) {

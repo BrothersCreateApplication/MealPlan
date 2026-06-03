@@ -589,12 +589,13 @@ app.get('/api/dishes/meal/:period', async (req, res) => {
 
   // 1. Luôn gọi AI để có gợi ý tươi mới mỗi lần
   if (apiKey) {
+    console.log(`[Meal] Calling DeepSeek for period=${period}, mealName=${mealName}`);
     try {
       // Random seed để AI không trả cùng kết quả
       const seed = Date.now() % 1000;
       const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
+      const timeout = setTimeout(() => controller.abort(), 12000);
       const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -637,12 +638,15 @@ YÊU CẦU:
           // Lưu vào DB cho lần sau (fire-and-forget)
           db.addNewDishes(normalized).catch(() => {});
 
+          console.log(`[Meal] AI returned ${normalized.length} dishes for ${period}: ${normalized.map(d => d.name).join(', ')}`);
           dishes = normalized;
         }
       }
     } catch (e) {
       console.error('[DeepSeek] Meal suggestion error:', e.message);
     }
+  } else {
+    console.log('[Meal] No DEEPSEEK_API_KEY, skipping AI');
   }
 
   // 2. Fallback: random từ DB (tránh trả cùng 10 món theo alphabet)
