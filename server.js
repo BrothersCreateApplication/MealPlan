@@ -607,21 +607,19 @@ app.get('/api/dishes/meal/:period', async (req, res) => {
           messages: [
             {
               role: 'system',
-              content: `Bạn là đầu bếp Việt Nam. Hãy gợi ý các món ăn phù hợp cho bữa ${mealName} của người Việt.
+              content: `Bạn là đầu bếp Việt Nam. Gợi ý món cho bữa ${mealName}.
 
-Trả về JSON array. Mỗi món gồm: name, time (số phút), calories (số kcal), difficulty, description, ingredients[{name,quantity}], instructions (mỗi bước 1 dòng có số thứ tự, ghi rõ lửa to/nhỏ, thời gian, mẹo).
+Trả về JSON array. Mỗi món: name, time (số phút), calories (số kcal), difficulty, description, ingredients[{name,quantity}], instructions (dùng \\n giữa các bước, không xuống dòng thật).
 
-YÊU CẦU:
-- Chỉ gợi ý món phổ biến người Việt thường ăn vào bữa ${mealName}, đúng văn hoá ẩm thực Việt Nam
-- ${period === 'breakfast' ? 'Buổi sáng: món nhẹ, nhanh gọn như bánh mì, phở, bún, cháo, xôi, bánh cuốn, hủ tiếu...' : period === 'lunch' ? 'Buổi trưa: cơm, món mặn + canh + rau, hoặc món nhanh như cơm tấm, bún thịt nướng, cơm chiên...' : period === 'dinner' ? 'Buổi tối: bữa chính đầy đủ — canh, xào, kho, lẩu, nướng, hấp, cá, tôm, thịt...' : 'Khuya: đồ ăn nhẹ, thanh đạm như cháo, súp, salad, trái cây, bánh...'}
-- Mỗi lần trả 4-6 món KHÁC NHAU, đa dạng, KHÔNG trùng với những lần trước
-- Dùng seed=${seed} ngẫu nhiên để chọn món khác mỗi lần
-- Đủ instructions chi tiết 6-10 bước`
+QUY TẮC:
+- Chỉ món phổ biến người Việt ăn bữa ${mealName}
+- ${period === 'breakfast' ? 'Sáng: bánh mì, phở, bún, cháo, xôi, bánh cuốn, hủ tiếu, cơm tấm...' : period === 'lunch' ? 'Trưa: cơm + món mặn + canh, cơm tấm, bún thịt nướng, cơm chiên...' : period === 'dinner' ? 'Tối: canh, xào, kho, lẩu, nướng, hấp, cá, tôm, thịt...' : 'Khuya: đồ nhẹ như cháo, súp, salad, bánh...'}
+- Trả 4 món, đa dạng, KHÔNG trùng lần trước (seed ${seed})`
             },
-            { role: 'user', content: `Hôm nay là ngày thứ ${dayOfYear} trong năm. Gợi ý 5 món ăn Việt Nam cho bữa ${mealName} hôm nay. Chọn món đa dạng, không trùng với các lần gợi ý trước.` }
+            { role: 'user', content: `Gợi ý 4 món ${mealName} Việt Nam cho ngày thứ ${dayOfYear}.` }
           ],
           temperature: 0.9,
-          max_tokens: 3000
+          max_tokens: 3500
         }),
         signal: controller.signal
       });
@@ -631,15 +629,45 @@ YÊU CẦU:
         const data = await response.json();
         const content = data?.choices?.[0]?.message?.content;
         if (content) {
-          const parsed = JSON.parse(content);
-          const aiDishes = Array.isArray(parsed) ? parsed : [parsed];
-          const normalized = aiDishes.map(normalizeDish).filter(d => d && d.name);
+          // DeepSeek hay trả JSON lỗi cú pháp → try/catch + clean
+          try {
+            let clean = content.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
+            // Thử parse nguyên bản trước
+            let parsed;
+            try {
+              parsed = JSON.parse(clean);
+            } catch (e) {
+              console.error(`[DeepSeek] Raw content (first 200):`, clean.slice(0, 200));
+              console.error(`[DeepSeek] Raw content (last 200):`, clean.slice(-200));
+              // Sửa JSON lỗi thường gặp: trailing comma, thiếu dấu đóng
+              let fixed = clean
+                .replace(/,\s*([}\]])/g, '$1'); // xoá trailing comma
+              // Thử cắt bỏ phần lỗi cuối — giữ từ đầu đến ] cuối cùng
+              try {
+                parsed = JSON.parse(fixed);
+              } catch (e2) {
+                const idx = fixed.lastIndexOf(']');
+                const idx2 = fixed.lastIndexOf('}');
+                const cut = Math.max(idx, idx2);
+                if (cut > 10) {
+                  parsed = JSON.parse(fixed.slice(0, cut + 1));
+                } else {
+                  throw e;
+                }
+              }
+            }
+            const aiDishes = Array.isArray(parsed) ? parsed : [parsed];
+            const normalized = aiDishes.map(normalizeDish).filter(d => d && d.name);
 
-          // Lưu vào DB cho lần sau (fire-and-forget)
-          db.addNewDishes(normalized).catch(() => {});
+            // Lưu vào DB cho lần sau (fire-and-forget)
+            db.addNewDishes(normalized).catch(() => {});
 
-          console.log(`[Meal] AI returned ${normalized.length} dishes for ${period}: ${normalized.map(d => d.name).join(', ')}`);
-          dishes = normalized;
+            console.log(`[Meal] AI returned ${normalized.length} dishes for ${period}: ${normalized.map(d => d.name).join(', ')}`);
+            dishes = normalized;
+          } catch (parseErr) {
+            console.error(`[DeepSeek] JSON parse error for ${period}:`, parseErr.message);
+            // Không set dishes → fallback
+          }
         }
       }
     } catch (e) {
@@ -649,12 +677,9 @@ YÊU CẦU:
     console.log('[Meal] No DEEPSEEK_API_KEY, skipping AI');
   }
 
-  // 2. Fallback: random từ DB (tránh trả cùng 10 món theo alphabet)
+  // 2. Fallback: dishes phù hợp theo buổi (nếu AI fail)
   if (dishes.length === 0) {
-    try {
-      const random = await db.getRandomDishes(10);
-      if (random && random.length > 0) dishes = random;
-    } catch (e) {}
+    dishes = getMealFallbackDishes(period);
   }
 
   res.json({ dishes: dishes.slice(0, 10) });
@@ -1474,6 +1499,55 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Vào Bếp server running at http://localhost:${PORT}`);
 });
+
+// Export for Vercel
+module.exports = app;
+
+// ---- Fallback dishes cho meal period (khi AI fail) ----
+function getMealFallbackDishes(period) {
+  const all = {
+    breakfast: [
+      { name: 'Phở Bò', time: '15 ph', calories: '420 kcal', difficulty: 'Trung bình', description: 'Phở bò tái nạm thơm ngon, nước dùng đậm đà — món sáng quốc dân.', ingredients: [{name:'Bánh phở',quantity:'200g'},{name:'Thịt bò',quantity:'150g'},{name:'Hành lá',quantity:'5 cây'}], instructions: '1. Hầm xương bò lấy nước dùng.\n2. Trụng bánh phở.\n3. Thái thịt bò, xếp lên tô.\n4. Chan nước dùng nóng, rắc hành ngò.' },
+      { name: 'Bánh Mì Ốp La', time: '10 ph', calories: '380 kcal', difficulty: 'Dễ', description: 'Bánh mì giòn với trứng ốp la, pate và rau thơm.', ingredients: [{name:'Bánh mì',quantity:'1 ổ'},{name:'Trứng gà',quantity:'2 quả'},{name:'Pate',quantity:'1 thìa'}], instructions: '1. Bánh mì nướng giòn.\n2. Chiên trứng ốp la lửa vừa.\n3. Phết pate, xếp trứng, rau, chan xì dầu.\n4. Kẹp lại và thưởng thức.' },
+      { name: 'Bún Bò Huế', time: '20 ph', calories: '450 kcal', difficulty: 'Trung bình', description: 'Bún bò Huế cay nồng, đậm đà xứ Huế.', ingredients: [{name:'Bún',quantity:'200g'},{name:'Thịt bò',quantity:'150g'},{name:'Sả',quantity:'5 cây'}], instructions: '1. Nấu nước dùng với sả, ruốc.\n2. Trụng bún.\n3. Thịt bò thái mỏng.\n4. Chan nước dùng, thêm ớt, rau sống.' },
+      { name: 'Cơm Tấm Sườn', time: '15 ph', calories: '500 kcal', difficulty: 'Trung bình', description: 'Cơm tấm sườn nướng thơm lừng, ăn kèm bì chả.', ingredients: [{name:'Cơm tấm',quantity:'1 dĩa'},{name:'Sườn',quantity:'200g'},{name:'Bì',quantity:'50g'}], instructions: '1. Sườn ướp gia vị nướng chín.\n2. Xé bì heo.\n3. Dọn cơm tấm với sườn, bì, chả, mỡ hành.\n4. Chan nước mắm chua ngọt.' },
+      { name: 'Cháo Thịt Băm', time: '15 ph', calories: '320 kcal', difficulty: 'Dễ', description: 'Cháo nóng hổi với thịt băm và hành lá.', ingredients: [{name:'Gạo',quantity:'100g'},{name:'Thịt heo băm',quantity:'100g'},{name:'Hành lá',quantity:'3 cây'}], instructions: '1. Nấu gạo thành cháo.\n2. Xào thịt băm với hành.\n3. Cho thịt vào cháo, nêm nếm.\n4. Múc ra tô, rắc hành và tiêu.' },
+      { name: 'Hủ Tiếu Nam Vang', time: '15 ph', calories: '400 kcal', difficulty: 'Trung bình', description: 'Hủ tiếu Nam Vang tôm thịt nước dùng ngọt thanh.', ingredients: [{name:'Hủ tiếu',quantity:'200g'},{name:'Tôm',quantity:'100g'},{name:'Thịt heo',quantity:'100g'}], instructions: '1. Nấu nước dùng tôm thịt.\n2. Trụng hủ tiếu.\n3. Xếp tôm, thịt, giá lên tô.\n4. Chan nước dùng, thêm hành phi.' },
+      { name: 'Bánh Cuốn', time: '15 ph', calories: '350 kcal', difficulty: 'Khó', description: 'Bánh cuốn mỏng tang nhân tôm thịt, chấm nước mắm chua ngọt.', ingredients: [{name:'Bột gạo',quantity:'200g'},{name:'Thịt băm',quantity:'100g'},{name:'Mộc nhĩ',quantity:'30g'}], instructions: '1. Pha bột, tráng bánh.\n2. Xào nhân thịt mộc nhĩ.\n3. Trải bánh, cho nhân, cuốn lại.\n4. Rắc hành phi, chấm nước mắm.' },
+      { name: 'Xôi Xéo', time: '20 ph', calories: '420 kcal', difficulty: 'Dễ', description: 'Xôi gấc vàng ươm với mỡ hành và hành phi.', ingredients: [{name:'Gạo nếp',quantity:'300g'},{name:'Gấc',quantity:'1 miếng'},{name:'Hành phi',quantity:'2 thìa'}], instructions: '1. Đồ nếp với gấc cho vàng.\n2. Rưới mỡ hành lên xôi.\n3. Rắc hành phi và muối mè.' },
+      { name: 'Bún Chả', time: '15 ph', calories: '450 kcal', difficulty: 'Trung bình', description: 'Bún chả Hà Nội với chả thơm, nước mắm chua ngọt.', ingredients: [{name:'Bún',quantity:'200g'},{name:'Thịt ba chỉ',quantity:'150g'},{name:'Rau sống',quantity:'1 dĩa'}], instructions: '1. Thịt thái lát ướp gia vị.\n2. Nướng thịt trên than hoa.\n3. Pha nước mắm chua ngọt.\n4. Dọn bún, chả, rau và nước mắm.' },
+      { name: 'Bánh Ướt Thịt Nướng', time: '15 ph', calories: '400 kcal', difficulty: 'Trung bình', description: 'Bánh ướt mềm cuốn thịt nướng và rau sống.', ingredients: [{name:'Bánh ướt',quantity:'200g'},{name:'Thịt heo',quantity:'150g'},{name:'Rau sống',quantity:'100g'}], instructions: '1. Thịt ướp gia vị nướng chín.\n2. Trải bánh ướt, xếp thịt và rau.\n3. Cuốn chặt, chấm nước mắm chua ngọt.' },
+    ],
+    lunch: [
+      { name: 'Cơm Tấm Sườn Nướng', time: '20 ph', calories: '550 kcal', difficulty: 'Trung bình', description: 'Cơm tấm sườn nướng thơm lừng, ăn kèm bì chả.', ingredients: [{name:'Cơm tấm',quantity:'1 dĩa'},{name:'Sườn',quantity:'200g'},{name:'Bì',quantity:'50g'}], instructions: '1. Sườn ướp nướng.\n2. Xé bì.\n3. Dọn cơm + sườn + bì + mỡ hành.' },
+      { name: 'Bún Thịt Nướng', time: '15 ph', calories: '480 kcal', difficulty: 'Dễ', description: 'Bún thịt nướng với nem chua, chấm nước mắm chua ngọt.', ingredients: [{name:'Bún',quantity:'200g'},{name:'Thịt heo',quantity:'150g'},{name:'Nem chua',quantity:'2 cái'}], instructions: '1. Thịt ướp nướng chín.\n2. Bún trụng, xếp rau thơm.\n3. Thêm thịt nướng, nem, đậu phộng.\n4. Chan nước mắm chua ngọt.' },
+      { name: 'Cơm Chiên Dương Châu', time: '15 ph', calories: '520 kcal', difficulty: 'Dễ', description: 'Cơm chiên tôm thịt trứng — nhanh gọn cho bữa trưa.', ingredients: [{name:'Cơm nguội',quantity:'300g'},{name:'Tôm',quantity:'100g'},{name:'Trứng',quantity:'2 quả'}], instructions: '1. Phi tỏi thơm.\n2. Xào tôm, cho cơm vào chiên.\n3. Đập trứng, đảo đều.\n4. Nêm nếm, rắc hành lá.' },
+      { name: 'Bò Xào Súp Lơ', time: '15 ph', calories: '480 kcal', difficulty: 'Dễ', description: 'Thịt bò mềm kết hợp súp lơ xanh giòn ngọt.', ingredients: [{name:'Thịt bò',quantity:'200g'},{name:'Súp lơ',quantity:'200g'},{name:'Tỏi',quantity:'3 tép'}], instructions: '1. Bò ướp, xào lửa lớn.\n2. Luộc sơ súp lơ.\n3. Phi tỏi, cho bò và súp lơ vào đảo đều.' },
+      { name: 'Canh Chua Cá Lóc', time: '25 ph', calories: '380 kcal', difficulty: 'Trung bình', description: 'Canh chua thanh ngọt với cá lóc tươi, đậu bắp.', ingredients: [{name:'Cá lóc',quantity:'300g'},{name:'Me',quantity:'50g'},{name:'Đậu bắp',quantity:'100g'}], instructions: '1. Cá lóc làm sạch.\n2. Nấu nước me.\n3. Cho cá vào nấu chín, thêm đậu bắp, giá.' },
+      { name: 'Thịt Kho Trứng', time: '30 ph', calories: '520 kcal', difficulty: 'Trung bình', description: 'Thịt ba chỉ kho trứng đậm đà, hao cơm.', ingredients: [{name:'Thịt ba chỉ',quantity:'300g'},{name:'Trứng',quantity:'4 quả'},{name:'Nước dừa',quantity:'200ml'}], instructions: '1. Thịt cắt miếng, ướp gia vị.\n2. Kho thịt với nước dừa lửa nhỏ.\n3. Luộc trứng, bỏ vỏ, cho vào kho cùng.' },
+    ],
+    dinner: [
+      { name: 'Cá Kho Tộ', time: '25 ph', calories: '450 kcal', difficulty: 'Trung bình', description: 'Cá kho tộ thơm lừng, đậm đà — món tối truyền thống.', ingredients: [{name:'Cá basa',quantity:'300g'},{name:'Nước mắm',quantity:'3 thìa'},{name:'Tiêu',quantity:'1 thìa'}], instructions: '1. Cá rửa sạch, ướp gia vị.\n2. Xếp cá vào nồi đất, kho lửa liu riu.\n3. Kho đến khi nước sền sệt, thêm tiêu.' },
+      { name: 'Lẩu Thái Hải Sản', time: '30 ph', calories: '550 kcal', difficulty: 'Khó', description: 'Lẩu Thái chua cay hải sản tươi ngon.', ingredients: [{name:'Tôm',quantity:'200g'},{name:'Mực',quantity:'200g'},{name:'Sả',quantity:'5 cây'}], instructions: '1. Nấu nước lẩu với sả, ớt, me.\n2. Nhúng hải sản, rau.\n3. Thưởng thức với bún.' },
+      { name: 'Sườn Nướng BBQ', time: '30 ph', calories: '580 kcal', difficulty: 'Trung bình', description: 'Sườn non nướng BBQ thơm lừng cả nhà.', ingredients: [{name:'Sườn non',quantity:'500g'},{name:'Sốt BBQ',quantity:'100ml'}], instructions: '1. Sườn ướp sốt BBQ 30 phút.\n2. Nướng lò 180°C 20 phút.\n3. Phết sốt, nướng thêm 10 phút.' },
+      { name: 'Bò Lúc Lắc', time: '20 ph', calories: '500 kcal', difficulty: 'Trung bình', description: 'Bò lúc lắc hạt tiêu xanh ăn kèm salad.', ingredients: [{name:'Thịt bò',quantity:'300g'},{name:'Salad',quantity:'100g'},{name:'Hạt tiêu',quantity:'1 thìa'}], instructions: '1. Bò cắt hạt lựu, ướp tiêu.\n2. Xào lửa lớn đến khi chín tới.\n3. Dọn với salad.' },
+      { name: 'Gà Nướng Mật Ong', time: '10 ph', calories: '480 kcal', difficulty: 'Trung bình', description: 'Cánh gà nướng mật ong thơm ngọt.', ingredients: [{name:'Cánh gà',quantity:'500g'},{name:'Mật ong',quantity:'3 thìa'}], instructions: '1. Gà ướp mật ong + gia vị.\n2. Nướng lò 15 phút.\n3. Phết mật ong, nướng thêm 5 phút.' },
+      { name: 'Tôm Rim Mặn Ngọt', time: '15 ph', calories: '380 kcal', difficulty: 'Dễ', description: 'Tôm rim mặn ngọt ăn cơm nóng.', ingredients: [{name:'Tôm',quantity:'300g'},{name:'Đường',quantity:'1 thìa'},{name:'Nước mắm',quantity:'2 thìa'}], instructions: '1. Tôm làm sạch.\n2. Phi thơm hành, cho tôm vào.\n3. Thêm nước mắm + đường, rim lửa nhỏ.' },
+    ],
+    night: [
+      { name: 'Cháo Gà Xé', time: '20 ph', calories: '280 kcal', difficulty: 'Dễ', description: 'Cháo gà xé nhẹ nhàng cho bữa khuya.', ingredients: [{name:'Gạo',quantity:'100g'},{name:'Gà luộc',quantity:'100g'},{name:'Gừng',quantity:'1 nhánh'}], instructions: '1. Nấu gạo thành cháo.\n2. Xé gà luộc.\n3. Cho gà vào cháo, thêm gừng.\n4. Nêm nếm, rắc hành.' },
+      { name: 'Bánh Mì Trứng', time: '10 ph', calories: '320 kcal', difficulty: 'Dễ', description: 'Bánh mì trứng nhanh gọn lúc đói khuya.', ingredients: [{name:'Bánh mì',quantity:'1 ổ'},{name:'Trứng',quantity:'2 quả'},{name:'Tương ớt',quantity:'1 thìa'}], instructions: '1. Bánh mì nướng giòn.\n2. Trứng chiên theo ý thích.\n3. Xếp trứng vào bánh mì, thêm tương ớt.' },
+      { name: 'Salad Rau Củ', time: '10 ph', calories: '180 kcal', difficulty: 'Dễ', description: 'Salad rau củ thanh mát, ít calo cho bữa khuya.', ingredients: [{name:'Xà lách',quantity:'200g'},{name:'Cà rốt',quantity:'1 củ'},{name:'Dầu giấm',quantity:'30ml'}], instructions: '1. Rau củ rửa sạch.\n2. Thái sợi hoặc cắt nhỏ.\n3. Trộn đều với dầu giấm.' },
+      { name: 'Súp Bí Đỏ', time: '15 ph', calories: '200 kcal', difficulty: 'Dễ', description: 'Súp bí đỏ ấm bụng — ngon và bổ.', ingredients: [{name:'Bí đỏ',quantity:'200g'},{name:'Sữa tươi',quantity:'100ml'}], instructions: '1. Bí đỏ gọt vỏ, hấp chín.\n2. Xay nhuyễn với sữa.\n3. Nấu sôi nhẹ, nêm chút muối.' },
+      { name: 'Bánh Flan', time: '5 ph', calories: '220 kcal', difficulty: 'Dễ', description: 'Bánh flan mát lạnh, caramen thơm ngọt.', ingredients: [{name:'Bánh flan',quantity:'2 cái'},{name:'Cà phê',quantity:'1 ly'}], instructions: '1. Bánh flan mua sẵn.\n2. Ăn kèm cà phê hoặc đá bào.' },
+    ]
+  };
+
+  const list = all[period] || all.lunch;
+  // Trộn ngẫu nhiên để mỗi lần hiển thị thứ tự khác nhau
+  const shuffled = [...list].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 8);
+}
 
 // ---- Sample dishes cho body recommend fallback ----
 function getSampleBodyDishes(calTarget, goal) {
