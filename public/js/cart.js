@@ -191,6 +191,13 @@
       const savedDish = MealPlan.state.currentDishData || {};
 
       // Add to history with full tracking
+      // Lấy giá từ cart items để lưu vào dishData
+      const cartWithPrices = MealPlan.state.cart.map(i => ({
+        name: i.name,
+        quantity: i.quantity,
+        price: i.price || 0
+      }));
+
       MealPlan.state.history.unshift({
         id: MealPlan.generateId(),
         dishName: dishName,
@@ -209,11 +216,19 @@
           calories: savedDish.calories || '',
           difficulty: savedDish.difficulty || '',
           description: savedDish.description || '',
-          ingredients: savedDish.ingredients || [],
+          // Gộp ingredients từ dishData (tên, số lượng) + giá từ cart
+          ingredients: savedDish.ingredients.map(ing => {
+            const cartItem = MealPlan.state.cart.find(c => c.name === ing.name);
+            return {
+              name: ing.name,
+              quantity: ing.quantity,
+              price: cartItem ? (cartItem.price || 0) : 0
+            };
+          }),
           instructions: savedDish.instructions || ''
         } : {
           name: dishName,
-          ingredients: MealPlan.state.cart.map(i => ({ name: i.name, quantity: i.quantity })),
+          ingredients: cartWithPrices,
           instructions: '',
           time: '',
           calories: '',
