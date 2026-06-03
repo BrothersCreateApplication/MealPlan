@@ -192,6 +192,24 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   animation: fadeIn 0.4s ease-out;
 }
 
+/* Cart page: only cart items scroll, not whole page */
+#page-cart.active {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 140px); /* header + bottom nav + padding */
+  overflow: hidden;
+}
+#page-cart #cart-items {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+@media (min-width: 1024px) {
+  #page-cart.active {
+    height: calc(100vh - 100px);
+  }
+}
+
 /* Staggered animation for cards */
 #health-results > div {
   animation: fadeIn 0.4s ease-out;

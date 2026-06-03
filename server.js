@@ -576,7 +576,7 @@ app.get('/api/weather', async (req, res) => {
 
 // ===================== Dish Management API =====================
 
-// ---- Gợi ý món theo buổi (AI chính, DB là cache) ----
+// ---- Gợi ý món theo buổi (AI chính, cache phụ) ----
 const MEAL_PERIODS = { breakfast: 'sáng', lunch: 'trưa', dinner: 'tối', night: 'khuya' };
 
 app.get('/api/dishes/meal/:period', async (req, res) => {
@@ -587,30 +587,12 @@ app.get('/api/dishes/meal/:period', async (req, res) => {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   let dishes = [];
 
-  // 1. Thử lấy cache từ DB trước (nếu có AI dishes lưu từ lần trước)
+  // 1. Luôn gọi AI để có gợi ý tươi mới mỗi lần
   if (apiKey) {
     try {
-      const client = db.getClient();
-      if (client) {
-        // Lấy 10 món bất kỳ — DB đã tích luỹ từ các lần AI trước
-        const { data } = await client
-          .from('dishes')
-          .select('id, name, time, calories, difficulty, description, instructions')
-          .order('name')
-          .limit(10);
-        // Cache chỉ dùng nếu đã có ít nhất 6 món (DB đã được AI fill đủ)
-        if (data && data.length >= 6) {
-          dishes = data;
-        }
-      }
-    } catch (e) {
-      console.warn('[Meal] DB cache check error:', e.message);
-    }
-  }
-
-  // 2. Gọi AI để gợi ý món cho buổi này (không hard code keywords)
-  if (apiKey && dishes.length < 6) {
-    try {
+      // Random seed để AI không trả cùng kết quả
+      const seed = Date.now() % 1000;
+      const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
       const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -631,12 +613,13 @@ Trả về JSON array. Mỗi món gồm: name, time (số phút), calories (số
 YÊU CẦU:
 - Chỉ gợi ý món phổ biến người Việt thường ăn vào bữa ${mealName}, đúng văn hoá ẩm thực Việt Nam
 - ${period === 'breakfast' ? 'Buổi sáng: món nhẹ, nhanh gọn như bánh mì, phở, bún, cháo, xôi, bánh cuốn, hủ tiếu...' : period === 'lunch' ? 'Buổi trưa: cơm, món mặn + canh + rau, hoặc món nhanh như cơm tấm, bún thịt nướng, cơm chiên...' : period === 'dinner' ? 'Buổi tối: bữa chính đầy đủ — canh, xào, kho, lẩu, nướng, hấp, cá, tôm, thịt...' : 'Khuya: đồ ăn nhẹ, thanh đạm như cháo, súp, salad, trái cây, bánh...'}
-- Mỗi lần trả 4-6 món, đa dạng, không trùng với lần trước
+- Mỗi lần trả 4-6 món KHÁC NHAU, đa dạng, KHÔNG trùng với những lần trước
+- Dùng seed=${seed} ngẫu nhiên để chọn món khác mỗi lần
 - Đủ instructions chi tiết 6-10 bước`
             },
-            { role: 'user', content: `Gợi ý 5 món ăn sáng Việt Nam phù hợp cho bữa ${mealName} hôm nay.` }
+            { role: 'user', content: `Hôm nay là ngày thứ ${dayOfYear} trong năm. Gợi ý 5 món ăn Việt Nam cho bữa ${mealName} hôm nay. Chọn món đa dạng, không trùng với các lần gợi ý trước.` }
           ],
-          temperature: 0.8,
+          temperature: 0.9,
           max_tokens: 3000
         }),
         signal: controller.signal
@@ -654,14 +637,7 @@ YÊU CẦU:
           // Lưu vào DB cho lần sau (fire-and-forget)
           db.addNewDishes(normalized).catch(() => {});
 
-          // Merge với cache DB nếu có
-          const seen = new Set(dishes.map(d => d.name.toLowerCase()));
-          for (const d of normalized) {
-            if (!seen.has(d.name.toLowerCase())) {
-              seen.add(d.name.toLowerCase());
-              dishes.push(d);
-            }
-          }
+          dishes = normalized;
         }
       }
     } catch (e) {
@@ -669,7 +645,26 @@ YÊU CẦU:
     }
   }
 
-  // 3. Fallback cuối: nếu không có gì, lấy random từ DB
+  // 2. Nếu AI không trả về gì, fallback xuống DB
+  if (dishes.length === 0) {
+    try {
+      const client = db.getClient();
+      if (client) {
+        const { data } = await client
+          .from('dishes')
+          .select('id, name, time, calories, difficulty, description, instructions')
+          .order('name')
+          .limit(10);
+        if (data && data.length >= 1) {
+          dishes = data;
+        }
+      }
+    } catch (e) {
+      console.warn('[Meal] DB fallback error:', e.message);
+    }
+  }
+
+  // 3. Fallback cuối: random từ DB
   if (dishes.length === 0) {
     try {
       const random = await db.getRandomDishes(10);
