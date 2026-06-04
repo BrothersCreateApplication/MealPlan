@@ -1507,6 +1507,188 @@ function getMockHealthAnalysis(name, ingredients) {
   };
 }
 
+// ===================== Plating Guide API =====================
+app.post('/api/plating-guide', async (req, res) => {
+  const { dish } = req.body;
+  if (!dish || !dish.name) {
+    return res.json({ success: false, error: 'Missing dish data' });
+  }
+
+  const name = dish.name || '';
+  const ingredients = Array.isArray(dish.ingredients) ? dish.ingredients.map(i => i.name) : [];
+  const ingsWithQty = Array.isArray(dish.ingredients) ? dish.ingredients.map(i => `${i.quantity || ''} ${i.name}`).join(', ') : ingredients.join(', ');
+
+  const systemPrompt = `Bạn là đầu bếp chuyên nghiệp chuyên về trình bày món ăn (food plating/styling).
+
+Trả về JSON hợp lệ (không markdown, không code block) với format:
+{
+  "style": "phong cách trình bày (VD: Nhà hàng Hà Nội, Quán Sài Gòn, Fine Dining, Gia đình ấm cúng...)",
+  "plateType": "loại đĩa/tô (VD: Tô sứ trắng 20cm, Đĩa tròn sứ 26cm...)",
+  "layout": "loại bố cục: bowl | round-plate | layered-glass | square-plate",
+  "steps": [
+    {
+      "step": 1,
+      "title": "tên bước ngắn (VD: Lót bánh phở, Xếp thịt hình quạt...)",
+      "detail": "mô tả chi tiết 1-2 câu về cách làm bước này",
+      "position": "vị trí trên đĩa: bottom | top | left | right | center | all-over | top-right...",
+      "coverage": "tỉ lệ diện tích chiếm: số phần trăm (VD: 40)",
+      "color": "màu sắc chính của thành phần này (VD: #F5DEB3 cho bánh phở, #FF6B6B cho thịt bò)"
+    }
+  ],
+  "tips": ["mẹo 1", "mẹo 2", "mẹo 3"],
+  "commonMistakes": ["lỗi thường gặp 1", "lỗi thường gặp 2"],
+  "colorHarmony": "phân tích phối màu trên đĩa (1-2 câu)"
+}
+
+QUY TẮC:
+- 3-6 bước, mỗi bước RÕ RÀNG về vị trí và tỉ lệ
+- layout=bowl nếu món nước (phở, bún, canh), round-plate nếu món cơm/món mặn, layered-glass nếu salad/gỏi
+- Mỗi bước phải có position VÀ coverage (tỉ lệ %)
+- Tips thiết thực, có thể làm theo ngay
+- Chọn phong cách PHÙ HỢP với loại món (món Việt dân dã thì không dùng Fine Dining)`;
+
+  const userPrompt = `Hướng dẫn cách bày trí món "${name}".
+Nguyên liệu: ${ingsWithQty || 'không rõ'}.
+
+Hãy hướng dẫn bày trí món này ra đĩa/tô CHUYÊN NGHIỆP và ĐẸP MẮT.`;
+
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+
+  if (!apiKey) {
+    return res.json({
+      success: true,
+      mock: true,
+      plating: getMockPlatingGuide(name, ingredients)
+    });
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.6,
+        max_tokens: 2000
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) throw new Error(`DeepSeek API error: ${response.status}`);
+
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content;
+
+    if (content) {
+      let clean = content.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
+      const plating = JSON.parse(clean);
+
+      if (plating.steps && plating.steps.length > 0) {
+        return res.json({ success: true, plating });
+      }
+    }
+
+    throw new Error('Failed to parse plating guide');
+  } catch (err) {
+    console.error('Plating guide error:', err.message);
+    return res.json({
+      success: true,
+      mock: true,
+      plating: getMockPlatingGuide(name, ingredients)
+    });
+  }
+});
+
+// Mock plating guide khi không có API key
+function getMockPlatingGuide(dishName, ingredients) {
+  const name = dishName.toLowerCase();
+  const ings = ingredients.map(i => i.toLowerCase());
+
+  // Xác định loại món để chọn phong cách
+  const isSoup = /phở|bún|canh|cháo|hủ tiếu|miến|súp|lẩu/.test(name);
+  const isSalad = /salad|gỏi|nộm|trộn/.test(name);
+  const isRice = /cơm|xôi/.test(name);
+  const isFried = /chiên|rán/.test(name);
+
+  if (isSoup) {
+    return {
+      style: 'Quán Việt truyền thống',
+      plateType: 'Tô sứ trắng 22cm',
+      layout: 'bowl',
+      steps: [
+        { step: 1, title: 'Lót nền', detail: `Trụng ${name.includes('phở') ? 'bánh phở' : name.includes('bún') ? 'bún' : 'thành phần chính'} qua nước sôi 5 giây rồi xếp gọn vào tô, dàn đều đáy.`, position: 'bottom', coverage: 40, color: '#F5DEB3' },
+        { step: 2, title: 'Xếp topping', detail: 'Xếp thịt/cá/topping thành hình quạt hoặc lớp chồng nhẹ ở 1/3 diện tích mặt tô. Không dàn trải. Để lộ phần nền bên dưới.', position: 'top', coverage: 30, color: '#FF8C69' },
+        { step: 3, title: 'Rải rau thơm & gia vị', detail: 'Hành lá, rau thơm thái nhỏ rắc đều lên mặt. Ớt lát mỏng đặt 2-3 lát lệch tâm làm điểm nhấn.', position: 'all-over', coverage: 15, color: '#228B22' },
+        { step: 4, title: 'Chan nước dùng', detail: 'Chan nước dùng nóng từ mép tô, không chan trực tiếp từ trên xuống — giữ topping không bị xô lệch. Nước dùng cao khoảng 3/4 tô.', position: 'all-over', coverage: 100, color: '#8B4513' }
+      ],
+      tips: ['Trụng bánh phở/bún bằng nước sôi trước khi bày — sợi tơi, không dính', 'Thịt bò thái mỏng 0.3mm, để ngăn đá 30 phút cho dễ thái', 'Nước dùng phải nóng 95°C — thịt tái chín ngay trong tô', 'Luôn để lộ 1 phần thành phần bên dưới — tạo chiều sâu cho tô'],
+      commonMistakes: ['Chan nước dùng từ trên xuống làm thịt bị xô lệch', 'Cho quá nhiều topping — nhìn rối mắt', 'Thiếu màu xanh của rau — tô trông "chết"'],
+      colorHarmony: 'Nâu nước dùng + trắng bánh + hồng thịt + xanh rau + đỏ ớt = bảng màu cân bằng ấm áp đặc trưng món nước Việt.'
+    };
+  }
+
+  if (isSalad) {
+    return {
+      style: 'Fine Dining',
+      plateType: 'Bát thủy tinh trong suốt 12cm',
+      layout: 'layered-glass',
+      steps: [
+        { step: 1, title: 'Lót đáy', detail: 'Xà lách bản lớn lót đáy bát, lá hướng ra ngoài để nhìn thấy từ bên hông bát thủy tinh.', position: 'bottom', coverage: 15, color: '#228B22' },
+        { step: 2, title: 'Xếp lớp chính giữa', detail: 'Nguyên liệu chính (gà/cá/tôm) xé hoặc thái miếng vừa ăn, xếp gọn ở giữa, cao khoảng 3-4cm.', position: 'center', coverage: 40, color: '#FFF8DC' },
+        { step: 3, title: 'Lớp rau củ màu', detail: 'Cà rốt bào sợi + dưa leo thái lát mỏng xếp vòng quanh lớp chính, tạo tương phản màu cam-xanh.', position: 'center', coverage: 25, color: '#FF8C00' },
+        { step: 4, title: 'Topping giòn', detail: 'Lạc rang giã dập + hành phi rải 1 lớp mỏng trên cùng, tạo texture giòn.', position: 'top', coverage: 10, color: '#D2691E' },
+        { step: 5, title: 'Rưới sốt', detail: 'Sốt rưới zigzag lên mặt, KHÔNG trộn đều. Để khách tự trộn khi ăn — nhìn đẹp hơn.', position: 'all-over', coverage: 10, color: '#FFD700' }
+      ],
+      tips: ['Dùng bát thủy tinh trong suốt — khách thấy được các lớp màu đẹp mắt', 'Độ cao lý tưởng của salad trong bát: 8-10cm', 'Mỗi lớp nên có màu khác biệt rõ — tránh 2 lớp cùng tông màu liền kề', 'Phục vụ kèm 1 lát chanh vàng + ớt đỏ trên miệng bát'],
+      commonMistakes: ['Trộn sốt trước khi phục vụ — rau bị mềm, mất độ giòn', 'Các lớp màu bị trùng — nhìn đơn điệu', 'Không dùng bát trong suốt — mất hiệu ứng layered'],
+      colorHarmony: 'Xanh lá + vàng + cam + nâu + trắng kem = tươi mát, kích thích vị giác kiểu Âu.'
+    };
+  }
+
+  if (isRice) {
+    return {
+      style: 'Quán cơm Sài Gòn',
+      plateType: 'Đĩa tròn sứ trắng 26cm',
+      layout: 'round-plate',
+      steps: [
+        { step: 1, title: 'Ép cơm', detail: 'Cơm nóng ép vào khuôn tròn hoặc bát nhỏ, úp ngược ra đĩa — tạo khối cơm tròn đẹp, cao 3-4cm.', position: 'left', coverage: 40, color: '#FFFEF0' },
+        { step: 2, title: 'Xếp món chính', detail: 'Xếp món mặn (sườn/thịt/cá) cạnh cơm, xếp nan quạt hoặc chồng nhẹ 2-3 miếng, không che hết cơm.', position: 'right', coverage: 30, color: '#8B4513' },
+        { step: 3, title: 'Thêm đồ chua & rau', detail: 'Đồ chua (cà rốt + củ cải ngâm) để góc đối diện món chính. Rau thơm cắm nhẹ cạnh cơm.', position: 'right', coverage: 20, color: '#FF6347' },
+        { step: 4, title: 'Rưới mỡ hành & topping', detail: 'Mỡ hành rưới lên cơm và thịt. Hành phi + tóp mỡ rải đều lên đỉnh cơm — tạo điểm nhấn vàng giòn.', position: 'top', coverage: 10, color: '#FFD700' }
+      ],
+      tips: ['Cơm phải nóng và dẻo — ép chặt tay để khối cơm không bị rời', 'Sườn xếp chồng 1/3 — không che hết cơm', 'Phải có ít nhất 4 màu: trắng(cơm) + nâu(thịt) + cam/cà rốt + xanh(rau)', 'Dùng đĩa trắng — tạo contrast tối đa với đồ ăn'],
+      commonMistakes: ['Cơm rời rạc — do cơm nguội hoặc ép không chặt', 'Sườn che hết cơm — mất bố cục', 'Thiếu màu xanh của rau — đĩa trông "nặng"'],
+      colorHarmony: 'Trắng cơm + nâu sườn + cam đồ chua + xanh rau + vàng hành phi = bảng màu ấm, đậm đà kiểu cơm Sài Gòn.'
+    };
+  }
+
+  // Default: món xào/kho/món mặn
+  return {
+    style: 'Gia đình ấm cúng',
+    plateType: 'Đĩa tròn sứ trắng 24cm',
+    layout: 'round-plate',
+    steps: [
+      { step: 1, title: 'Tạo nền', detail: 'Rau sống hoặc rau luộc trải mỏng lót 1/3 đĩa — tạo nền xanh cho món chính.', position: 'bottom', coverage: 20, color: '#228B22' },
+      { step: 2, title: 'Xếp món chính', detail: `Xếp ${dishName} vào trung tâm đĩa, gọn gàng. Dùng khuôn tròn nếu cần — tạo chiều cao 3-5cm.`, position: 'center', coverage: 50, color: '#D2691E' },
+      { step: 3, title: 'Trang trí viền', detail: 'Cà chua bi bổ đôi + dưa leo thái lát xếp viền quanh đĩa. Ớt tỉa hoa đặt 1 góc.', position: 'left right', coverage: 20, color: '#FF6347' },
+      { step: 4, title: 'Rắc topping & nước sốt', detail: 'Hành lá/rau thơm thái nhỏ rắc đều. Nước sốt chấm xung quanh hoặc chén riêng — không rưới lên món chính.', position: 'all-over', coverage: 10, color: '#FFD700' }
+    ],
+    tips: ['Luôn dùng đĩa TRẮNG — món ăn là nhân vật chính', 'Chiều cao tạo cảm giác sang trọng — xếp chồng, không dàn phẳng', 'Số lẻ đẹp hơn số chẵn: 3 miếng thịt, 5 cọng rau...'],
+    commonMistakes: ['Đĩa quá đầy — phải chừa viền trắng 2-3cm', 'Sauce rưới lên món chính — làm mất hình dáng đẹp', 'Không lau mép đĩa — vết bẩn trên viền trắng rất mất điểm'],
+    colorHarmony: 'Tỉ lệ vàng: 60% món chính + 30% rau củ + 10% trang trí. Màu nóng (đỏ/cam/vàng) kích thích ăn ngon.'
+  };
+}
+
 // ---- Serve SPA ----
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
