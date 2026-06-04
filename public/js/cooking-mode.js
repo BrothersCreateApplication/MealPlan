@@ -757,15 +757,25 @@
     result.innerHTML = buildPlatingHTML(plating, dishName);
   }
 
+  // Dịch position tiếng Anh → tiếng Việt (AI không dùng tên Việt thì fallback)
+  function translatePosition(pos) {
+    if (!pos) return '';
+    // Nếu đã là tiếng Việt thì giữ nguyên
+    if (/[àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i.test(pos)) return pos;
+    const map = {
+      'bottom': 'Đáy', 'top': 'Mặt trên', 'left': 'Bên trái', 'right': 'Bên phải',
+      'center': 'Chính giữa', 'all-over': 'Rải đều', 'left right': 'Hai bên',
+      'top-right': 'Trên phải', 'top-left': 'Trên trái',
+      'bottom-right': 'Dưới phải', 'bottom-left': 'Dưới trái'
+    };
+    return map[pos] || pos;
+  }
+
   function buildPlatingHTML(p, dishName) {
-    const layout = p.layout || 'round-plate';
-
-    // Build SVG diagram based on layout
-    const svgDiagram = buildLayoutSVG(p, layout);
-
     // Build step list
     const stepsHTML = (p.steps || []).map(s => {
       const color = s.color || '#888';
+      const posVi = translatePosition(s.position);
       return `
         <div class="flex items-start gap-3 group">
           <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-white font-bold text-sm shadow-sm" style="background:${color}">
@@ -774,7 +784,7 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-0.5">
               <h4 class="font-label-md text-sm text-on-surface">${s.title}</h4>
-              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant">${s.position} · ${s.coverage}%</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant">${posVi} · ${s.coverage}% tô/đĩa</span>
             </div>
             <p class="text-xs text-on-surface-variant leading-relaxed">${s.detail}</p>
           </div>
@@ -807,17 +817,6 @@
         <div>
           <p class="font-label-md text-sm text-on-surface">${p.style || 'Phong cách Việt'}</p>
           <p class="text-xs text-on-surface-variant">${p.plateType || 'Đĩa trắng'} · ${dishName}</p>
-        </div>
-      </div>
-
-      <!-- SVG Layout Diagram -->
-      <div class="bg-surface-container-lowest rounded-xl border border-outline-variant/20 overflow-hidden">
-        <div class="px-3 py-2.5 border-b border-outline-variant/20 flex items-center gap-2">
-          <span class="material-symbols-outlined text-[16px] text-primary">grid_on</span>
-          <h4 class="font-label-md text-xs text-on-surface-variant uppercase tracking-wider">Sơ đồ bày trí</h4>
-        </div>
-        <div class="p-3 flex justify-center">
-          ${svgDiagram}
         </div>
       </div>
 
@@ -868,158 +867,6 @@
         </ul>
       </div>` : ''}
     `;
-  }
-
-  // ── SVG Layout Diagram ───────────────────────────────────
-
-  function buildLayoutSVG(p, layout) {
-    const w = 300, h = layout === 'bowl' ? 220 : 260;
-
-    if (layout === 'bowl') return buildBowlSVG(p, w, h);
-    if (layout === 'layered-glass') return buildLayeredGlassSVG(p, w, h);
-    return buildRoundPlateSVG(p, w, h);
-  }
-
-  function buildBowlSVG(p, w, h) {
-    const cx = w / 2, cy = 90, rx = 130, ry = 90;
-    const steps = p.steps || [];
-    let svg = `<svg viewBox="0 0 ${w} ${h}" class="w-full max-w-[300px]">`;
-
-    // Bowl shape
-    svg += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#fafaf9" stroke="#d1d5db" stroke-width="1.5"/>`;
-
-    // Layers from bottom to top
-    steps.sort((a,b) => a.step - b.step);
-    steps.forEach((s, i) => {
-      const color = s.color || '#888';
-      const pos = s.position;
-      const cov = (s.coverage || (i === steps.length - 1 ? 100 : 30));
-
-      if (pos === 'bottom') {
-        // Bottom layer — fills lower part
-        const hFill = ry * 1.2 * cov / 100;
-        svg += `<ellipse cx="${cx}" cy="${cy + ry - hFill/2}" rx="${rx * 0.85}" ry="${hFill/2}" fill="${color}" opacity="0.7"/>`;
-      } else if (pos === 'all-over' && i === steps.length - 1) {
-        // Broth — full bowl with transparency
-        svg += `<ellipse cx="${cx}" cy="${cy}" rx="${rx * 0.92}" ry="${ry * 0.88}" fill="${color}" opacity="0.25"/>`;
-      } else if (pos === 'top' || pos === 'center') {
-        // Topping — upper partial area
-        svg += `<ellipse cx="${cx}" cy="${cy - ry * 0.3}" rx="${rx * cov / 100}" ry="${ry * cov / 180}" fill="${color}" opacity="0.6"/>`;
-        svg += `<ellipse cx="${cx - 15}" cy="${cy - ry * 0.35}" rx="${rx * 0.35}" ry="${ry * 0.3}" fill="${color}" opacity="0.5"/>`;
-        svg += `<ellipse cx="${cx + 20}" cy="${cy - ry * 0.25}" rx="${rx * 0.3}" ry="${ry * 0.25}" fill="${color}" opacity="0.55"/>`;
-      } else if (pos === 'all-over' && i < steps.length - 1) {
-        // Sprinkles
-        svg += `<circle cx="${cx - 30}" cy="${cy - ry * 0.3}" r="5" fill="${color}" opacity="0.7"/>`;
-        svg += `<circle cx="${cx + 25}" cy="${cy - ry * 0.15}" r="4" fill="${color}" opacity="0.6"/>`;
-        svg += `<circle cx="${cx}" cy="${cy - ry * 0.4}" r="6" fill="${color}" opacity="0.7"/>`;
-        svg += `<circle cx="${cx + 40}" cy="${cy - ry * 0.35}" r="4" fill="${color}" opacity="0.5"/>`;
-        svg += `<circle cx="${cx - 45}" cy="${cy - ry * 0.1}" r="3" fill="${color}" opacity="0.6"/>`;
-      }
-    });
-
-    // Step labels with leader lines
-    steps.forEach((s, i) => {
-      if (s.position === 'bottom') {
-        svg += `<text x="${cx}" y="${cy + ry + 18}" text-anchor="middle" fill="#555" font-size="9" font-weight="600">① ${s.title}</text>`;
-      } else if (s.position === 'top' || s.position === 'center') {
-        svg += `<text x="${cx - 45}" y="${cy - ry + 12}" text-anchor="start" fill="#555" font-size="9" font-weight="600">② ${s.title}</text>`;
-      }
-    });
-
-    svg += `</svg>`;
-    return svg;
-  }
-
-  function buildRoundPlateSVG(p, w, h) {
-    const cx = w / 2, cy = h / 2 + 10, r = 135;
-    const steps = p.steps || [];
-    let svg = `<svg viewBox="0 0 ${w} ${h}" class="w-full max-w-[300px]">`;
-
-    // Plate
-    svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fafaf9" stroke="#d1d5db" stroke-width="1.5"/>`;
-    svg += `<circle cx="${cx}" cy="${cy}" r="${r - 10}" fill="none" stroke="#e5e7eb" stroke-width="0.5" stroke-dasharray="4 4"/>`;
-
-    steps.forEach(s => {
-      const color = s.color || '#888';
-      const pos = s.position;
-      const cov = s.coverage || 30;
-
-      if (pos === 'left') {
-        // Left side — rice/carb area
-        const areaRx = r * 0.55, areaRy = r * 0.7;
-        svg += `<ellipse cx="${cx - r * 0.28}" cy="${cy}" rx="${areaRx}" ry="${areaRy}" fill="${color}" opacity="0.8"/>`;
-        svg += `<text x="${cx - r * 0.28}" y="${cy + 4}" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">①</text>`;
-      } else if (pos === 'right') {
-        // Right side — meat/topping
-        const areaRx = r * 0.45, areaRy = r * 0.55;
-        svg += `<ellipse cx="${cx + r * 0.22}" cy="${cy - r * 0.1}" rx="${areaRx}" ry="${areaRy}" fill="${color}" opacity="0.75"/>`;
-        svg += `<text x="${cx + r * 0.22}" y="${cy - r * 0.1 + 4}" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">②</text>`;
-      } else if (pos === 'left right' || pos.includes('right')) {
-        // Garnish around
-        svg += `<circle cx="${cx - r * 0.5}" cy="${cy + r * 0.35}" r="${r * 0.15}" fill="${color}" opacity="0.6"/>`;
-        svg += `<circle cx="${cx + r * 0.55}" cy="${cy + r * 0.3}" r="${r * 0.13}" fill="${color}" opacity="0.55"/>`;
-        svg += `<text x="${cx + r * 0.55}" y="${cy + r * 0.3 + 4}" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">③</text>`;
-      } else if (pos === 'top') {
-        // Garnish/topping
-        svg += `<circle cx="${cx + r * 0.25}" cy="${cy - r * 0.45}" r="${r * 0.12}" fill="${color}" opacity="0.5"/>`;
-        svg += `<circle cx="${cx - r * 0.2}" cy="${cy - r * 0.5}" r="${r * 0.1}" fill="${color}" opacity="0.45"/>`;
-        svg += `<text x="${cx + r * 0.25}" y="${cy - r * 0.45 + 4}" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">④</text>`;
-      } else if (pos === 'center') {
-        // Center main dish
-        svg += `<ellipse cx="${cx}" cy="${cy}" rx="${r * cov / 100}" ry="${r * cov * 0.7 / 100}" fill="${color}" opacity="0.8"/>`;
-        svg += `<text x="${cx}" y="${cy + 4}" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">${steps.indexOf(s)+1}</text>`;
-      } else if (pos === 'bottom') {
-        svg += `<rect x="${cx - r * 0.5}" y="${cy + r * 0.3}" width="${r}" height="${r * 0.2}" rx="6" fill="${color}" opacity="0.55"/>`;
-      } else if (pos === 'all-over') {
-        svg += `<circle cx="${cx - r * 0.3}" cy="${cy - r * 0.35}" r="3" fill="${color}" opacity="0.6"/>`;
-        svg += `<circle cx="${cx + r * 0.4}" cy="${cy - r * 0.3}" r="2.5" fill="${color}" opacity="0.5"/>`;
-        svg += `<circle cx="${cx + r * 0.1}" cy="${cy - r * 0.55}" r="3.5" fill="${color}" opacity="0.65"/>`;
-        svg += `<circle cx="${cx - r * 0.5}" cy="${cy - r * 0.1}" r="2" fill="${color}" opacity="0.5"/>`;
-        svg += `<circle cx="${cx + r * 0.55}" cy="${cy - r * 0.5}" r="3" fill="${color}" opacity="0.55"/>`;
-      }
-    });
-
-    // Legend
-    svg += `<text x="${cx}" y="${cy + r + 20}" text-anchor="middle" fill="#888" font-size="9">Đĩa sứ trắng · ${p.plateType || ''}</text>`;
-
-    svg += `</svg>`;
-    return svg;
-  }
-
-  function buildLayeredGlassSVG(p, w, h) {
-    const cx = w / 2, cy = h - 30, topW = 140, botW = 80, glassH = 180;
-    const steps = p.steps || [];
-    let svg = `<svg viewBox="0 0 ${w} ${h}" class="w-full max-w-[280px]">`;
-
-    // Glass bowl shape (trapezoid)
-    const topY = cy - glassH;
-    const points = `${cx - topW/2},${topY} ${cx + topW/2},${topY} ${cx + botW/2},${cy} ${cx - botW/2},${cy}`;
-    svg += `<polygon points="${points}" fill="rgba(255,255,255,0.3)" stroke="#d1d5db" stroke-width="1.5"/>`;
-
-    // Layers from bottom to top
-    const layerCount = Math.min(steps.length, 5);
-    const layerH = (glassH - 10) / layerCount;
-
-    steps.slice(0, 5).forEach((s, i) => {
-      const color = s.color || '#888';
-      const y = topY + glassH - (i + 1) * layerH;
-      const frac = 1 - i / layerCount;
-      const lw = botW + (topW - botW) * frac;
-      svg += `<rect x="${cx - lw/2}" y="${y}" width="${lw}" height="${layerH - 1}" fill="${color}" opacity="0.75" rx="2"/>`;
-      if (s.title.length < 15) {
-        svg += `<text x="${cx}" y="${y + layerH/2 + 3}" text-anchor="middle" fill="#fff" font-size="8" font-weight="600">${s.title}</text>`;
-      }
-    });
-
-    // Labels on the side
-    steps.slice(0, 4).forEach((s, i) => {
-      const y = topY + glassH - (i + 0.5) * layerH;
-      svg += `<text x="${cx - topW/2 - 8}" y="${y + 3}" text-anchor="end" fill="#666" font-size="8" font-weight="600">${s.step}</text>`;
-    });
-
-    svg += `<text x="${cx}" y="${cy + 18}" text-anchor="middle" fill="#888" font-size="9">Bát thủy tinh · nhìn từ bên hông</text>`;
-    svg += `</svg>`;
-    return svg;
   }
 
   // ===================== Expose =====================

@@ -1544,6 +1544,7 @@ QUY TẮC:
 - 3-6 bước, mỗi bước RÕ RÀNG về vị trí và tỉ lệ
 - layout=bowl nếu món nước (phở, bún, canh), round-plate nếu món cơm/món mặn, layered-glass nếu salad/gỏi
 - Mỗi bước phải có position VÀ coverage (tỉ lệ %)
+- position PHẢI là tiếng Việt: "Đáy", "Mặt trên", "Bên trái", "Bên phải", "Chính giữa", "Rải đều", "Hai bên", "Trên phải", "Trên trái", "Dưới phải", "Dưới trái"
 - Tips thiết thực, có thể làm theo ngay
 - Chọn phong cách PHÙ HỢP với loại món (món Việt dân dã thì không dùng Fine Dining)`;
 
@@ -1626,10 +1627,10 @@ function getMockPlatingGuide(dishName, ingredients) {
       plateType: 'Tô sứ trắng 22cm',
       layout: 'bowl',
       steps: [
-        { step: 1, title: 'Lót nền', detail: `Trụng ${name.includes('phở') ? 'bánh phở' : name.includes('bún') ? 'bún' : 'thành phần chính'} qua nước sôi 5 giây rồi xếp gọn vào tô, dàn đều đáy.`, position: 'bottom', coverage: 40, color: '#F5DEB3' },
-        { step: 2, title: 'Xếp topping', detail: 'Xếp thịt/cá/topping thành hình quạt hoặc lớp chồng nhẹ ở 1/3 diện tích mặt tô. Không dàn trải. Để lộ phần nền bên dưới.', position: 'top', coverage: 30, color: '#FF8C69' },
-        { step: 3, title: 'Rải rau thơm & gia vị', detail: 'Hành lá, rau thơm thái nhỏ rắc đều lên mặt. Ớt lát mỏng đặt 2-3 lát lệch tâm làm điểm nhấn.', position: 'all-over', coverage: 15, color: '#228B22' },
-        { step: 4, title: 'Chan nước dùng', detail: 'Chan nước dùng nóng từ mép tô, không chan trực tiếp từ trên xuống — giữ topping không bị xô lệch. Nước dùng cao khoảng 3/4 tô.', position: 'all-over', coverage: 100, color: '#8B4513' }
+        { step: 1, title: 'Lót nền', detail: `Trụng ${name.includes('phở') ? 'bánh phở' : name.includes('bún') ? 'bún' : 'thành phần chính'} qua nước sôi 5 giây rồi xếp gọn vào tô, dàn đều đáy.`, position: 'Đáy', coverage: 40, color: '#F5DEB3' },
+        { step: 2, title: 'Xếp topping', detail: 'Xếp thịt/cá/topping thành hình quạt hoặc lớp chồng nhẹ ở 1/3 diện tích mặt tô. Không dàn trải. Để lộ phần nền bên dưới.', position: 'Mặt trên', coverage: 30, color: '#FF8C69' },
+        { step: 3, title: 'Rải rau thơm & gia vị', detail: 'Hành lá, rau thơm thái nhỏ rắc đều lên mặt. Ớt lát mỏng đặt 2-3 lát lệch tâm làm điểm nhấn.', position: 'Rải đều', coverage: 15, color: '#228B22' },
+        { step: 4, title: 'Chan nước dùng', detail: 'Chan nước dùng nóng từ mép tô, không chan trực tiếp từ trên xuống — giữ topping không bị xô lệch. Nước dùng cao khoảng 3/4 tô.', position: 'Rải đều', coverage: 100, color: '#8B4513' }
       ],
       tips: ['Trụng bánh phở/bún bằng nước sôi trước khi bày — sợi tơi, không dính', 'Thịt bò thái mỏng 0.3mm, để ngăn đá 30 phút cho dễ thái', 'Nước dùng phải nóng 95°C — thịt tái chín ngay trong tô', 'Luôn để lộ 1 phần thành phần bên dưới — tạo chiều sâu cho tô'],
       commonMistakes: ['Chan nước dùng từ trên xuống làm thịt bị xô lệch', 'Cho quá nhiều topping — nhìn rối mắt', 'Thiếu màu xanh của rau — tô trông "chết"'],
@@ -1643,11 +1644,11 @@ function getMockPlatingGuide(dishName, ingredients) {
       plateType: 'Bát thủy tinh trong suốt 12cm',
       layout: 'layered-glass',
       steps: [
-        { step: 1, title: 'Lót đáy', detail: 'Xà lách bản lớn lót đáy bát, lá hướng ra ngoài để nhìn thấy từ bên hông bát thủy tinh.', position: 'bottom', coverage: 15, color: '#228B22' },
-        { step: 2, title: 'Xếp lớp chính giữa', detail: 'Nguyên liệu chính (gà/cá/tôm) xé hoặc thái miếng vừa ăn, xếp gọn ở giữa, cao khoảng 3-4cm.', position: 'center', coverage: 40, color: '#FFF8DC' },
-        { step: 3, title: 'Lớp rau củ màu', detail: 'Cà rốt bào sợi + dưa leo thái lát mỏng xếp vòng quanh lớp chính, tạo tương phản màu cam-xanh.', position: 'center', coverage: 25, color: '#FF8C00' },
-        { step: 4, title: 'Topping giòn', detail: 'Lạc rang giã dập + hành phi rải 1 lớp mỏng trên cùng, tạo texture giòn.', position: 'top', coverage: 10, color: '#D2691E' },
-        { step: 5, title: 'Rưới sốt', detail: 'Sốt rưới zigzag lên mặt, KHÔNG trộn đều. Để khách tự trộn khi ăn — nhìn đẹp hơn.', position: 'all-over', coverage: 10, color: '#FFD700' }
+        { step: 1, title: 'Lót đáy', detail: 'Xà lách bản lớn lót đáy bát, lá hướng ra ngoài để nhìn thấy từ bên hông bát thủy tinh.', position: 'Đáy', coverage: 15, color: '#228B22' },
+        { step: 2, title: 'Xếp lớp chính giữa', detail: 'Nguyên liệu chính (gà/cá/tôm) xé hoặc thái miếng vừa ăn, xếp gọn ở giữa, cao khoảng 3-4cm.', position: 'Chính giữa', coverage: 40, color: '#FFF8DC' },
+        { step: 3, title: 'Lớp rau củ màu', detail: 'Cà rốt bào sợi + dưa leo thái lát mỏng xếp vòng quanh lớp chính, tạo tương phản màu cam-xanh.', position: 'Chính giữa', coverage: 25, color: '#FF8C00' },
+        { step: 4, title: 'Topping giòn', detail: 'Lạc rang giã dập + hành phi rải 1 lớp mỏng trên cùng, tạo texture giòn.', position: 'Mặt trên', coverage: 10, color: '#D2691E' },
+        { step: 5, title: 'Rưới sốt', detail: 'Sốt rưới zigzag lên mặt, KHÔNG trộn đều. Để khách tự trộn khi ăn — nhìn đẹp hơn.', position: 'Rải đều', coverage: 10, color: '#FFD700' }
       ],
       tips: ['Dùng bát thủy tinh trong suốt — khách thấy được các lớp màu đẹp mắt', 'Độ cao lý tưởng của salad trong bát: 8-10cm', 'Mỗi lớp nên có màu khác biệt rõ — tránh 2 lớp cùng tông màu liền kề', 'Phục vụ kèm 1 lát chanh vàng + ớt đỏ trên miệng bát'],
       commonMistakes: ['Trộn sốt trước khi phục vụ — rau bị mềm, mất độ giòn', 'Các lớp màu bị trùng — nhìn đơn điệu', 'Không dùng bát trong suốt — mất hiệu ứng layered'],
@@ -1661,10 +1662,10 @@ function getMockPlatingGuide(dishName, ingredients) {
       plateType: 'Đĩa tròn sứ trắng 26cm',
       layout: 'round-plate',
       steps: [
-        { step: 1, title: 'Ép cơm', detail: 'Cơm nóng ép vào khuôn tròn hoặc bát nhỏ, úp ngược ra đĩa — tạo khối cơm tròn đẹp, cao 3-4cm.', position: 'left', coverage: 40, color: '#FFFEF0' },
-        { step: 2, title: 'Xếp món chính', detail: 'Xếp món mặn (sườn/thịt/cá) cạnh cơm, xếp nan quạt hoặc chồng nhẹ 2-3 miếng, không che hết cơm.', position: 'right', coverage: 30, color: '#8B4513' },
-        { step: 3, title: 'Thêm đồ chua & rau', detail: 'Đồ chua (cà rốt + củ cải ngâm) để góc đối diện món chính. Rau thơm cắm nhẹ cạnh cơm.', position: 'right', coverage: 20, color: '#FF6347' },
-        { step: 4, title: 'Rưới mỡ hành & topping', detail: 'Mỡ hành rưới lên cơm và thịt. Hành phi + tóp mỡ rải đều lên đỉnh cơm — tạo điểm nhấn vàng giòn.', position: 'top', coverage: 10, color: '#FFD700' }
+        { step: 1, title: 'Ép cơm', detail: 'Cơm nóng ép vào khuôn tròn hoặc bát nhỏ, úp ngược ra đĩa — tạo khối cơm tròn đẹp, cao 3-4cm.', position: 'Bên trái', coverage: 40, color: '#FFFEF0' },
+        { step: 2, title: 'Xếp món chính', detail: 'Xếp món mặn (sườn/thịt/cá) cạnh cơm, xếp nan quạt hoặc chồng nhẹ 2-3 miếng, không che hết cơm.', position: 'Bên phải', coverage: 30, color: '#8B4513' },
+        { step: 3, title: 'Thêm đồ chua & rau', detail: 'Đồ chua (cà rốt + củ cải ngâm) để góc đối diện món chính. Rau thơm cắm nhẹ cạnh cơm.', position: 'Bên phải', coverage: 20, color: '#FF6347' },
+        { step: 4, title: 'Rưới mỡ hành & topping', detail: 'Mỡ hành rưới lên cơm và thịt. Hành phi + tóp mỡ rải đều lên đỉnh cơm — tạo điểm nhấn vàng giòn.', position: 'Mặt trên', coverage: 10, color: '#FFD700' }
       ],
       tips: ['Cơm phải nóng và dẻo — ép chặt tay để khối cơm không bị rời', 'Sườn xếp chồng 1/3 — không che hết cơm', 'Phải có ít nhất 4 màu: trắng(cơm) + nâu(thịt) + cam/cà rốt + xanh(rau)', 'Dùng đĩa trắng — tạo contrast tối đa với đồ ăn'],
       commonMistakes: ['Cơm rời rạc — do cơm nguội hoặc ép không chặt', 'Sườn che hết cơm — mất bố cục', 'Thiếu màu xanh của rau — đĩa trông "nặng"'],
@@ -1678,10 +1679,10 @@ function getMockPlatingGuide(dishName, ingredients) {
     plateType: 'Đĩa tròn sứ trắng 24cm',
     layout: 'round-plate',
     steps: [
-      { step: 1, title: 'Tạo nền', detail: 'Rau sống hoặc rau luộc trải mỏng lót 1/3 đĩa — tạo nền xanh cho món chính.', position: 'bottom', coverage: 20, color: '#228B22' },
-      { step: 2, title: 'Xếp món chính', detail: `Xếp ${dishName} vào trung tâm đĩa, gọn gàng. Dùng khuôn tròn nếu cần — tạo chiều cao 3-5cm.`, position: 'center', coverage: 50, color: '#D2691E' },
-      { step: 3, title: 'Trang trí viền', detail: 'Cà chua bi bổ đôi + dưa leo thái lát xếp viền quanh đĩa. Ớt tỉa hoa đặt 1 góc.', position: 'left right', coverage: 20, color: '#FF6347' },
-      { step: 4, title: 'Rắc topping & nước sốt', detail: 'Hành lá/rau thơm thái nhỏ rắc đều. Nước sốt chấm xung quanh hoặc chén riêng — không rưới lên món chính.', position: 'all-over', coverage: 10, color: '#FFD700' }
+      { step: 1, title: 'Tạo nền', detail: 'Rau sống hoặc rau luộc trải mỏng lót 1/3 đĩa — tạo nền xanh cho món chính.', position: 'Đáy', coverage: 20, color: '#228B22' },
+      { step: 2, title: 'Xếp món chính', detail: `Xếp ${dishName} vào trung tâm đĩa, gọn gàng. Dùng khuôn tròn nếu cần — tạo chiều cao 3-5cm.`, position: 'Chính giữa', coverage: 50, color: '#D2691E' },
+      { step: 3, title: 'Trang trí viền', detail: 'Cà chua bi bổ đôi + dưa leo thái lát xếp viền quanh đĩa. Ớt tỉa hoa đặt 1 góc.', position: 'Hai bên', coverage: 20, color: '#FF6347' },
+      { step: 4, title: 'Rắc topping & nước sốt', detail: 'Hành lá/rau thơm thái nhỏ rắc đều. Nước sốt chấm xung quanh hoặc chén riêng — không rưới lên món chính.', position: 'Rải đều', coverage: 10, color: '#FFD700' }
     ],
     tips: ['Luôn dùng đĩa TRẮNG — món ăn là nhân vật chính', 'Chiều cao tạo cảm giác sang trọng — xếp chồng, không dàn phẳng', 'Số lẻ đẹp hơn số chẵn: 3 miếng thịt, 5 cọng rau...'],
     commonMistakes: ['Đĩa quá đầy — phải chừa viền trắng 2-3cm', 'Sauce rưới lên món chính — làm mất hình dáng đẹp', 'Không lau mép đĩa — vết bẩn trên viền trắng rất mất điểm'],
