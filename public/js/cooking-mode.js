@@ -60,18 +60,92 @@
       });
     }
 
-    // Phân phối ingredients đều cho các steps (nếu dish có ingredients)
+    // Phân phối ingredients dựa trên nội dung từng bước thay vì chia đều
     const ings = dish.ingredients || [];
     if (ings.length > 0 && steps.length > 0) {
-      const perStep = Math.ceil(ings.length / steps.length);
+      const stepIngs = matchIngredientsToSteps(ings, steps);
       steps.forEach((step, idx) => {
-        step.ingredients = ings.slice(idx * perStep, (idx + 1) * perStep);
+        step.ingredients = stepIngs[idx] || [];
       });
     } else {
       steps.forEach(s => s.ingredients = []);
     }
 
     return steps;
+  }
+
+  // ---- Ghép nguyên liệu với bước nấu dựa trên nội dung text ----
+  function matchIngredientsToSteps(ings, steps) {
+    // Gia vị nền tảng — xuất hiện ở hầu hết các bước nấu
+    const baseSeasonings = ['muối', 'đường', 'tiêu', 'hạt nêm', 'bột ngọt', 'dầu ăn', 'dầu', 'nước mắm', 'mắm', 'hành tím', 'hành', 'tỏi', 'gừng', 'sả', 'ớt', 'chanh'];
+
+    const results = steps.map(() => []);
+    const matchedAnywhere = new Set(); // index nguyên liệu có match ít nhất 1 bước
+
+    // Tách tên nguyên liệu thành các từ khoá (helper)
+    function getKeyWords(name) {
+      const stopWords = ['và', 'của', 'cho', 'với', 'các', 'một', 'những', 'đã', 'đang', 'vào', 'ra'];
+      return name.toLowerCase().split(/[\s,]+/).filter(w => w.length >= 2 && !stopWords.includes(w));
+    }
+
+    // Kiểm tra ingredient có match step không (trả về true/false)
+    function ingredientMatchesStep(ing, stepText) {
+      const name = ing.name.toLowerCase();
+      // Full name match
+      if (name.length >= 2 && stepText.includes(name)) return true;
+      // Keyword match (cho tên ghép như "cá lóc" match "cá")
+      const keywords = getKeyWords(name);
+      if (keywords.length > 1) {
+        for (const kw of keywords) {
+          const regex = new RegExp(`(^|[\\s,.;:!?'"])${kw}([\\s,.;:!?'"]|$)`, 'i');
+          if (regex.test(stepText)) return true;
+        }
+      }
+      return false;
+    }
+
+    // Pass 1: gia vị nền — cho vào TẤT CẢ các bước (vì dùng xuyên suốt)
+    const seasoningIndices = [];
+    ings.forEach((ing, i) => {
+      const name = ing.name.toLowerCase();
+      if (baseSeasonings.some(s => name.includes(s) || name === s)) {
+        seasoningIndices.push(i);
+        matchedAnywhere.add(i);
+      }
+    });
+    steps.forEach((_, idx) => {
+      results[idx] = seasoningIndices.map(i => ({ ...ings[i] }));
+    });
+
+    // Pass 2: match tên nguyên liệu trong nội dung từng bước
+    // Mỗi bước tự do match — 1 nguyên liệu có thể xuất hiện ở nhiều bước
+    steps.forEach((step, idx) => {
+      const stepText = (step.instructions || []).join(' ').toLowerCase();
+      ings.forEach((ing, i) => {
+        if (seasoningIndices.includes(i)) return; // gia vị đã xử lý
+        // Tránh push trùng trong cùng 1 bước
+        if (results[idx].some(existing => existing.name === ing.name)) return;
+        if (ingredientMatchesStep(ing, stepText)) {
+          results[idx].push(ing);
+          matchedAnywhere.add(i);
+        }
+      });
+    });
+
+    // Pass 3: nguyên liệu không match được chỗ nào — chia đều fallback
+    const remaining = [];
+    ings.forEach((ing, i) => {
+      if (!matchedAnywhere.has(i)) remaining.push({ ing, i });
+    });
+    if (remaining.length > 0) {
+      const perStep = Math.max(1, Math.ceil(remaining.length / steps.length));
+      remaining.forEach((item, idx) => {
+        const targetStep = Math.min(Math.floor(idx / perStep), steps.length - 1);
+        results[targetStep].push(item.ing);
+      });
+    }
+
+    return results;
   }
 
   // ---- Cooking Mode Overlay ----
@@ -399,14 +473,43 @@
       return;
     }
 
-    // Phân loại theo bước hiện tại
+    // Dùng step.ingredients đã được match theo keyword, không chia đều
     const stepIdx = state.currentStep;
-    const totalSteps = state.steps.length;
-    const perStep = Math.max(1, Math.ceil(ings.length / totalSteps));
 
-    const done = ings.slice(0, stepIdx * perStep);          // đã dùng
-    const current = ings.slice(stepIdx * perStep, (stepIdx + 1) * perStep); // đang dùng
-    const upcoming = ings.slice((stepIdx + 1) * perStep);   // sắp dùng
+    // done: nguyên liệu từ các bước đã qua (không tính bước hiện tại)
+    const doneNames = new Set();
+    const done = [];
+    for (let i = 0; i < stepIdx; i++) {
+      (state.steps[i].ingredients || []).forEach(ing => {
+        if (!doneNames.has(ing.name)) {
+          doneNames.add(ing.name);
+          done.push(ing);
+        }
+      });
+    }
+
+    // current: nguyên liệu bước hiện tại (luôn hiển thị)
+    const current = state.steps[stepIdx]?.ingredients || [];
+    const currentNames = new Set(current.map(ing => ing.name));
+
+    // upcoming: các bước còn lại — chỉ lấy những nguyên liệu chưa thấy
+    const upcoming = [];
+    const seenUpcoming = new Set();
+    for (let i = stepIdx + 1; i < state.steps.length; i++) {
+      (state.steps[i].ingredients || []).forEach(ing => {
+        if (!seenUpcoming.has(ing.name) && !currentNames.has(ing.name)) {
+          seenUpcoming.add(ing.name);
+          upcoming.push(ing);
+        }
+      });
+    }
+    // Phần còn lại của nguyên liệu tổng (không được match vào step nào)
+    ings.forEach(ing => {
+      if (!seenUpcoming.has(ing.name) && !currentNames.has(ing.name)) {
+        seenUpcoming.add(ing.name);
+        upcoming.push(ing);
+      }
+    });
 
     const existing = document.querySelector('.cooking-panel-overlay');
     if (existing) existing.remove();
