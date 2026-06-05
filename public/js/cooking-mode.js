@@ -76,24 +76,21 @@
 
   // ---- Ghép nguyên liệu với bước nấu dựa trên nội dung text ----
   function matchIngredientsToSteps(ings, steps) {
-    // Gia vị nền tảng — xuất hiện ở hầu hết các bước nấu
-    const baseSeasonings = ['muối', 'đường', 'tiêu', 'hạt nêm', 'bột ngọt', 'dầu ăn', 'dầu', 'nước mắm', 'mắm', 'hành tím', 'hành', 'tỏi', 'gừng', 'sả', 'ớt', 'chanh'];
-
     const results = steps.map(() => []);
     const matchedAnywhere = new Set(); // index nguyên liệu có match ít nhất 1 bước
 
-    // Tách tên nguyên liệu thành các từ khoá (helper)
+    // Tách tên nguyên liệu thành các từ khoá
     function getKeyWords(name) {
       const stopWords = ['và', 'của', 'cho', 'với', 'các', 'một', 'những', 'đã', 'đang', 'vào', 'ra'];
       return name.toLowerCase().split(/[\s,]+/).filter(w => w.length >= 2 && !stopWords.includes(w));
     }
 
-    // Kiểm tra ingredient có match step không (trả về true/false)
+    // Kiểm tra ingredient có match step không
     function ingredientMatchesStep(ing, stepText) {
       const name = ing.name.toLowerCase();
       // Full name match
       if (name.length >= 2 && stepText.includes(name)) return true;
-      // Keyword match (cho tên ghép như "cá lóc" match "cá")
+      // Keyword match (tên ghép như "cá lóc" match "cá")
       const keywords = getKeyWords(name);
       if (keywords.length > 1) {
         for (const kw of keywords) {
@@ -104,25 +101,10 @@
       return false;
     }
 
-    // Pass 1: gia vị nền — cho vào TẤT CẢ các bước (vì dùng xuyên suốt)
-    const seasoningIndices = [];
-    ings.forEach((ing, i) => {
-      const name = ing.name.toLowerCase();
-      if (baseSeasonings.some(s => name.includes(s) || name === s)) {
-        seasoningIndices.push(i);
-        matchedAnywhere.add(i);
-      }
-    });
-    steps.forEach((_, idx) => {
-      results[idx] = seasoningIndices.map(i => ({ ...ings[i] }));
-    });
-
-    // Pass 2: match tên nguyên liệu trong nội dung từng bước
-    // Mỗi bước tự do match — 1 nguyên liệu có thể xuất hiện ở nhiều bước
+    // Match tất cả nguyên liệu vào từng bước dựa trên nội dung
     steps.forEach((step, idx) => {
       const stepText = (step.instructions || []).join(' ').toLowerCase();
       ings.forEach((ing, i) => {
-        if (seasoningIndices.includes(i)) return; // gia vị đã xử lý
         // Tránh push trùng trong cùng 1 bước
         if (results[idx].some(existing => existing.name === ing.name)) return;
         if (ingredientMatchesStep(ing, stepText)) {
@@ -132,7 +114,7 @@
       });
     });
 
-    // Pass 3: nguyên liệu không match được chỗ nào — chia đều fallback
+    // Fallback: nguyên liệu không match được chỗ nào — cho vào bước đầu tiên
     const remaining = [];
     ings.forEach((ing, i) => {
       if (!matchedAnywhere.has(i)) remaining.push({ ing, i });
