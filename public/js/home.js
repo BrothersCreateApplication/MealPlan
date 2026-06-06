@@ -488,6 +488,10 @@
   function showRecipeDetail(dish, mode, cookingEntryId) {
     // Nếu là chế độ nấu ăn → dùng Cooking Mode mới
     if (mode === 'cook') {
+      if (!dish || !dish.name) {
+        MealPlan.showToast('Không tìm thấy thông tin món ăn!', 'error');
+        return;
+      }
       // Gọi openCookingMode từ cooking-mode.js
       if (window.openCookingMode) {
         window.openCookingMode(dish, cookingEntryId);

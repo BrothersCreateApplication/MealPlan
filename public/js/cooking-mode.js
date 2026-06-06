@@ -132,6 +132,13 @@
 
   // ---- Cooking Mode Overlay ----
   function openCookingMode(dish, entryId) {
+    // Kiểm tra dish hợp lệ
+    if (!dish || !dish.name) {
+      console.error('[CookingMode] Invalid dish data:', dish);
+      MealPlan.showToast('Không tìm thấy thông tin món ăn!', 'error');
+      return;
+    }
+
     // Parse steps; fallback nếu không parse được
     let steps = parseSteps(dish);
     if (steps.length === 0) {
