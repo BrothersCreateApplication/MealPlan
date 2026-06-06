@@ -132,10 +132,29 @@
 
   // ---- Cooking Mode Overlay ----
   function openCookingMode(dish, entryId) {
-    const steps = parseSteps(dish);
+    // Parse steps; fallback nếu không parse được
+    let steps = parseSteps(dish);
     if (steps.length === 0) {
-      MealPlan.showToast('Không có hướng dẫn nấu!', 'warning');
-      return;
+      const raw = (dish.instructions || '').replace(/\\n/g, '\n').trim();
+      if (raw) {
+        // Fallback: gom toàn bộ instructions vào 1 step duy nhất
+        steps = [{
+          number: 1,
+          instructions: raw.split('\n').filter(l => l.trim()),
+          tip: '',
+          timerSeconds: 0,
+          ingredients: dish.ingredients || []
+        }];
+      } else {
+        // Thực sự không có hướng dẫn — tạo step mặc định
+        steps = [{
+          number: 1,
+          instructions: ['Bắt đầu nấu ăn nào! Không có hướng dẫn chi tiết cho món này.'],
+          tip: '',
+          timerSeconds: 0,
+          ingredients: dish.ingredients || []
+        }];
+      }
     }
 
     // Xoá overlay cũ nếu có
@@ -151,10 +170,11 @@
       completedSteps: []
     };
 
-    // HTML overlay — full-screen mobile, modal desktop
-    const overlay = document.createElement('div');
-    overlay.className = 'cooking-mode-overlay fixed inset-0 z-[300] bg-surface flex flex-col animate-fade-in';
-    overlay.innerHTML = `
+    try {
+      // HTML overlay — full-screen mobile, modal desktop
+      const overlay = document.createElement('div');
+      overlay.className = 'cooking-mode-overlay fixed inset-0 z-[300] bg-surface flex flex-col animate-fade-in';
+      overlay.innerHTML = `
       <!-- Top Bar -->
       <div class="flex-shrink-0 bg-surface border-b border-outline-variant/20 px-3 py-2.5">
         <div class="flex items-center gap-2">
@@ -293,6 +313,13 @@
     overlay.querySelector('#cooking-util-ingredients').addEventListener('click', showIngredientsPanel);
     overlay.querySelector('#cooking-util-steps').addEventListener('click', showAllStepsPanel);
     overlay.querySelector('#cooking-util-tts').addEventListener('click', speakCurrentStep);
+    } catch (err) {
+      console.error('[CookingMode] Error creating overlay:', err);
+      cookingState = null;
+      document.querySelector('.cooking-mode-overlay')?.remove();
+      document.body.style.overflow = '';
+      MealPlan.showToast('Không thể mở chế độ nấu!', 'error');
+    }
   }
 
   // ===================== Step Rendering =====================
@@ -497,8 +524,8 @@
     if (existing) existing.remove();
 
     const overlay = document.createElement('div');
-    overlay.className = 'cooking-panel-overlay fixed inset-0 z-[350] bg-black/50 flex items-end justify-center animate-fade-in';
-    overlay.innerHTML = `
+      overlay.className = 'cooking-panel-overlay fixed inset-0 z-[350] bg-black/50 flex items-end justify-center animate-fade-in';
+      overlay.innerHTML = `
       <div class="bg-surface-container-lowest w-full max-w-lg rounded-t-2xl shadow-2xl animate-slide-up max-h-[70vh] flex flex-col">
         <div class="flex-shrink-0 px-5 py-4 border-b border-outline-variant/20">
           <div class="flex items-center justify-between">
@@ -569,8 +596,8 @@
     if (existing) existing.remove();
 
     const overlay = document.createElement('div');
-    overlay.className = 'cooking-panel-overlay fixed inset-0 z-[350] bg-black/50 flex items-end justify-center animate-fade-in';
-    overlay.innerHTML = `
+      overlay.className = 'cooking-panel-overlay fixed inset-0 z-[350] bg-black/50 flex items-end justify-center animate-fade-in';
+      overlay.innerHTML = `
       <div class="bg-surface-container-lowest w-full max-w-lg rounded-t-2xl shadow-2xl animate-slide-up max-h-[70vh] flex flex-col">
         <div class="flex-shrink-0 px-5 py-4 border-b border-outline-variant/20">
           <div class="flex items-center justify-between">
@@ -720,8 +747,8 @@
 
   function showPlatingGuide(dish) {
     const overlay = document.createElement('div');
-    overlay.className = 'plating-overlay fixed inset-0 z-[350] bg-black/50 flex md:items-center justify-center animate-fade-in';
-    overlay.innerHTML = `
+      overlay.className = 'plating-overlay fixed inset-0 z-[350] bg-black/50 flex md:items-center justify-center animate-fade-in';
+      overlay.innerHTML = `
       <div class="bg-surface-container-lowest w-full max-h-[100dvh] md:max-h-[92vh] md:max-w-lg md:rounded-2xl md:mx-4 shadow-2xl flex flex-col animate-slide-up">
         <!-- Header -->
         <div class="flex-shrink-0 p-4 md:p-5 border-b border-outline-variant/20">

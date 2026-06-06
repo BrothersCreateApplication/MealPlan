@@ -617,11 +617,18 @@
       });
     }
 
-    // Nấu Ăn handler — mở lại overlay ở chế độ cook (có nút Hoàn thành)
+    // Nấu Ăn handler — mở cooking mode
     if (overlay.querySelector('#recipe-cook-now-btn')) {
       overlay.querySelector('#recipe-cook-now-btn').addEventListener('click', () => {
+        const currentDish = dish;
+        const currentEntryId = cookingEntryId;
         overlay.remove();
-        showRecipeDetail(dish, 'cook', cookingEntryId);
+        try {
+          showRecipeDetail(currentDish, 'cook', currentEntryId);
+        } catch (err) {
+          console.error('[MealPlan] Error entering cooking mode:', err);
+          MealPlan.showToast('Không thể vào chế độ nấu!', 'error');
+        }
       });
     }
 
@@ -773,7 +780,12 @@
     overlay.querySelector('.health-cook-now-btn')?.addEventListener('click', () => {
       overlay.remove();
       document.querySelector('.recipe-overlay')?.remove();
-      showRecipeDetail(dish, 'cook');
+      try {
+        showRecipeDetail(dish, 'cook');
+      } catch (err) {
+        console.error('[MealPlan] Error entering cooking mode:', err);
+        MealPlan.showToast('Không thể vào chế độ nấu!', 'error');
+      }
     });
 
     // Gọi API phân tích
@@ -1608,7 +1620,12 @@
       e.stopPropagation();
       document.getElementById('body-result-overlay')?.classList.add('hidden');
       document.querySelector('.recipe-overlay')?.remove();
-      window.showRecipeDetail(dish, 'cook');
+      try {
+        window.showRecipeDetail(dish, 'cook');
+      } catch (err) {
+        console.error('[MealPlan] Error entering cooking mode:', err);
+        MealPlan.showToast('Không thể vào chế độ nấu!', 'error');
+      }
     });
 
     list.appendChild(card);
