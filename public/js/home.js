@@ -1050,55 +1050,56 @@
   }
 
   // ---- Lọc kết quả theo quy tắc ưu tiên ----
+    // ---- Lọc & sắp xếp kết quả theo độ liên quan ----
   function filterByPriority(dishes, query) {
     try {
-      const lower = query.toLowerCase();
+      if (!dishes || dishes.length === 0) return [];
+      const lower = query.toLowerCase().trim();
       const method = extractCookingMethod(query);
 
-      const mainIngredient = method
-        ? lower.replace(method, '').trim()
-        : lower;
+      // Tách query thành các từ khoá (bỏ từ stop, bỏ method)
+      const stopWords = ['và', 'của', 'cho', 'với', 'các', 'một', 'những', 'đã', 'đang', 'vào', 'ra', 'có', 'món'];
+      let keywords = lower.split(/\s+/).filter(w => w.length >= 2 && !stopWords.includes(w));
+      if (method) {
+        keywords = keywords.filter(k => k !== method);
+      }
+      if (keywords.length === 0 && method) keywords = [method];
+      if (keywords.length === 0) keywords = [lower];
 
-      const priority1 = [];
-      const priority2 = [];
-      const rejected = [];
-
-      dishes.forEach(d => {
-        if (!d || !d.name) return;
+      // Tính điểm cho mỗi món
+      const scored = dishes.map(d => {
+        if (!d || !d.name) return null;
         const dName = d.name.toLowerCase();
         const dDesc = (d.description || '').toLowerCase();
         const dText = dName + ' ' + dDesc;
+        let score = 0;
 
-        if (method) {
-          if (dText.includes(method)) {
-            if (mainIngredient && dText.includes(mainIngredient)) {
-              priority1.push(d);
-            } else {
-              priority2.push(d);
-            }
-          } else {
-            rejected.push(d);
-          }
-        } else {
-          if (dName.includes(lower)) priority1.push(d);
-          else rejected.push(d);
+        for (const kw of keywords) {
+          const kwInName = dName.includes(kw);
+          const kwInDesc = dDesc.includes(kw);
+          if (kwInName) score += 10;
+          else if (kwInDesc) score += 3;
         }
-      });
+        // Bonus: method match
+        if (method && dText.includes(method)) score += 5;
+        // Bonus: nhiều keyword match trong tên
+        const matchedKeywords = keywords.filter(kw => dName.includes(kw)).length;
+        if (matchedKeywords >= 2) score += 8;
 
-      const result = [...priority1, ...priority2].slice(0, 10);
+        return { dish: d, score };
+      }).filter(Boolean);
 
-      // Fallback: chỉ lấy món có tên chứa chính xác cụm từ gốc
+      scored.sort((a, b) => b.score - a.score);
+      const result = scored.filter(s => s.score > 0).map(s => s.dish).slice(0, 10);
+
       if (result.length === 0) {
-        return dishes.filter(d => {
-          if (!d || !d.name) return false;
-          return d.name.toLowerCase().includes(lower);
-        }).slice(0, 6);
+        return dishes.slice(0, 6);
       }
 
       return result;
     } catch (e) {
       console.warn('filterByPriority error:', e);
-      return dishes.slice(0, 10); // fallback: show first 10
+      return dishes.slice(0, 10);
     }
   }
 
@@ -1217,6 +1218,14 @@
               // Hoàn tất
               const statusEl = document.getElementById('search-status');
               if (statusEl) statusEl.textContent = '✓ Hoàn tất!';
+
+              // Sắp xếp kết quả theo độ liên quan với query
+              if (allDishes.length > 0) {
+                const sorted = filterByPriority(allDishes, query);
+                if (sorted.length > 0) {
+                  renderDishes(sorted);
+                }
+              }
 
               // Nếu không có kết quả nào sau khi hoàn tất, hiển thị thông báo
               if (allDishes.length === 0) {
