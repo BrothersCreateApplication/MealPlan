@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="vi" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VÀO BẾP — AI Cooking Companion</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,800;0,900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --accent:    #10b981;
+      --accent-lt: #34d399;
+      --accent-dk: #059669;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #000;
+      color: #fff;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #scroll-progress {
+      position: fixed; bottom:0; left:0; height:1px;
+      background:var(--accent); z-index:500; width:0%;
+    }
+
+    /* ===== FIXED CENTER PAN — FULL MÀN HÌNH ===== */
+    .center-pan {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .pan-wrap {
+      width: 100%; height: 100%;
+      position: relative;
+      overflow: hidden;
+      background: #000;
+    }
+    #bg-video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .pan-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      background:
+        linear-gradient(to right, rgba(0,0,0,0.60) 0%, transparent 12%, transparent 88%, rgba(0,0,0,0.60) 100%);
+    }
+
+    /* ===== CONTENT — SCROLL OVER THE PAN ===== */
+    .content-col {
+      position: relative;
+      z-index: 10;
+      min-height: 100vh;
+    }
+
+    .section-block {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8vh 5vw;
+      text-align: center;
+    }
+
+    .s-card {
+      width: min(680px, 85vw);
+      opacity: 0;
+      transform: translateY(60px);
+      transition: all 1s cubic-bezier(0.22,1,0.36,1);
+    }
+    .s-card.in-view { opacity: 1; transform: translateY(0); }
+
+    .tag {
+      font-family: 'Space Grotesk', monospace;
+      font-size: 0.85rem; font-weight: 500;
+      letter-spacing: 0.25em; text-transform: uppercase;
+      color: rgba(52,211,153,0.30);
+      margin-bottom: 0.8rem;
+    }
+    .title {
+      font-family: 'Playfair Display', serif; font-weight: 900;
+      font-size: clamp(3rem, 6vw, 5.5rem);
+      line-height: 1.05; letter-spacing: -0.02em;
+      color: #fff;
+      margin-bottom: 0.8rem;
+    }
+    .title .hl {
+      background: linear-gradient(180deg, var(--accent-lt), var(--accent-dk));
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .desc {
+      font-size: 1.3rem; font-weight: 400;
+      color: rgba(255,255,255,0.55); line-height: 1.8;
+      max-width: 620px;
+      margin: 0 auto;
+    }
+    .desc strong { color: #fff; font-weight: 600; }
+    .tags {
+      display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;
+      justify-content: center;
+    }
+    .tags span {
+      font-family: 'Space Grotesk', monospace;
+      font-size: 0.75rem; font-weight: 500; letter-spacing: 0.05em;
+      color: rgba(52,211,153,0.35);
+      background: rgba(16,185,129,0.03);
+      border: 0.5px solid rgba(16,185,129,0.07);
+      padding: 0.3rem 1rem; border-radius: 50px;
+    }
+    .s-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 1.2rem;
+      font-family: 'Space Grotesk', monospace; font-size: 0.8rem;
+      font-weight: 500; letter-spacing: 0.07em;
+      color: #000; background: var(--accent);
+      border: none; border-radius: 50px;
+      padding: 0.65rem 1.8rem; cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.22,1,0.36,1);
+    }
+    .s-btn:hover { background: #fff; transform: translateY(-2px); box-shadow: 0 8px 30px rgba(16,185,129,0.2); }
+    .s-btn .arr { transition: transform 0.3s; }
+    .s-btn:hover .arr { transform: translateX(4px); }
+
+    /* Stats — căn giữa */
+    .stat-wrap {
+      display: flex; flex-wrap: wrap; gap: 1rem;
+      justify-content: center;
+    }
+    .stat-cap {
+      padding: 0.8rem 2rem; border-radius: 60px;
+      background: rgba(255,255,255,0.02); backdrop-filter: blur(16px);
+      border: 0.5px solid rgba(255,255,255,0.04);
+      text-align: center;
+    }
+    .stat-v { font-family:'Inter',sans-serif; font-size:2.2rem; font-weight:800; color:var(--accent-lt); line-height:1; }
+    .stat-l { color:rgba(255,255,255,0.18); font-size:0.8rem; letter-spacing:0.04em; margin-top:3px; }
+
+    .btn-cta {
+      display:inline-flex; align-items:center; gap:0.5rem;
+      padding:1rem 3rem; font-size:1.1rem; font-weight:600;
+      border:none; border-radius:60px; color:#000; cursor:pointer;
+      background:var(--accent); transition:all 0.35s cubic-bezier(0.22,1,0.36,1);
+    }
+    .btn-cta:hover { background:#fff; transform:translateY(-2px); box-shadow: 0 10px 40px rgba(16,185,129,0.25); }
+
+    footer {
+      position:relative; z-index:20;
+      padding:2rem; text-align:center;
+      color:rgba(255,255,255,0.08); font-size:0.65rem;
+      font-family:'Space Grotesk',monospace;
+    }
+    footer a { color:rgba(52,211,153,0.25); text-decoration:none; }
+
+    ::-webkit-scrollbar { width:3px; }
+    ::-webkit-scrollbar-track { background:#000; }
+    ::-webkit-scrollbar-thumb { background:rgba(16,185,129,0.25); border-radius:2px; }
+
+    @media (max-width: 768px) {
+      .center-pan { width: 100vw; height: 100vh; }
+      .pan-wrap::after {
+        background: linear-gradient(to right, rgba(0,0,0,0.60) 0%, transparent 8%, transparent 92%, rgba(0,0,0,0.60) 100%);
+      }
+      .section-block { padding: 5rem 1.5rem; min-height: auto; }
+      .s-card { width: 100%; }
+      .title { font-size: clamp(2.2rem, 8vw, 3.5rem); }
+      .desc { font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="scroll-progress"></div>
+
+  <!-- ===== FIXED CENTER PAN ===== -->
+  <div class="center-pan" id="center-pan">
+    <div class="pan-wrap">
+      <video id="bg-video" muted playsinline preload="auto"
+        poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800'%3E%3Crect fill='%23000' width='800' height='800'/%3E%3C/svg%3E">
+        <source src="hero-sharp.mp4" type="video/mp4" />
+      </video>
+    </div>
+  </div>
+
+  <!-- ===== SCROLLING CONTENT ===== -->
+
+  <div class="content-col">
+
+    <!-- HERO -->
+    <section class="section-block" style="min-height:70vh;">
+      <div class="s-card motion-up" style="width:auto;">
+        <div class="tag">AI COOKING ASSISTANT</div>
+        <div class="title" style="font-size:clamp(3rem, 7vw, 6.5rem);">
+          <span class="hl">VÀO BẾP</span>
+        </div>
+        <p class="desc" style="max-width:520px; font-size:1.4rem;">
+          Trí tuệ nhân tạo biến nguyên liệu thừa thành bữa ăn ngon
+        </p>
+      </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="section-block">
+      <div class="s-card" id="stats-row">
+        <div class="stat-wrap">
+          <div class="stat-cap"><div class="stat-v">50K+</div><div class="stat-l">Công thức AI</div></div>
+          <div class="stat-cap"><div class="stat-v">120K</div><div class="stat-l">Người dùng</div></div>
+          <div class="stat-cap"><div class="stat-v">98%</div><div class="stat-l">Hài lòng</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- F1: AI Gợi Ý -->
+    <section class="section-block">
+      <div class="s-card motion-up">
+        <div class="tag">Tính năng 01</div>
+        <h2 class="title">AI <span class="hl">Gợi Ý</span> Thông Minh</h2>
+        <p class="desc">Nhập bất kỳ nguyên liệu nào — <strong>AI phân tích</strong> và đề xuất công thức phù hợp, từ món truyền thống đến hiện đại.</p>
+        <div class="tags"><span>PHÂN TÍCH DINH DƯỠNG</span><span>GỢI Ý THAY THẾ</span></div>
+        <button class="s-btn" data-open-preview="1">Xem chi tiết <span class="arr">→</span></button>
+      </div>
+    </section>
+
+    <!-- F2: Thực Đơn Cá Nhân Hóa -->
+    <section class="section-block">
+      <div class="s-card motion-up">
+        <div class="tag">Tính năng 02</div>
+        <h2 class="title">Thực Đơn <span class="hl">Cá Nhân</span> Hóa</h2>
+        <p class="desc">AI điều chỉnh thực đơn theo <strong>mục tiêu sức khỏe</strong> — giảm cân, tăng cơ, ăn kiêng, kèm kế hoạch tuần.</p>
+        <div class="tags"><span>MACROS TRACKING</span><span>KẾ HOẠCH TUẦN</span></div>
+        <button class="s-btn" data-open-preview="2">Xem chi tiết <span class="arr">→</span></button>
+      </div>
+    </section>
+
+    <!-- F3: Chống Lãng Phí -->
+    <section class="section-block">
+      <div class="s-card motion-up">
+        <div class="tag">Tính năng 03</div>
+        <h2 class="title">Chống <span class="hl">Lãng Phí</span> Thực Phẩm</h2>
+        <p class="desc">Giảm thiểu đồ ăn thừa với AI nhận diện nguyên liệu — biến tủ lạnh trống thành <strong>bữa ăn 5 sao</strong>.</p>
+        <div class="tags"><span>SCAN TỦ LẠNH</span><span>HẠN SỬ DỤNG</span></div>
+        <button class="s-btn" data-open-preview="3">Xem chi tiết <span class="arr">→</span></button>
+      </div>
+    </section>
+
+    <!-- F4: Chụp Ảnh Nguyên Liệu -->
+    <section class="section-block">
+      <div class="s-card motion-up">
+        <div class="tag">Tính năng 04</div>
+        <h2 class="title">Chụp Ảnh <span class="hl">Nguyên</span> Liệu</h2>
+        <p class="desc">Chụp ảnh nguyên liệu bạn có, AI nhận diện qua <strong>Computer Vision</strong> và tự động đề xuất món ăn.</p>
+        <div class="tags"><span>COMPUTER VISION</span><span>NHẬN DIỆN 500+ LOẠI</span></div>
+        <button class="s-btn" data-open-preview="4">Xem chi tiết <span class="arr">→</span></button>
+      </div>
+    </section>
+
+    <!-- F5: Hướng Dẫn Từng Bước -->
+    <section class="section-block">
+      <div class="s-card motion-up">
+        <div class="tag">Tính năng 05</div>
+        <h2 class="title">Hướng Dẫn <span class="hl">Từng</span> Bước</h2>
+        <p class="desc">Video và hướng dẫn chi tiết từng bước nấu ăn, kèm <strong>mẹo từ đầu bếp chuyên nghiệp</strong>.</p>
+        <div class="tags"><span>VIDEO HƯỚNG DẪN</span><span>TIP TỪ CHEF</span></div>
+        <button class="s-btn" data-open-preview="5">Xem chi tiết <span class="arr">→</span></button>
+      </div>
+    </section>
+
+    <!-- F6: Cộng Đồng Nấu Ăn -->
+    <section class="section-block">
+      <div class="s-card motion-up">
+        <div class="tag">Tính năng 06</div>
+        <h2 class="title">Cộng Đồng <span class="hl">Nấu</span> Ăn</h2>
+        <p class="desc">Chia sẻ công thức, đánh giá món ăn và kết nối với <strong>hàng ngàn người yêu nấu ăn</strong> trên khắp Việt Nam.</p>
+        <div class="tags"><span>CHIA SẺ</span><span>ĐÁNH GIÁ</span></div>
+        <button class="s-btn" data-open-preview="6">Xem chi tiết <span class="arr">→</span></button>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="section-block" style="min-height:60vh;">
+      <div class="s-card motion-up" style="width:auto;">
+        <div class="tag">Bắt đầu</div>
+        <h2 class="title" style="font-size:clamp(1.4rem,2.5vw,2rem);">Sẵn sàng <span class="hl">vào bếp</span>?</h2>
+        <p style="color:rgba(255,255,255,0.25);font-size:0.8rem;margin-top:0.5rem;">Tham gia miễn phí — không cần thẻ tín dụng.</p>
+        <button class="btn-cta" style="margin-top:1.2rem;">Bắt đầu miễn phí <span class="arr">→</span></button>
+      </div>
+    </section>
+
+    <footer>
+      <div style="display:flex;justify-content:center;gap:1.5rem;flex-wrap:wrap;">
+        <span>© 2026 VÀO BẾP — VIETNAM</span>
+        <a href="#">ĐIỀU KHOẢN</a>
+        <a href="#">QUYỀN RIÊNG TƯ</a>
+        <a href="#">LIÊN HỆ</a>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ===== PREVIEW PANELS ===== -->
+  <svg id="arrow-svg" style="position:fixed;inset:0;z-index:350;pointer-events:none;opacity:0;transition:opacity .2s;"><path id="arrow-path" d="" fill="none" stroke="var(--accent-lt)" stroke-width="1.2" stroke-dasharray="400" stroke-dashoffset="400" filter="drop-shadow(0 0 3px rgba(16,185,129,.15))"/><circle id="arrow-dot" fill="var(--accent-lt)" opacity="0" r="3"/></svg>
+
+  <div class="preview-panel" id="preview-1">
+    <div class="pp-header"><span class="pp-title">AI GỢI Ý THÔNG MINH</span><button class="pp-close" data-close-preview="1">✕</button></div>
+    <div class="pp-body">
+      <div class="pp-mock">
+        <div class="pm-nav"><span class="pm-logo">Vào bếp</span><span class="pm-chip">AI</span></div>
+        <div class="pm-body">
+          <div class="pm-card"><div class="pm-thumb" style="background:linear-gradient(135deg,rgba(16,185,129,.2),rgba(52,211,153,.05));"></div><div class="pm-text"><div class="pm-line"></div><div class="pm-line short"></div></div><span class="pm-chip">98%</span></div>
+          <div class="pm-card"><div class="pm-thumb" style="background:linear-gradient(135deg,rgba(52,211,153,.2),rgba(16,185,129,.05));"></div><div class="pm-text"><div class="pm-line"></div><div class="pm-line short"></div></div><span class="pm-chip">84%</span></div>
+        </div>
+      </div>
+      <p class="pp-info">Phân tích <strong>50K+ công thức</strong>. Tốc độ: <strong>0.8s</strong>.</p>
+    </div>
+  </div>
+
+  <style>
+    .preview-panel {
+      position:fixed; z-index:400; width:340px;
+      background:#060a08; border:0.5px solid rgba(255,255,255,0.04);
+      border-radius:12px;
+      box-shadow:0 0 60px rgba(0,0,0,0.8);
+      opacity:0; pointer-events:none;
+      transform:translateY(10px) scale(0.96);
+      transition:all 0.35s cubic-bezier(0.22,1,0.36,1);
+      overflow:hidden;
+    }
+    .preview-panel.open { opacity:1; pointer-events:auto; transform:translateY(0) scale(1); }
+    .pp-header { display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0.8rem; border-bottom:0.5px solid rgba(255,255,255,0.02); }
+    .pp-title { font-family:'Space Grotesk',monospace; font-size:0.52rem; font-weight:500; letter-spacing:0.07em; color:rgba(255,255,255,0.18); }
+    .pp-close { width:18px; height:18px; border-radius:50%; background:rgba(255,255,255,0.01); border:0.5px solid rgba(255,255,255,0.02); color:rgba(255,255,255,0.15); cursor:pointer; font-size:0.55rem; display:flex; align-items:center; justify-content:center; }
+    .pp-body { padding:0.6rem; }
+    .pp-mock { background:#020503; border:0.5px solid rgba(255,255,255,0.01); border-radius:8px; overflow:hidden; }
+    .pm-nav { display:flex; align-items:center; justify-content:space-between; padding:5px 7px; border-bottom:0.5px solid rgba(255,255,255,0.01); }
+    .pm-logo { font-family:'Playfair Display',serif; font-weight:700; font-size:0.5rem; color:var(--accent-lt); }
+    .pm-chip { font-family:'Space Grotesk',monospace; font-size:0.42rem; letter-spacing:0.05em; color:rgba(52,211,153,0.3); background:rgba(16,185,129,0.02); padding:1px 5px; border-radius:20px; }
+    .pm-body { padding:6px; display:flex; flex-direction:column; gap:4px; }
+    .pm-card { background:rgba(255,255,255,0.006); border:0.5px solid rgba(255,255,255,0.008); border-radius:6px; padding:5px 7px; display:flex; gap:4px; align-items:center; }
+    .pm-thumb { width:20px; height:20px; border-radius:4px; flex-shrink:0; }
+    .pm-text { flex:1; }
+    .pm-line { height:3px; border-radius:2px; background:rgba(255,255,255,0.02); margin-bottom:2px; }
+    .pm-line.short { width:50%; }
+    .pp-info { margin-top:0.4rem; font-size:0.58rem; color:rgba(255,255,255,0.18); line-height:1.5; }
+    .pp-info strong { color:rgba(255,255,255,0.4); }
+    @media (max-width:768px) {
+      .preview-panel { width:88vw; left:6vw!important; top:8vh!important; }
+      #arrow-svg { display:none; }
+    }
+  </style>
+
+  <div class="preview-panel" id="preview-2">
+    <div class="pp-header"><span class="pp-title">THỰC ĐƠN CÁ NHÂN</span><button class="pp-close" data-close-preview="2">✕</button></div>
+    <div class="pp-body">
+      <div class="pp-mock">
+        <div class="pm-nav"><span class="pm-logo">Vào bếp</span><span class="pm-chip">Kế hoạch</span></div>
+        <div class="pm-body">
+          <div style="display:flex;gap:3px;"><span class="pm-chip">Giảm cân</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;">
+            <div style="text-align:center;"><div style="font-weight:700;color:var(--accent-lt);font-size:0.8rem;">1,850</div><div class="pm-sl" style="font-size:0.42rem;color:rgba(255,255,255,0.08);">Calo</div></div>
+            <div style="text-align:center;"><div style="font-weight:700;color:var(--accent-lt);font-size:0.8rem;">82g</div><div class="pm-sl" style="font-size:0.42rem;color:rgba(255,255,255,0.08);">Protein</div></div>
+            <div style="text-align:center;"><div style="font-weight:700;color:var(--accent-lt);font-size:0.8rem;">210g</div><div class="pm-sl" style="font-size:0.42rem;color:rgba(255,255,255,0.08);">Carbs</div></div>
+          </div>
+        </div>
+      </div>
+      <p class="pp-info">Macros cá nhân, thực đơn <strong>7-30 ngày</strong>.</p>
+    </div>
+  </div>
+
+  <div class="preview-panel" id="preview-3">
+    <div class="pp-header"><span class="pp-title">CHỐNG LÃNG PHÍ</span><button class="pp-close" data-close-preview="3">✕</button></div>
+    <div class="pp-body">
+      <div class="pp-mock">
+        <div class="pm-nav"><span class="pm-logo">Vào bếp</span><span class="pm-chip">Tủ lạnh</span></div>
+        <div class="pm-body"><div style="display:flex;align-items:center;gap:4px;"><div style="width:8px;height:8px;border-radius:2px;background:rgba(239,68,68,.15);"></div><span style="font-size:0.42rem;color:rgba(239,68,68,.35);">3 món hết hạn</span></div></div>
+      </div>
+      <p class="pp-info">Tiết kiệm <strong>1.2tr/tháng</strong>, giảm <strong>−65%</strong> lãng phí.</p>
+    </div>
+  </div>
+
+  <div class="preview-panel" id="preview-4">
+    <div class="pp-header"><span class="pp-title">CHỤP ẢNH</span><button class="pp-close" data-close-preview="4">✕</button></div>
+    <div class="pp-body">
+      <div class="pp-mock">
+        <div class="pm-nav"><span class="pm-logo">Vào bếp</span><span class="pm-chip">Camera</span></div>
+        <div class="pm-body" style="align-items:center;text-align:center;"><span style="font-size:1.5rem;">📸</span></div>
+      </div>
+      <p class="pp-info">Nhận diện <strong>500+ loại</strong> trong <strong>0.4s</strong>.</p>
+    </div>
+  </div>
+
+  <div class="preview-panel" id="preview-5">
+    <div class="pp-header"><span class="pp-title">HƯỚNG DẪN</span><button class="pp-close" data-close-preview="5">✕</button></div>
+    <div class="pp-body">
+      <div class="pp-mock">
+        <div class="pm-nav"><span class="pm-logo">Vào bếp</span><span class="pm-chip">▶ Phát</span></div>
+        <div class="pm-body">
+          <div style="background:rgba(0,0,0,.3);height:40px;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:16px;height:16px;border-radius:50%;background:rgba(16,185,129,.1);display:flex;align-items:center;justify-content:center;">
+              <div style="width:0;height:0;border-left:4px solid #fff;border-top:2.5px solid transparent;border-bottom:2.5px solid transparent;margin-left:1px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="pp-info"><strong>2,000+ video</strong>, <strong>45+ đầu bếp</strong>.</p>
+    </div>
+  </div>
+
+  <div class="preview-panel" id="preview-6">
+    <div class="pp-header"><span class="pp-title">CỘNG ĐỒNG</span><button class="pp-close" data-close-preview="6">✕</button></div>
+    <div class="pp-body">
+      <div class="pp-mock">
+        <div class="pm-nav"><span class="pm-logo">Vào bếp</span><span class="pm-chip">Cộng đồng</span></div>
+        <div class="pm-body">
+          <div class="pm-card"><div class="pm-thumb" style="border-radius:50%;background:linear-gradient(135deg,rgba(16,185,129,.2),rgba(52,211,153,.05));"></div><div class="pm-text"><div class="pm-line"></div></div></div>
+        </div>
+      </div>
+      <p class="pp-info"><strong>120K+</strong> thành viên.</p>
+    </div>
+  </div>
+
+  <!-- JS -->
+  <script>
+  (function(){const v=document.getElementById('bg-video'),p=document.getElementById('scroll-progress');let r=0,d=10,l=-1;v.addEventListener('loadedmetadata',()=>{d=v.duration||10;});function b(){if(r)return;r=1;v.pause();v.currentTime=0.01;window.addEventListener('scroll',s,{passive:1});q();}v.addEventListener('canplay',b);v.addEventListener('loadeddata',b);setTimeout(b,4000);function q(){const sc=Math.min(1,Math.max(0,window.scrollY/Math.max(1,document.documentElement.scrollHeight-window.innerHeight))),t=sc*(d-0.03);if(Math.abs(t-l)>0.005){v.currentTime=t;l=t;}p.style.width=(sc*100)+'%';}let pe=0;function s(){if(!pe){pe=1;requestAnimationFrame(()=>{q();pe=0;});}}setTimeout(q,300);})();</script>
+
+  <script>
+  (function(){const obs=new IntersectionObserver((e)=>{e.forEach(x=>{x.target.classList.toggle('in-view',x.isIntersecting);});},{threshold:0.18,rootMargin:'0px 0px -40px 0px'});document.querySelectorAll('.s-card').forEach(el=>obs.observe(el));const sr=document.getElementById('stats-row');if(sr){sr.style.opacity='0';sr.style.transform='translateY(30px)';sr.style.transition='all 0.8s cubic-bezier(0.22,1,0.36,1)';new IntersectionObserver((e,o)=>{e.forEach(x=>{if(x.isIntersecting){x.target.style.opacity='1';x.target.style.transform='translateY(0)';}else{x.target.style.opacity='0';x.target.style.transform='translateY(30px)';}});},{threshold:0.3}).observe(sr);}})();
+  </script>
+
+  <script>
+  (function(){"use strict";const as=document.getElementById("arrow-svg"),ap=document.getElementById("arrow-path"),ad=document.getElementById("arrow-dot");let ep=null,eb=null;function pos(pn,bn){const br=bn.getBoundingClientRect(),pw=pn.offsetWidth||340,ph=pn.offsetHeight||220,vw=window.innerWidth,pad=12,bcx=br.left+br.width/2,bt=br.top;let l=bcx-pw/2,t=bt-ph-16;if(l<pad)l=pad;if(l+pw>vw-pad)l=vw-pw-pad;if(t<pad)t=pad+25;pn.style.left=l+"px";pn.style.top=t+"px";const fx=bcx,fy=bt-2,tx=l+pw/2,ty=t+ph+2,my=(fy+ty)/2,d="M "+fx+" "+fy+" C "+fx+" "+my+", "+tx+" "+my+", "+tx+" "+ty;ap.setAttribute("d",d);ap.style.strokeDasharray=ap.getTotalLength?ap.getTotalLength():350;ap.style.strokeDashoffset=ap.style.strokeDasharray;ad.setAttribute("cx",fx);ad.setAttribute("cy",fy)}function show(id,bn){if(ep){ep.classList.remove("open");as.classList.remove("show");ad.classList.remove("pulse");ap.classList.remove("draw");document.removeEventListener("click",oc)}if(ep&&ep.id==="preview-"+id){ep=null;eb=null;return}const pn=document.getElementById("preview-"+id);if(!pn)return;pos(pn,bn);pn.classList.add("open");void ap.offsetWidth;as.classList.add("show");ap.classList.add("draw");ad.classList.add("pulse");ep=pn;eb=bn;setTimeout(()=>{document.addEventListener("click",oc)},10)}function hide(){if(!ep)return;ep.classList.remove("open");as.classList.remove("show");ad.classList.remove("pulse");ap.classList.remove("draw");document.removeEventListener("click",oc);ep=null;eb=null}function oc(e){if(!ep||!eb)return;if(ep.contains(e.target)||eb.contains(e.target))return;hide()}document.querySelectorAll("[data-open-preview]").forEach(bn=>{bn.addEventListener("click",e=>{e.stopPropagation();show(bn.getAttribute("data-open-preview"),bn)})});document.querySelectorAll("[data-close-preview]").forEach(bn=>{bn.addEventListener("click",e=>{e.stopPropagation();hide()})});document.addEventListener("keydown",e=>{if(e.key==="Escape")hide()});window.addEventListener("scroll",()=>{if(ep&&eb)pos(ep,eb)},{passive:1});window.addEventListener("resize",()=>{if(ep&&eb)pos(ep,eb)},{passive:1})})();
+  </script>
+
+</body>
+</html>
