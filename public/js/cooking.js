@@ -133,10 +133,13 @@
 
   // ===================== Section 2: Đã nấu =====================
 
+  let showAllDone = false; // Trạng thái Xem thêm
+
   function renderDoneSection(cooked) {
     const section = document.getElementById('cooking-done-section');
     const list = document.getElementById('cooking-done-list');
     const count = document.getElementById('cooking-done-count');
+    const loadMoreBtn = document.getElementById('btn-load-more-history');
     if (!section || !list) return;
 
     if (cooked.length === 0) {
@@ -147,7 +150,11 @@
     section.classList.remove('hidden');
     if (count) count.textContent = cooked.length;
 
-    list.innerHTML = cooked.map(entry => {
+    // Giới hạn hiển thị ban đầu là 5 món, nếu bấm Xem thêm thì show tất cả
+    const displayLimit = showAllDone ? cooked.length : Math.min(5, cooked.length);
+    const displayItems = cooked.slice(0, displayLimit);
+
+    list.innerHTML = displayItems.map(entry => {
       const dish = entry.dishData || {};
       return `
         <div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/20 hover:shadow-md transition-all" data-entry-id="${entry.id}">
@@ -180,6 +187,21 @@
         </div>`;
     }).join('');
 
+    // Xử lý nút Xem thêm / Thu gọn
+    const hasMore = cooked.length > 5;
+    if (loadMoreBtn) {
+      if (hasMore) {
+        loadMoreBtn.classList.remove('hidden');
+        if (showAllDone) {
+          loadMoreBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">expand_less</span> Thu gọn`;
+        } else {
+          loadMoreBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">expand_more</span> Xem thêm (${cooked.length - 5} còn lại)`;
+        }
+      } else {
+        loadMoreBtn.classList.add('hidden');
+      }
+    }
+
     // Attach events
     list.querySelectorAll('.cooking-done-view-btn').forEach(btn => {
       btn.addEventListener('click', function() {
@@ -200,6 +222,12 @@
     // Go home button
     document.getElementById('btn-go-home-cooking')?.addEventListener('click', () => {
       MealPlan.navigate('home');
+    });
+
+    // Xem thêm / Thu gọn lịch sử nấu
+    document.getElementById('btn-load-more-history')?.addEventListener('click', () => {
+      showAllDone = !showAllDone;
+      window.renderCooking();
     });
   }
 
