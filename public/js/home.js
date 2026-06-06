@@ -1138,10 +1138,12 @@
     let allDishes = [];
     let seenNames = new Set();
     let streamEnded = false;
+    let hasRendered = false;
 
     // Timeout an toàn: nếu stream chưa kết thúc sau 8s, render kết quả hiện tại
     const safetyTimeout = setTimeout(() => {
-      if (!streamEnded && allDishes.length > 0) {
+      if (!streamEnded && !hasRendered && allDishes.length > 0) {
+        hasRendered = true;
         const sorted = filterByPriority(allDishes, query);
         if (sorted.length > 0) {
           renderDishes(sorted);
@@ -1229,7 +1231,8 @@
               if (statusEl) statusEl.textContent = '✓ Hoàn tất!';
 
               // Hoàn tất — render 1 lần duy nhất với sắp xếp ưu tiên
-              if (allDishes.length > 0) {
+              if (allDishes.length > 0 && !hasRendered) {
+                hasRendered = true;
                 const sorted = filterByPriority(allDishes, query);
                 if (sorted.length > 0) {
                   renderDishes(sorted);
