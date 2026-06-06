@@ -1201,25 +1201,27 @@
               }
 
             } else if (payload.type === 'ai') {
-              // Nhận từng món từ AI stream
+              // Nhận từng món từ AI stream — chỉ accumulate, không render riêng lẻ
               const dish = payload.dish;
               if (dish && dish.name) {
                 const key = dish.name.toLowerCase();
                 if (!seenNames.has(key)) {
                   seenNames.add(key);
                   allDishes.push(dish);
-
-                  // Append card mới
-                  appendSingleDish(dish, allDishes.length - 1);
                 }
               }
 
+              // Cập nhật trạng thái: số món đã tìm được
+              const statusEl = document.getElementById('search-status');
+              if (statusEl && allDishes.length > 0) {
+                statusEl.textContent = '🤖 AI đang tạo... ' + allDishes.length + ' món';
+              }
+
             } else if (payload.type === 'done') {
-              // Hoàn tất
+              // Hoàn tất — render 1 lần duy nhất với sắp xếp
               const statusEl = document.getElementById('search-status');
               if (statusEl) statusEl.textContent = '✓ Hoàn tất!';
 
-              // Sắp xếp kết quả theo độ liên quan với query
               if (allDishes.length > 0) {
                 const sorted = filterByPriority(allDishes, query);
                 if (sorted.length > 0) {
