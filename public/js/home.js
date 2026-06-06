@@ -1103,6 +1103,19 @@
     }
   }
 
+  // ---- Kiểm tra xem có món nào thực sự match keyword trong query không ----
+  function hasKeywordMatch(dishes, query) {
+    if (!dishes || dishes.length === 0 || !query) return false;
+    const lower = query.toLowerCase().trim();
+    const stopWords = ['và', 'của', 'cho', 'với', 'các', 'một', 'những', 'đã', 'đang', 'vào', 'ra', 'có', 'món'];
+    let keywords = lower.split(/\s+/).filter(w => w.length >= 2 && !stopWords.includes(w));
+    if (keywords.length === 0) keywords = [lower];
+    return dishes.some(d => {
+      const name = (d.name || '').toLowerCase();
+      return keywords.some(kw => name.includes(kw));
+    });
+  }
+
   // ---- Search: SSE streaming — DB trước, AI stream sau ----
   async function handleSearch(query) {
     if (!query.trim()) {
@@ -1137,6 +1150,7 @@
     // Dùng SSE để nhận DB results + AI stream
     let allDishes = [];
     let seenNames = new Set();
+    let aiRenderCount = 0; // Đếm số AI dishes đã render để tránh render quá nhiều
 
     try {
       const res = await fetch(`/api/search-dishes-stream?query=${encodeURIComponent(query)}`, { signal });
@@ -1164,7 +1178,7 @@
             const payload = JSON.parse(match[1]);
 
             if (payload.type === 'db') {
-              // DB results — hiển thị ngay lập tức
+              // DB results — ưu tiên hiển thị ngay, chỉ show món liên quan
               const dbDishes = Array.isArray(payload.dishes) ? payload.dishes : [];
               dbDishes.forEach(d => {
                 const key = d.name.toLowerCase();
@@ -1175,8 +1189,14 @@
               });
 
               if (allDishes.length > 0) {
-                // Có DB results — render ngay
-                renderDishes(allDishes);
+                // Áp dụng filterByPriority ngay — chỉ hiển thị món thực sự liên quan
+                const sorted = filterByPriority(allDishes, query);
+                const hasRealMatch = sorted.length > 0 && hasKeywordMatch(sorted, query);
+                if (hasRealMatch) {
+                  renderDishes(sorted);
+                  aiRenderCount = allDishes.length;
+                }
+                // Nếu không có món liên quan: giữ nguyên loading, chờ AI
               }
               // Nếu DB rỗng: giữ nguyên loading, chờ AI
 
@@ -1195,19 +1215,34 @@
               const statusEl = document.getElementById('search-status');
               if (statusEl) statusEl.textContent = '🤖 AI đang tạo công thức mới, sẽ hiển thị dần...';
 
-              // Nếu đang ở loading state, render DB results trước
+              // Nếu đang ở loading state, render DB results trước (có ưu tiên)
               if (allDishes.length > 0 && document.querySelector('.animate-spin')) {
-                renderDishes(allDishes);
+                const sorted = filterByPriority(allDishes, query);
+                const hasRealMatch = sorted.length > 0 && hasKeywordMatch(sorted, query);
+                if (hasRealMatch) {
+                  renderDishes(sorted);
+                  aiRenderCount = allDishes.length;
+                }
               }
 
             } else if (payload.type === 'ai') {
-              // Nhận từng món từ AI stream — chỉ accumulate, không render riêng lẻ
+              // Nhận từng món từ AI stream
               const dish = payload.dish;
               if (dish && dish.name) {
                 const key = dish.name.toLowerCase();
                 if (!seenNames.has(key)) {
                   seenNames.add(key);
                   allDishes.push(dish);
+                }
+              }
+
+              // Render định kỳ sau mỗi 2-3 món AI với ưu tiên
+              if (allDishes.length - aiRenderCount >= 3 || allDishes.length <= 3) {
+                const sorted = filterByPriority(allDishes, query);
+                const hasRealMatch = sorted.length > 0 && hasKeywordMatch(sorted, query);
+                if (hasRealMatch) {
+                  renderDishes(sorted);
+                  aiRenderCount = allDishes.length;
                 }
               }
 
