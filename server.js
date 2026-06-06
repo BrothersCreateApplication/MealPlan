@@ -76,7 +76,7 @@ app.post('/api/search-dishes', async (req, res) => {
           body: JSON.stringify({
             model: 'deepseek-chat',
             messages: [
-              { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước). Tìm món liên quan đến "${query}". Ưu tiên món có tên hoặc mô tả liên quan — linh hoạt, không cứng nhắc tên phải chứa chính xác. VD: tìm "kho quẹt" → trả "Kho Quẹt", "Rau Luộc Kho Quẹt", "Cơm Trắng Kho Quẹt". Tìm "rau" → trả các món rau. Trả 3-6 món (không ép nhiều nếu không đủ). Instructions: ngắn gọn, đủ bước.` },
+              { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước, bắt buộc dùng \\n giữa các bước, mỗi bước có số "1. ...\n2. ...\n3. ..."). Tìm món liên quan đến "${query}". Ưu tiên món có tên hoặc mô tả liên quan — linh hoạt, không cứng nhắc tên phải chứa chính xác. VD: tìm "kho quẹt" → trả "Kho Quẹt", "Rau Luộc Kho Quẹt", "Cơm Trắng Kho Quẹt". Tìm "rau" → trả các món rau. Trả 3-6 món (không ép nhiều nếu không đủ). Instructions: MẸO QUAN TRỌNG: LUÔN dùng \\n giữa các bước, mỗi bước có số thứ tự.` },
               { role: 'user', content: `Tìm món: ${query}` }
             ],
             temperature: 0.7,
@@ -177,7 +177,7 @@ app.get('/api/search-dishes-stream', async (req, res) => {
       body: JSON.stringify({
         model: 'deepseek-chat',
         messages: [
-          { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước). Tìm món liên quan đến "${query}". Ưu tiên món có tên hoặc mô tả liên quan — linh hoạt, không cứng nhắc tên phải chứa chính xác. VD: tìm "kho quẹt" → trả "Kho Quẹt", "Rau Luộc Kho Quẹt", "Cơm Trắng Kho Quẹt". Tìm "rau" → trả các món rau. Trả 3-6 món (không ép nhiều nếu không đủ). Instructions: ngắn gọn, đủ bước.` },
+          { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước, bắt buộc dùng \\n giữa các bước, mỗi bước có số "1. ...\n2. ...\n3. ..."). Tìm món liên quan đến "${query}". Ưu tiên món có tên hoặc mô tả liên quan — linh hoạt, không cứng nhắc tên phải chứa chính xác. VD: tìm "kho quẹt" → trả "Kho Quẹt", "Rau Luộc Kho Quẹt", "Cơm Trắng Kho Quẹt". Tìm "rau" → trả các món rau. Trả 3-6 món (không ép nhiều nếu không đủ). Instructions: MẸO QUAN TRỌNG: LUÔN dùng \\n giữa các bước, mỗi bước có số thứ tự.` },
           { role: 'user', content: `Tìm món: ${query}` }
         ],
         temperature: 0.7,
@@ -309,7 +309,7 @@ app.post('/api/random-dishes', async (req, res) => {
         body: JSON.stringify({
           model: 'deepseek-chat',
           messages: [
-            { role: 'system', content: 'JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name, quantity}], instructions(\\n cách bước). Gợi ý 3 món Việt ngẫu nhiên. Instructions: 6-10 bước, lửa to/nhỏ, thời gian, mẹo.' },
+            { role: 'system', content: 'JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name, quantity}], instructions(bắt buộc dùng \\n giữa các bước, mỗi bước có số "1. ...\n2. ...\n3. ..."). Gợi ý 3 món Việt ngẫu nhiên. Instructions: 6-10 bước chi tiết (thời gian, lửa to/nhỏ), phân cách bằng \\n, mỗi bước trên 1 dòng riêng.' },
             { role: 'user', content: 'Gợi ý 3 món ăn ngẫu nhiên cho hôm nay' }
           ],
           temperature: 0.8,
@@ -609,7 +609,7 @@ app.get('/api/dishes/meal/:period', async (req, res) => {
               role: 'system',
               content: `Bạn là đầu bếp Việt Nam. Gợi ý món cho bữa ${mealName}.
 
-Trả về JSON array. Mỗi món: name, time (số phút), calories (số kcal), difficulty, description, ingredients[{name,quantity}], instructions (dùng \\n giữa các bước, không xuống dòng thật).
+Trả về JSON array. Mỗi món: name, time (số phút), calories (số kcal), difficulty, description, ingredients[{name,quantity}], instructions (bắt buộc: dùng \\n giữa các bước, mỗi bước có số "1. ...\n2. ...\n3. ...", KHÔNG gom chung 1 dòng).
 
 QUY TẮC:
 - Chỉ món phổ biến người Việt ăn bữa ${mealName}
@@ -757,7 +757,7 @@ app.post('/api/suggest-by-ingredients', async (req, res) => {
               role: 'system',
               content: `JSON array. Có nguyên liệu: ${ingsStr}. Gợi ý 4-5 món nấu được từ các nguyên liệu này, có thể thêm 1-2 gia vị.
 
-Mỗi món: name, time (số phút), calories (số kcal), difficulty (Dễ/Trung bình/Khó), description, ingredients[{name,quantity}], instructions (dùng \\n giữa các bước, không xuống dòng thật).`
+Mỗi món: name, time (số phút), calories (số kcal), difficulty (Dễ/Trung bình/Khó), description, ingredients[{name,quantity}], instructions (bắt buộc: dùng \\n giữa các bước, mỗi bước có số "1. ...\n2. ...\n3. ...", KHÔNG gom chung 1 dòng).`
             },
             { role: 'user', content: `Tôi có: ${ingsStr}. Gợi ý món gì?` }
           ],

@@ -60,6 +60,33 @@
       });
     }
 
+    // Fallback cuối: nếu chỉ có 1 dòng nhưng nhiều câu → tách bằng dấu câu
+    if (steps.length === 1 && lines.length <= 2) {
+      const text = steps[0].instructions.join(' ');
+      // Tách bằng dấu chấm, chấm than, chấm hỏi, chấm phẩy
+      const sentences = text.split(/(?<=[.!?;])\s+/).filter(s => s.trim().length > 5);
+      if (sentences.length > 1) {
+        steps.length = 0;
+        sentences.forEach(s => {
+          const clean = s.trim();
+          if (!clean) return;
+          let timerSeconds = 0;
+          const timerMatch = clean.match(/(\d+)\s*(phút|giây|s|min)/i);
+          if (timerMatch) {
+            const val = parseInt(timerMatch[1]);
+            timerSeconds = timerMatch[2].match(/phút|min/i) ? val * 60 : val;
+          }
+          steps.push({
+            number: steps.length + 1,
+            instructions: [clean],
+            tip: '',
+            timerSeconds,
+            ingredients: []
+          });
+        });
+      }
+    }
+
     // Phân phối ingredients dựa trên nội dung từng bước thay vì chia đều
     const ings = dish.ingredients || [];
     if (ings.length > 0 && steps.length > 0) {
