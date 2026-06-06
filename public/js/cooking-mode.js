@@ -107,22 +107,30 @@
     const matchedAnywhere = new Set(); // index nguyên liệu có match ít nhất 1 bước
 
     // Tách tên nguyên liệu thành các từ khoá
-    function getKeyWords(name) {
+        function getKeyWords(name) {
       const stopWords = ['và', 'của', 'cho', 'với', 'các', 'một', 'những', 'đã', 'đang', 'vào', 'ra'];
       return name.toLowerCase().split(/[\s,]+/).filter(w => w.length >= 2 && !stopWords.includes(w));
     }
 
-    // Kiểm tra ingredient có match step không
+    // Escape special regex characters
+    function escapeRegex(str) {
+      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
     function ingredientMatchesStep(ing, stepText) {
       const name = ing.name.toLowerCase();
       // Full name match
       if (name.length >= 2 && stepText.includes(name)) return true;
-      // Keyword match (tên ghép như "cá lóc" match "cá")
+      // Keyword match (ten ghep nhu "ca loc" match "ca")
       const keywords = getKeyWords(name);
       if (keywords.length > 1) {
         for (const kw of keywords) {
-          const regex = new RegExp(`(^|[\\s,.;:!?'"])${kw}([\\s,.;:!?'"]|$)`, 'i');
-          if (regex.test(stepText)) return true;
+          try {
+            const escaped = escapeRegex(kw);
+            const regex = new RegExp('(^|[\\s,.;:!?\'"])' + escaped + '([\\s,.;:!?\'"]|$)', 'i');
+            if (regex.test(stepText)) return true;
+          } catch (e) {
+            // Skip invalid regex
+          }
         }
       }
       return false;
@@ -167,8 +175,14 @@
     }
 
     // Parse steps; fallback nếu không parse được
-    let steps = parseSteps(dish);
-    if (steps.length === 0) {
+    let steps;
+    try {
+      steps = parseSteps(dish);
+    } catch (err) {
+      console.error('[CookingMode] parseSteps error:', err);
+      steps = [];
+    }
+    if (!steps || steps.length === 0) {
       const raw = (dish.instructions || '').replace(/\\n/g, '\n').trim();
       if (raw) {
         // Fallback: gom toàn bộ instructions vào 1 step duy nhất
