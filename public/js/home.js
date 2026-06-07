@@ -48,20 +48,28 @@
   }
 
   // ---- Dish Image Cache (Unsplash) ----
-  // Lưu URL ảnh trong localStorage để không phải gọi Unsplash mỗi lần
-  const DISH_IMAGE_CACHE_KEY = 'dish_image_cache';
+  // Lưu URL ảnh trong localStorage, có version để clear cache cũ
+  const DISH_IMAGE_CACHE_KEY = 'dish_image_cache_v2';
+  const DISH_IMAGE_VERSION = 2;
   let dishImageCache = loadImageCache();
   let pendingImageFetches = new Set();
 
   function loadImageCache() {
     try {
-      return JSON.parse(localStorage.getItem(DISH_IMAGE_CACHE_KEY) || '{}');
+      const raw = localStorage.getItem(DISH_IMAGE_CACHE_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      // Nếu version cũ (từ cache v1), clear để fetch ảnh mới, không trùng
+      if (parsed._version !== DISH_IMAGE_VERSION) return {};
+      delete parsed._version;
+      return parsed;
     } catch (e) { return {}; }
   }
 
   function saveImageCache() {
     try {
-      localStorage.setItem(DISH_IMAGE_CACHE_KEY, JSON.stringify(dishImageCache));
+      const toSave = { ...dishImageCache, _version: DISH_IMAGE_VERSION };
+      localStorage.setItem(DISH_IMAGE_CACHE_KEY, JSON.stringify(toSave));
     } catch (e) { /* storage full */ }
   }
 

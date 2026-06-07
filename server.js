@@ -449,7 +449,26 @@ app.get('/api/youtube-video', async (req, res) => {
   }
 });
 
-// ---- Unsplash image proxy ----
+// ---- Simple string hash for deterministic image selection ----
+function hashStr(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+
+// ---- Pick 1 ảnh từ nhiều kết quả Unsplash dùng hash ----
+function pickUnsplashImage(results, name) {
+  if (!results || results.length === 0) return null;
+  // Nhiều kết quả → dùng hash tên món để chọn ảnh riêng, tránh trùng
+  const idx = results.length > 1 ? hashStr(name) % results.length : 0;
+  return results[idx]?.urls?.small || results[0]?.urls?.small || null;
+}
+
+// ---- Unsplash image proxy (single) ----
 app.get('/api/dish-image', async (req, res) => {
   const { name } = req.query;
   if (!name) return res.json({ url: null });
@@ -459,13 +478,12 @@ app.get('/api/dish-image', async (req, res) => {
 
   try {
     const response = await fetch(
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent('vietnamese food ' + name)}&per_page=1&orientation=landscape`,
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(name + ' món ăn')}&per_page=5&orientation=landscape`,
       { headers: { 'Authorization': `Client-ID ${unsplashKey}` } }
     );
     if (!response.ok) throw new Error(`Unsplash error: ${response.status}`);
     const data = await response.json();
-    // Dùng ảnh small (400px) thay vì regular (1080px) — nhanh hơn đáng kể
-    const url = data.results?.[0]?.urls?.small || null;
+    const url = pickUnsplashImage(data.results, name);
     res.json({ url });
   } catch (err) {
     console.error('Unsplash error:', err.message);
@@ -490,12 +508,12 @@ app.post('/api/dish-images', async (req, res) => {
   await Promise.allSettled(batch.map(async (name) => {
     try {
       const response = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent('vietnamese food ' + name)}&per_page=1&orientation=landscape`,
-        { headers: { 'Authorization': `Client-ID ${unsplashKey}` }, signal: AbortSignal.timeout(4000) }
+        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(name + ' món ăn')}&per_page=5&orientation=landscape`,
+        { headers: { 'Authorization': `Client-ID ${unsplashKey}` }, signal: AbortSignal.timeout(5000) }
       );
       if (!response.ok) return;
       const data = await response.json();
-      const url = data.results?.[0]?.urls?.small || null;
+      const url = pickUnsplashImage(data.results, name);
       if (url) images[name] = url;
     } catch (e) {
       // Skip image for this dish
