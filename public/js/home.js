@@ -835,7 +835,7 @@
           <div id="health-error" class="hidden text-center py-8">
             <span class="material-symbols-outlined text-4xl text-error mb-3">error_outline</span>
             <p class="text-on-surface font-label-md">Không thể phân tích món ăn</p>
-            <p class="text-xs text-on-surface-variant mt-1">Vui lòng thử lại sau</p>
+            <p class="text-xs text-on-surface-variant mt-1">Vui lòng thử lại sau vài giây</p>
           </div>
         </div>
 
@@ -1341,9 +1341,9 @@
                 if (grid) {
                   grid.innerHTML = `
                     <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
-                      <span class="material-symbols-outlined text-5xl text-outline mb-4">search_off</span>
-                      <p class="text-on-surface-variant font-body-md">Không tìm thấy món "${query}"</p>
-                      <p class="text-xs text-on-surface-variant mt-2">Hãy thử từ khóa khác hoặc thêm món qua camera</p>
+                      <span class="material-symbols-outlined text-5xl text-outline mb-4">cloud_off</span>
+                      <p class="text-on-surface-variant font-body-md">Server đang quá tải</p>
+                      <p class="text-xs text-on-surface-variant mt-2">Vui lòng thử lại sau vài giây</p>
                     </div>`;
                 }
               }
@@ -1381,14 +1381,14 @@
         renderDishes(dishes);
         currentDishes = dishes;
       } else {
-        // Không có kết quả — show not found
+        // Không có kết quả
         const grid = document.getElementById('dish-grid');
         if (grid) {
           grid.innerHTML = `
             <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
-              <span class="material-symbols-outlined text-5xl text-outline mb-4">search_off</span>
-              <p class="text-on-surface-variant font-body-md">Không tìm thấy món "${query}"</p>
-              <p class="text-xs text-on-surface-variant mt-2">Hãy thử từ khóa khác hoặc thêm món qua camera</p>
+              <span class="material-symbols-outlined text-5xl text-outline mb-4">cloud_off</span>
+              <p class="text-on-surface-variant font-body-md">Server đang quá tải</p>
+              <p class="text-xs text-on-surface-variant mt-2">Vui lòng thử lại sau vài giây</p>
             </div>`;
         }
       }
@@ -1398,12 +1398,11 @@
     if (allDishes.length === 0) {
       const grid = document.getElementById('dish-grid');
       if (grid) {
-        // Không dùng getSampleDishes() — chỉ hiện thông báo không tìm thấy
         grid.innerHTML = `
           <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
-            <span class="material-symbols-outlined text-5xl text-outline mb-4">search_off</span>
-            <p class="text-on-surface-variant font-body-md">Không tìm thấy món "${query}"</p>
-            <p class="text-xs text-on-surface-variant mt-2">Hãy thử từ khóa khác hoặc thêm món qua camera</p>
+            <span class="material-symbols-outlined text-5xl text-outline mb-4">cloud_off</span>
+            <p class="text-on-surface-variant font-body-md">Server đang quá tải</p>
+            <p class="text-xs text-on-surface-variant mt-2">Vui lòng thử lại sau vài giây</p>
           </div>`;
       }
     }
