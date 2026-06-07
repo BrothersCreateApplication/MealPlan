@@ -1295,9 +1295,6 @@
                 statusEl.textContent = '✓ Đã tìm đủ món từ cơ sở dữ liệu';
               } else if (allDishes.length > 0) {
                 statusEl.textContent = `🔎 Có ${allDishes.length} món từ dữ liệu, AI đang tạo thêm...`;
-              } else {
-                statusEl.textContent = '🤖 Không có trong DB, AI đang tìm món mới...';
-              }
 
             } else if (payload.type === 'ai_start') {
               // AI bắt đầu generate
