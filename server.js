@@ -464,12 +464,45 @@ app.get('/api/dish-image', async (req, res) => {
     );
     if (!response.ok) throw new Error(`Unsplash error: ${response.status}`);
     const data = await response.json();
-    const url = data.results?.[0]?.urls?.regular || null;
+    // Dùng ảnh small (400px) thay vì regular (1080px) — nhanh hơn đáng kể
+    const url = data.results?.[0]?.urls?.small || null;
     res.json({ url });
   } catch (err) {
     console.error('Unsplash error:', err.message);
     res.json({ url: null });
   }
+});
+
+// ---- Batch Unsplash images: nhận nhiều tên món, trả 1 lúc ----
+app.post('/api/dish-images', async (req, res) => {
+  const { names } = req.body;
+  if (!names || !Array.isArray(names) || names.length === 0) {
+    return res.json({ images: {} });
+  }
+
+  const unsplashKey = process.env.UNSPLASH_ACCESS_KEY;
+  if (!unsplashKey) return res.json({ images: {} });
+
+  const images = {};
+  // Chỉ fetch tối đa 6 ảnh 1 lần để tránh rate limit
+  const batch = names.slice(0, 6);
+
+  await Promise.allSettled(batch.map(async (name) => {
+    try {
+      const response = await fetch(
+        `https://api.unsplash.com/search/photos?query=${encodeURIComponent('vietnamese food ' + name)}&per_page=1&orientation=landscape`,
+        { headers: { 'Authorization': `Client-ID ${unsplashKey}` }, signal: AbortSignal.timeout(4000) }
+      );
+      if (!response.ok) return;
+      const data = await response.json();
+      const url = data.results?.[0]?.urls?.small || null;
+      if (url) images[name] = url;
+    } catch (e) {
+      // Skip image for this dish
+    }
+  }));
+
+  res.json({ images });
 });
 
 // ===================== Weather API (Open-Meteo, free, no key needed) =====================

@@ -47,7 +47,91 @@
     return defaultVisual;
   }
 
-  // Bỏ loadDishImage — dùng emoji thuần
+  // ---- Dish Image Cache (Unsplash) ----
+  // Lưu URL ảnh trong localStorage để không phải gọi Unsplash mỗi lần
+  const DISH_IMAGE_CACHE_KEY = 'dish_image_cache';
+  let dishImageCache = loadImageCache();
+  let pendingImageFetches = new Set();
+
+  function loadImageCache() {
+    try {
+      return JSON.parse(localStorage.getItem(DISH_IMAGE_CACHE_KEY) || '{}');
+    } catch (e) { return {}; }
+  }
+
+  function saveImageCache() {
+    try {
+      localStorage.setItem(DISH_IMAGE_CACHE_KEY, JSON.stringify(dishImageCache));
+    } catch (e) { /* storage full */ }
+  }
+
+  // Fetch ảnh batch từ server
+  async function fetchDishImages(dishNames) {
+    const uncached = dishNames.filter(n => !dishImageCache[n] && !pendingImageFetches.has(n));
+    if (uncached.length === 0) return;
+
+    uncached.forEach(n => pendingImageFetches.add(n));
+
+    try {
+      const res = await fetch('/api/dish-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names: uncached })
+      });
+      const data = await res.json();
+      if (data.images) {
+        let changed = false;
+        for (const [name, url] of Object.entries(data.images)) {
+          dishImageCache[name] = url;
+          changed = true;
+        }
+        if (changed) saveImageCache();
+      }
+    } catch (e) {
+      console.warn('Failed to fetch dish images:', e);
+    } finally {
+      uncached.forEach(n => pendingImageFetches.delete(n));
+    }
+  }
+
+  // Thay emoji bằng ảnh sau khi có URL
+  function applyDishImage(dishName) {
+    const url = dishImageCache[dishName];
+    if (!url) return;
+
+    // Tìm tất cả dish-image div có tên này
+    document.querySelectorAll(`.dish-image[data-dish-name="${dishName}"]`).forEach(container => {
+      // Kiểm tra đã có ảnh chưa
+      if (container.querySelector('.dish-img-loaded')) return;
+
+      const emoji = container.querySelector('.dish-emoji');
+      const img = document.createElement('img');
+      img.className = 'dish-img-loaded w-full h-full object-cover absolute inset-0';
+      img.src = url;
+      img.alt = dishName;
+      img.loading = 'lazy';
+
+      img.onerror = () => {
+        img.remove();
+        if (emoji) emoji.classList.remove('hidden');
+      };
+
+      img.onload = () => {
+        if (emoji) emoji.classList.add('hidden');
+        container.style.background = 'none';
+      };
+
+      container.style.position = 'relative';
+      container.appendChild(img);
+    });
+  }
+
+  // Load ảnh cho danh sách món ăn
+  async function loadDishImages(dishes) {
+    const names = dishes.map(d => d.name);
+    await fetchDishImages(names);
+    names.forEach(n => applyDishImage(n));
+  }
 
   // ---- Gọi API để lấy gợi ý món ăn kèm công thức (cache trước, API sau) ----
   async function loadRandomDishes() {
@@ -159,9 +243,9 @@
       <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high">
         <div class="relative h-48 overflow-hidden">
           <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
-            <span class="text-6xl">${emoji}</span>
+            <span class="text-6xl dish-emoji">${emoji}</span>
           </div>
-          <div class="absolute top-3 right-3">
+          <div class="absolute top-3 right-3 z-10">
             <button class="fav-btn bg-white/80 backdrop-blur-md p-1.5 rounded-full shadow-sm" data-dish="${dish.name}">
               <span class="material-symbols-outlined text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
             </button>
@@ -194,6 +278,9 @@
     }).join('');
 
     grid.insertAdjacentHTML('beforeend', html);
+
+    // Load ảnh Unsplash cho các món mới (async, không block UI)
+    loadDishImages(dishes);
 
     // Attach events cho các nút mới — dùng MealPlan.toggleFavorite() để lưu đúng
     document.querySelectorAll('.fav-btn').forEach(btn => {
@@ -385,9 +472,9 @@
       <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high">
         <div class="relative h-48 overflow-hidden">
           <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
-            <span class="text-6xl">${emoji}</span>
+            <span class="text-6xl dish-emoji">${emoji}</span>
           </div>
-          <div class="absolute top-3 right-3">
+          <div class="absolute top-3 right-3 z-10">
             <button class="fav-btn bg-white/80 backdrop-blur-md p-1.5 rounded-full shadow-sm" data-dish="${dish.name}">
               <span class="material-symbols-outlined text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
             </button>
@@ -422,6 +509,9 @@
     // Cache dishes for detail button lookup
     currentDishes = dishes;
     console.log('[MealPlan] Dishes cached:', dishes.length, dishes.map(d => d.name));
+
+    // Load ảnh Unsplash (async, không block UI)
+    loadDishImages(dishes);
 
     // Attach events
     attachDishEvents();
@@ -1338,9 +1428,9 @@
       <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high animate-fade-in">
         <div class="relative h-48 overflow-hidden">
           <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
-            <span class="text-6xl">${emoji}</span>
+            <span class="text-6xl dish-emoji">${emoji}</span>
           </div>
-          <div class="absolute top-3 right-3">
+          <div class="absolute top-3 right-3 z-10">
             <button class="fav-btn bg-white/80 backdrop-blur-md p-1.5 rounded-full shadow-sm" data-dish="${dish.name}">
               <span class="material-symbols-outlined text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
             </button>
@@ -1372,6 +1462,9 @@
       </div>`;
 
     grid.insertAdjacentHTML('beforeend', cardHtml);
+
+    // Load ảnh cho dish vừa thêm
+    loadDishImages([dish]);
 
     // Attach events
     attachSingleDishEvents(dish, idx);

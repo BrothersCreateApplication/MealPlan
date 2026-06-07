@@ -79,8 +79,16 @@ nav.fixed.bottom-0 .nav-link {
 .dish-card:hover .dish-image {
   transform: scale(1.05);
 }
+/* Dish image loading — emoji fallback */
 .dish-image {
   transition: transform 0.5s ease-out;
+}
+.dish-img-loaded {
+  animation: dishImgFadeIn 0.4s ease-out;
+}
+@keyframes dishImgFadeIn {
+  from { opacity: 0; transform: scale(1.05); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 /* Owned item state */
