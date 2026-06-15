@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
@@ -26,6 +26,148 @@ async function getCachedDishes() {
 // ---- Helper: parse JSON safely ----
 function tryParseJSON(str) {
   try { return JSON.parse(str); } catch (e) { return null; }
+}
+
+// ---- Gemini Flash helpers (thay thế DeepSeek) ----
+const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+function getGeminiKey() {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error('GEMINI_API_KEY not configured');
+  return key;
+}
+
+/** Gọi Gemini Flash non-streaming, trả về text response */
+async function callGemini(systemPrompt, messages, opts = {}) {
+  const key = getGeminiKey();
+  const contents = (messages || []).map(m => ({
+    role: m.role === 'assistant' || m.role === 'model' ? 'model' : 'user',
+    parts: [{ text: m.content }]
+  }));
+  const body = {
+    contents,
+    generationConfig: {
+      temperature: opts.temperature ?? 0.7,
+      maxOutputTokens: opts.max_tokens ?? 3000
+    }
+  };
+  if (systemPrompt) {
+    body.system_instruction = { parts: [{ text: systemPrompt }] };
+  }
+  const res = await fetch(
+    `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent?key=${key}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: opts.signal
+    }
+  );
+  if (!res.ok) {
+    const err = await res.text().catch(() => '');
+    throw new Error(`Gemini API error ${res.status}: ${err.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+/** Gọi Gemini Flash streaming, trả về ReadableStream để xử lý SSE */
+function callGeminiStream(systemPrompt, messages, opts = {}) {
+  const key = getGeminiKey();
+  const contents = (messages || []).map(m => ({
+    role: m.role === 'assistant' || m.role === 'model' ? 'model' : 'user',
+    parts: [{ text: m.content }]
+  }));
+  const body = {
+    contents,
+    generationConfig: {
+      temperature: opts.temperature ?? 0.7,
+      maxOutputTokens: opts.max_tokens ?? 3000
+    }
+  };
+  if (systemPrompt) {
+    body.system_instruction = { parts: [{ text: systemPrompt }] };
+  }
+  return fetch(
+    `${GEMINI_BASE}/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${key}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: opts.signal
+    }
+  );
+}
+
+/** Parse Gemini SSE stream thành accumulated text */
+async function accumulateGeminiStream(response) {
+  if (!response.ok) {
+    const err = await response.text().catch(() => '');
+    throw new Error(`Gemini stream error ${response.status}: ${err.slice(0, 200)}`);
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let accumulated = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          accumulated += text;
+        } catch (e) { /* skip partial */ }
+      }
+    }
+  }
+  // Xử lý buffer còn lại
+  if (buffer.startsWith('data: ')) {
+    const data = buffer.slice(6).trim();
+    if (data !== '[DONE]') {
+      try {
+        const parsed = JSON.parse(data);
+        accumulated += parsed?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      } catch (e) { /* skip */ }
+    }
+  }
+  return accumulated;
+}
+
+/** Parse JSON từ Gemini response (bỏ markdown code block nếu có) */
+function parseJSONFromGemini(text) {
+  let clean = text.trim();
+  // Bỏ ```json ... ``` hoặc ``` ... ```
+  const jsonMatch = clean.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) clean = jsonMatch[1].trim();
+  return JSON.parse(clean);
+}
+
+/** Sửa JSON lỗi cú pháp (trailing comma, cắt dở) */
+function fixAndParseJSON(text) {
+  try {
+    return parseJSONFromGemini(text);
+  } catch (e) {
+    // Thử bỏ trailing comma
+    let fixed = text.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim()
+      .replace(/,\s*([}\]])/g, '$1');
+    try { return JSON.parse(fixed); } catch (e2) {
+      // Thử cắt từ đầu đến ] hoặc } cuối
+      const idx = Math.max(fixed.lastIndexOf(']'), fixed.lastIndexOf('}'));
+      if (idx > 10) return JSON.parse(fixed.slice(0, idx + 1));
+      throw e;
+    }
+  }
 }
 
 app.use(cors());
@@ -61,50 +203,33 @@ app.post('/api/search-dishes', async (req, res) => {
   let aiDishes = [];
 
   // 2. Chỉ gọi AI nếu DB chưa đủ 6 món
-  if (exactMatch.length < 6) {
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    if (apiKey) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 7000);
-        const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: 'deepseek-chat',
-            messages: [
-              { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước, bắt buộc dùng \\n giữa các bước, mỗi bước có số "1. ...\n2. ...\n3. ..."). Tìm món liên quan đến "${query}". Ưu tiên món có tên hoặc mô tả liên quan — linh hoạt, không cứng nhắc tên phải chứa chính xác. VD: tìm "kho quẹt" → trả "Kho Quẹt", "Rau Luộc Kho Quẹt", "Cơm Trắng Kho Quẹt". Tìm "rau" → trả các món rau. Trả 3-6 món (không ép nhiều nếu không đủ). Instructions: MẸO QUAN TRỌNG: LUÔN dùng \\n giữa các bước, mỗi bước có số thứ tự.` },
-              { role: 'user', content: `Tìm món: ${query}` }
-            ],
-            temperature: 0.7,
-            max_tokens: 3000
-          }),
-          signal: controller.signal
-        });
-        clearTimeout(timeout);
+  if (exactMatch.length < 6 && process.env.GEMINI_API_KEY) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+      const systemContent = `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước, bắt buộc dùng \\n giữa các bước, mỗi bước có số "1. ...\n2. ...\n3. ..."). Tìm món liên quan đến "${query}". Ưu tiên món có tên hoặc mô tả liên quan — linh hoạt, không cứng nhắc tên phải chứa chính xác. VD: tìm "kho quẹt" → trả "Kho Quẹt", "Rau Luộc Kho Quẹt", "Cơm Trắng Kho Quẹt". Tìm "rau" → trả các món rau. Trả 3-6 món (không ép nhiều nếu không đủ). Instructions: MẸO QUAN TRỌNG: LUÔN dùng \\n giữa các bước, mỗi bước có số thứ tự.`;
 
-        if (response.ok) {
-          const data = await response.json();
-          const content = data?.choices?.[0]?.message?.content;
-          if (content) {
-            const parsed = JSON.parse(content);
-            const aiRaw = Array.isArray(parsed) ? parsed : [parsed];
-            aiDishes = aiRaw.map(normalizeDish);
+      const content = await callGemini(
+        `Bạn là đầu bếp Việt Nam. Trả lời JSON. ${systemContent}`,
+        [{ role: 'user', content: `Tìm món: ${query}` }],
+        { temperature: 0.7, max_tokens: 3000, signal: controller.signal }
+      );
+      clearTimeout(timeout);
 
-            // Lưu vào DB cho lần sau
-            const saveResults = await db.addNewDishes(aiDishes);
-            const inserted = saveResults.filter(r => r && r.action === 'inserted');
-            if (inserted.length > 0) {
-              console.log(`[DeepSeek] Saved ${inserted.length} new dishes to Supabase from search: "${query}"`);
-            }
-          }
+      if (content) {
+        const parsed = fixAndParseJSON(content);
+        const aiRaw = Array.isArray(parsed) ? parsed : [parsed];
+        aiDishes = aiRaw.map(normalizeDish);
+
+        // Lưu vào DB cho lần sau
+        const saveResults = await db.addNewDishes(aiDishes);
+        const inserted = saveResults.filter(r => r && r.action === 'inserted');
+        if (inserted.length > 0) {
+          console.log(`[Gemini] Saved ${inserted.length} new dishes to Supabase from search: "${query}"`);
         }
-      } catch (e) {
-        console.error('DeepSeek search error:', e.message);
       }
+    } catch (e) {
+      console.error('Gemini search error:', e.message);
     }
   }
 
@@ -157,8 +282,7 @@ app.get('/api/search-dishes-stream', async (req, res) => {
   // 3. Báo hiệu AI bắt đầu
   res.write(`data: ${JSON.stringify({ type: 'ai_start' })}\n\n`);
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
+  if (!process.env.GEMINI_API_KEY) {
     res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
     res.end();
     return;
@@ -168,86 +292,22 @@ app.get('/api/search-dishes-stream', async (req, res) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25000);
 
-    const aiResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          { role: 'system', content: `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước, bắt buộc dùng \\n giữa các bước, mỗi bước có số "1. ...\n2. ...\n3. ..."). Tìm món liên quan đến "${query}". Ưu tiên món có tên hoặc mô tả liên quan — linh hoạt, không cứng nhắc tên phải chứa chính xác. VD: tìm "kho quẹt" → trả "Kho Quẹt", "Rau Luộc Kho Quẹt", "Cơm Trắng Kho Quẹt". Tìm "rau" → trả các món rau. Trả 3-6 món (không ép nhiều nếu không đủ). Instructions: MẸO QUAN TRỌNG: LUÔN dùng \\n giữa các bước, mỗi bước có số thứ tự.` },
-          { role: 'user', content: `Tìm món: ${query}` }
-        ],
-        temperature: 0.7,
-        max_tokens: 3000,
-        stream: true
-      }),
-      signal: controller.signal
-    });
+    const systemContent = `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước, bắt buộc dùng \\n giữa các bước, mỗi bước có số "1. ...\n2. ...\n3. ..."). Tìm món liên quan đến "${query}". Ưu tiên món có tên hoặc mô tả liên quan — linh hoạt, không cứng nhắc tên phải chứa chính xác. VD: tìm "kho quẹt" → trả "Kho Quẹt", "Rau Luộc Kho Quẹt", "Cơm Trắng Kho Quẹt". Tìm "rau" → trả các món rau. Trả 3-6 món (không ép nhiều nếu không đủ). Instructions: MẸO QUAN TRỌNG: LUÔN dùng \\n giữa các bước, mỗi bước có số thứ tự.`;
+
+    const aiResponse = await callGeminiStream(
+      `Bạn là đầu bếp Việt Nam. Trả lời JSON. ${systemContent}`,
+      [{ role: 'user', content: `Tìm món: ${query}` }],
+      { temperature: 0.7, max_tokens: 3000, signal: controller.signal }
+    );
     clearTimeout(timeout);
 
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text().catch(() => '');
-      console.error(`[DeepSeek] Stream HTTP ${aiResponse.status}: ${errText.slice(0, 200)}`);
-      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
-      res.end();
-      return;
-    }
-
-    // Stream DeepSeek response
-    const reader = aiResponse.body.getReader();
-    const decoder = new TextDecoder();
-    let sseBuffer = '';
-    let accumulated = '';
+    // Accumulate streamed text
+    const accumulated = await accumulateGeminiStream(aiResponse);
     let allAiDishes = [];
 
-    async function processChunk() {
-      // Process SSE lines from DeepSeek
-      const lines = sseBuffer.split('\n');
-      sseBuffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6).trim();
-          if (data === '[DONE]') continue;
-          try {
-            const parsed = JSON.parse(data);
-            const content = parsed?.choices?.[0]?.delta?.content || '';
-            if (content) {
-              accumulated += content;
-            }
-          } catch (e) {
-            // Not a valid JSON line — skip
-          }
-        }
-      }
-    }
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      sseBuffer += decoder.decode(value, { stream: true });
-      await processChunk();
-    }
-
-    // Xử lý buffer còn lại
-    if (sseBuffer.trim()) {
-      await processChunk();
-    }
-
-    // Parse complete accumulated JSON and send dishes
+    // Parse accumulated JSON and send dishes
     try {
-      // Strip markdown code blocks if present
-      let clean = accumulated.trim();
-      const jsonMatch = clean.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        clean = jsonMatch[1].trim();
-      }
-
-      const arr = JSON.parse(clean);
+      const arr = fixAndParseJSON(accumulated);
       if (Array.isArray(arr)) {
         for (const d of arr) {
           const normalized = normalizeDish(d);
@@ -259,13 +319,11 @@ app.get('/api/search-dishes-stream', async (req, res) => {
             res.write(`data: ${JSON.stringify({ type: 'ai', dish: normalized })}\n\n`);
           }
         }
-        console.log(`[DeepSeek] Parsed ${arr.length} dishes from stream, sent ${allAiDishes.length} new`);
+        console.log(`[Gemini] Parsed ${arr.length} dishes from stream, sent ${allAiDishes.length} new`);
       }
     } catch (e) {
-      console.error('[DeepSeek] Failed to parse accumulated JSON:', e.message);
-      console.error('[DeepSeek] Accumulated text (first 500):', accumulated.slice(0, 500));
-      // Log the raw accumulated without JSON parse
-      console.error('[DeepSeek] Raw accumulated:', accumulated);
+      console.error('[Gemini] Failed to parse accumulated JSON:', e.message);
+      console.error('[Gemini] Accumulated text (first 500):', accumulated.slice(0, 500));
     }
 
     // Lưu AI dishes vào DB (fire-and-forget)
@@ -273,14 +331,14 @@ app.get('/api/search-dishes-stream', async (req, res) => {
       db.addNewDishes(allAiDishes).then(saveResults => {
         const inserted = saveResults.filter(r => r && r.action === 'inserted');
         if (inserted.length > 0) {
-          console.log(`[DeepSeek] Saved ${inserted.length} new dishes to Supabase from stream: "${query}"`);
+          console.log(`[Gemini] Saved ${inserted.length} new dishes to Supabase from stream: "${query}"`);
         }
-      }).catch(e => console.error('[DeepSeek] Save stream dishes error:', e.message));
+      }).catch(e => console.error('[Gemini] Save stream dishes error:', e.message));
     }
 
-    console.log(`[DeepSeek] Streamed ${allAiDishes.length} AI dishes for: "${query}"`);
+    console.log(`[Gemini] Streamed ${allAiDishes.length} AI dishes for: "${query}"`);
   } catch (e) {
-    console.error('DeepSeek stream error:', e.message);
+    console.error('Gemini stream error:', e.message);
   }
 
   res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
@@ -295,53 +353,37 @@ app.post('/api/random-dishes', async (req, res) => {
     return res.json({ dishes: dishes.slice(0, 3), fromCache: true });
   }
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (apiKey) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: [
-            { role: 'system', content: 'JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name, quantity}], instructions(bắt buộc dùng \\n giữa các bước, mỗi bước có số "1. ...\n2. ...\n3. ..."). Gợi ý 3 món Việt ngẫu nhiên. Instructions: 6-10 bước chi tiết (thời gian, lửa to/nhỏ), phân cách bằng \\n, mỗi bước trên 1 dòng riêng.' },
-            { role: 'user', content: 'Gợi ý 3 món ăn ngẫu nhiên cho hôm nay' }
-          ],
-          temperature: 0.8,
-          max_tokens: 1500
-        }),
-        signal: controller.signal
-      });
+      const timeout = setTimeout(() => controller.abort(), 12000);
+      const content = await callGemini(
+        'Bạn là đầu bếp Việt Nam. Trả lời JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name, quantity}], instructions(bắt buộc dùng \\n giữa các bước, mỗi bước có số "1. ...\n2. ...\n3. ..."). Gợi ý 3 món Việt ngẫu nhiên. Instructions: 6-10 bước chi tiết (thời gian, lửa to/nhỏ), phân cách bằng \\n, mỗi bước trên 1 dòng riêng.',
+        [{ role: 'user', content: 'Gợi ý 3 món ăn ngẫu nhiên cho hôm nay' }],
+        { temperature: 0.8, max_tokens: 1500, signal: controller.signal }
+      );
       clearTimeout(timeout);
 
-      if (response.ok) {
-        const data = await response.json();
-        const content = data?.choices?.[0]?.message?.content;
-        if (content) {
-          const parsed = JSON.parse(content);
-          const aiDishes = Array.isArray(parsed) ? parsed : [parsed];
+      if (content) {
+        const parsed = fixAndParseJSON(content);
+        const aiDishes = Array.isArray(parsed) ? parsed : [parsed];
 
-          const normalized = aiDishes.map(normalizeDish);
-          const saveResults = await db.addNewDishes(normalized);
-          const inserted = saveResults.filter(r => r && r.action === 'inserted');
-          if (inserted.length > 0) {
-            console.log(`[DeepSeek] Saved ${inserted.length} new dishes to Supabase from random`);
-          }
-
-          dishes = await db.getRandomDishes(3);
-          if (dishes.length >= 3) {
-            return res.json({ dishes: dishes.slice(0, 3), fromCache: true });
-          }
-          return res.json({ dishes: normalized.slice(0, 3), fromCache: false });
+        const normalized = aiDishes.map(normalizeDish);
+        const saveResults = await db.addNewDishes(normalized);
+        const inserted = saveResults.filter(r => r && r.action === 'inserted');
+        if (inserted.length > 0) {
+          console.log(`[Gemini] Saved ${inserted.length} new dishes to Supabase from random`);
         }
+
+        dishes = await db.getRandomDishes(3);
+        if (dishes.length >= 3) {
+          return res.json({ dishes: dishes.slice(0, 3), fromCache: true });
+        }
+        return res.json({ dishes: normalized.slice(0, 3), fromCache: false });
       }
     } catch (e) {
-      console.error('DeepSeek random error:', e.message);
+      console.error('Gemini random error:', e.message);
     }
   }
 
@@ -353,9 +395,9 @@ app.post('/api/random-dishes', async (req, res) => {
   res.json({ dishes: dishes.slice(0, 3), fromCache: true });
 });
 
-// ---- DeepSeek API proxy ----
+// ---- Gemini API proxy (thay thế DeepSeek) ----
 app.post('/api/chat', async (req, res) => {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
     return res.status(200).json({
@@ -367,28 +409,28 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: req.body.messages || [],
-        temperature: 0.7,
-        max_tokens: 4000
-      })
+    const messages = req.body.messages || [];
+    const systemMessages = messages.filter(m => m.role === 'system');
+    const conversationMessages = messages.filter(m => m.role !== 'system');
+    const systemPrompt = systemMessages.map(m => m.content).join('\n');
+
+    const content = await callGemini(
+      systemPrompt,
+      conversationMessages,
+      { temperature: 0.7, max_tokens: 4000 }
+    );
+
+    res.json({
+      success: true,
+      mock: false,
+      data: {
+        candidates: [{
+          content: { parts: [{ text: content }] }
+        }]
+      }
     });
-
-    if (!response.ok) {
-      throw new Error(`DeepSeek API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    res.json({ success: true, mock: false, data });
   } catch (err) {
-    console.error('DeepSeek API error:', err.message);
+    console.error('Gemini API error:', err.message);
     res.json({
       success: true,
       error: err.message,
@@ -635,97 +677,53 @@ app.get('/api/dishes/meal/:period', async (req, res) => {
   const mealName = MEAL_PERIODS[period];
   if (!mealName) return res.json({ dishes: [] });
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
   let dishes = [];
 
   // 1. Luôn gọi AI để có gợi ý tươi mới mỗi lần
-  if (apiKey) {
-    console.log(`[Meal] Calling DeepSeek for period=${period}, mealName=${mealName}`);
+  if (process.env.GEMINI_API_KEY) {
+    console.log(`[Meal] Calling Gemini for period=${period}, mealName=${mealName}`);
     try {
       // Random seed để AI không trả cùng kết quả
       const seed = Date.now() % 1000;
       const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
-      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: [
-            {
-              role: 'system',
-              content: `Bạn là đầu bếp Việt Nam. Gợi ý món cho bữa ${mealName}.
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      const systemPrompt = `Bạn là đầu bếp Việt Nam. Gợi ý món cho bữa ${mealName}.
 
 Trả về JSON array. Mỗi món: name, time (số phút), calories (số kcal), difficulty, description, ingredients[{name,quantity}], instructions (bắt buộc: dùng \\n giữa các bước, mỗi bước có số "1. ...\n2. ...\n3. ...", KHÔNG gom chung 1 dòng).
 
 QUY TẮC:
 - Chỉ món phổ biến người Việt ăn bữa ${mealName}
 - ${period === 'breakfast' ? 'Sáng: bánh mì, phở, bún, cháo, xôi, bánh cuốn, hủ tiếu, cơm tấm...' : period === 'lunch' ? 'Trưa: cơm + món mặn + canh, cơm tấm, bún thịt nướng, cơm chiên...' : period === 'dinner' ? 'Tối: canh, xào, kho, lẩu, nướng, hấp, cá, tôm, thịt...' : 'Khuya: đồ nhẹ như cháo, súp, salad, bánh...'}
-- Trả 4 món, đa dạng, KHÔNG trùng lần trước (seed ${seed})`
-            },
-            { role: 'user', content: `Gợi ý 4 món ${mealName} Việt Nam cho ngày thứ ${dayOfYear}.` }
-          ],
-          temperature: 0.9,
-          max_tokens: 3500
-        }),
-        signal: controller.signal
-      });
+- Trả 4 món, đa dạng, KHÔNG trùng lần trước (seed ${seed})`;
+
+      const content = await callGemini(
+        systemPrompt,
+        [{ role: 'user', content: `Gợi ý 4 món ${mealName} Việt Nam cho ngày thứ ${dayOfYear}.` }],
+        { temperature: 0.9, max_tokens: 3500, signal: controller.signal }
+      );
       clearTimeout(timeout);
 
-      if (response.ok) {
-        const data = await response.json();
-        const content = data?.choices?.[0]?.message?.content;
-        if (content) {
-          // DeepSeek hay trả JSON lỗi cú pháp → try/catch + clean
-          try {
-            let clean = content.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
-            // Thử parse nguyên bản trước
-            let parsed;
-            try {
-              parsed = JSON.parse(clean);
-            } catch (e) {
-              console.error(`[DeepSeek] Raw content (first 200):`, clean.slice(0, 200));
-              console.error(`[DeepSeek] Raw content (last 200):`, clean.slice(-200));
-              // Sửa JSON lỗi thường gặp: trailing comma, thiếu dấu đóng
-              let fixed = clean
-                .replace(/,\s*([}\]])/g, '$1'); // xoá trailing comma
-              // Thử cắt bỏ phần lỗi cuối — giữ từ đầu đến ] cuối cùng
-              try {
-                parsed = JSON.parse(fixed);
-              } catch (e2) {
-                const idx = fixed.lastIndexOf(']');
-                const idx2 = fixed.lastIndexOf('}');
-                const cut = Math.max(idx, idx2);
-                if (cut > 10) {
-                  parsed = JSON.parse(fixed.slice(0, cut + 1));
-                } else {
-                  throw e;
-                }
-              }
-            }
-            const aiDishes = Array.isArray(parsed) ? parsed : [parsed];
-            const normalized = aiDishes.map(normalizeDish).filter(d => d && d.name);
+      if (content) {
+        try {
+          const parsed = fixAndParseJSON(content);
+          const aiDishes = Array.isArray(parsed) ? parsed : [parsed];
+          const normalized = aiDishes.map(normalizeDish).filter(d => d && d.name);
 
-            // Lưu vào DB cho lần sau (fire-and-forget)
-            db.addNewDishes(normalized).catch(() => {});
+          // Lưu vào DB cho lần sau (fire-and-forget)
+          db.addNewDishes(normalized).catch(() => {});
 
-            console.log(`[Meal] AI returned ${normalized.length} dishes for ${period}: ${normalized.map(d => d.name).join(', ')}`);
-            dishes = normalized;
-          } catch (parseErr) {
-            console.error(`[DeepSeek] JSON parse error for ${period}:`, parseErr.message);
-            // Không set dishes → fallback
-          }
+          console.log(`[Meal] AI returned ${normalized.length} dishes for ${period}: ${normalized.map(d => d.name).join(', ')}`);
+          dishes = normalized;
+        } catch (parseErr) {
+          console.error(`[Gemini] JSON parse error for ${period}:`, parseErr.message);
         }
       }
     } catch (e) {
-      console.error('[DeepSeek] Meal suggestion error:', e.message);
+      console.error('[Gemini] Meal suggestion error:', e.message);
     }
   } else {
-    console.log('[Meal] No DEEPSEEK_API_KEY, skipping AI');
+    console.log('[Meal] No GEMINI_API_KEY, skipping AI');
   }
 
   // 2. Fallback: random từ DB (các món do AI đề xuất trước đó đã lưu)
@@ -785,109 +783,78 @@ app.post('/api/suggest-by-ingredients', async (req, res) => {
     return res.json({ suggestions: [], fromCache: true });
   }
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
   let suggestions = [];
   let fromCache = true;
 
   // 1. Luôn gọi AI gợi ý món dựa trên nguyên liệu (DB sạch, AI trả mới)
-  if (apiKey) {
+  if (process.env.GEMINI_API_KEY) {
     try {
       const ingsStr = ingredients.join(', ');
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
-      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: [
-            {
-              role: 'system',
-              content: `JSON array. Có nguyên liệu: ${ingsStr}. Gợi ý 4-5 món nấu được từ các nguyên liệu này, có thể thêm 1-2 gia vị.
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      const systemPrompt = `Bạn là đầu bếp Việt Nam. Có nguyên liệu: ${ingsStr}. Gợi ý 4-5 món nấu được từ các nguyên liệu này, có thể thêm 1-2 gia vị.
 
-Mỗi món: name, time (số phút), calories (số kcal), difficulty (Dễ/Trung bình/Khó), description, ingredients[{name,quantity}], instructions (bắt buộc: dùng \\n giữa các bước, mỗi bước có số "1. ...\n2. ...\n3. ...", KHÔNG gom chung 1 dòng).`
-            },
-            { role: 'user', content: `Tôi có: ${ingsStr}. Gợi ý món gì?` }
-          ],
-          temperature: 0.7,
-          max_tokens: 3000
-        }),
-        signal: controller.signal
-      });
+Trả về JSON array. Mỗi món: name, time (số phút), calories (số kcal), difficulty (Dễ/Trung bình/Khó), description, ingredients[{name,quantity}], instructions (bắt buộc: dùng \\n giữa các bước, mỗi bước có số "1. ...\n2. ...\n3. ...", KHÔNG gom chung 1 dòng).`;
+
+      const content = await callGemini(
+        systemPrompt,
+        [{ role: 'user', content: `Tôi có: ${ingsStr}. Gợi ý món gì?` }],
+        { temperature: 0.7, max_tokens: 3000, signal: controller.signal }
+      );
       clearTimeout(timeout);
 
-      if (response.ok) {
-        const data = await response.json();
-        const content = data?.choices?.[0]?.message?.content;
-        if (content) {
-          try {
-            let clean = content.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
-            let parsed;
-            try {
-              parsed = JSON.parse(clean);
-            } catch (e) {
-              let fixed = clean.replace(/,\s*([}\]])/g, '$1');
-              try {
-                parsed = JSON.parse(fixed);
-              } catch (e2) {
-                const idx = Math.max(fixed.lastIndexOf(']'), fixed.lastIndexOf('}'));
-                if (idx > 10) parsed = JSON.parse(fixed.slice(0, idx + 1));
-                else throw e;
-              }
-            }
-            const aiDishes = Array.isArray(parsed) ? parsed : [parsed];
-            const normalized = aiDishes.map(normalizeDish).filter(d => d && d.name);
+      if (content) {
+        try {
+          const parsed = fixAndParseJSON(content);
+          const aiDishes = Array.isArray(parsed) ? parsed : [parsed];
+          const normalized = aiDishes.map(normalizeDish).filter(d => d && d.name);
 
-            // Lưu vào DB (fire-and-forget)
-            db.addNewDishes(normalized).catch(() => {});
+          // Lưu vào DB (fire-and-forget)
+          db.addNewDishes(normalized).catch(() => {});
 
-            // Parse thành format suggestion
-            const baseSeasonings = db.BASIC_SEASONINGS || [];
-            const normalizedAvail = ingredients.map(i => db.removeAccents(i.toLowerCase().trim()));
+          // Parse thành format suggestion
+          const baseSeasonings = db.BASIC_SEASONINGS || [];
+          const normalizedAvail = ingredients.map(i => db.removeAccents(i.toLowerCase().trim()));
 
-            suggestions = normalized.map(aiDish => {
-              const dishIngs = aiDish.ingredients || [];
-              const results = dishIngs.map(ing => {
-                const ingName = db.removeAccents(ing.name.toLowerCase().trim());
-                const isAvailable = normalizedAvail.some(a =>
-                  ingName.includes(a) || a.includes(ingName)
-                );
-                const isBasic = baseSeasonings.some(b =>
-                  ingName.includes(db.removeAccents(b))
-                );
-                return { name: ing.name, quantity: ing.quantity, isAvailable, isBasic };
-              });
-
-              const matchedNonBasic = results.filter(r => r.isAvailable && !r.isBasic).length;
-              const nonBasicTotal = results.filter(r => !r.isBasic).length;
-              const missing = results.filter(r => !r.isAvailable && !r.isBasic);
-              const matchPercent = nonBasicTotal > 0
-                ? Math.round((matchedNonBasic / nonBasicTotal) * 100)
-                : 100;
-
-              return {
-                dish: aiDish,
-                matchPercent,
-                matched: results.filter(r => r.isAvailable),
-                missing,
-                needsShopping: missing.length > 0
-              };
+          suggestions = normalized.map(aiDish => {
+            const dishIngs = aiDish.ingredients || [];
+            const results = dishIngs.map(ing => {
+              const ingName = db.removeAccents(ing.name.toLowerCase().trim());
+              const isAvailable = normalizedAvail.some(a =>
+                ingName.includes(a) || a.includes(ingName)
+              );
+              const isBasic = baseSeasonings.some(b =>
+                ingName.includes(db.removeAccents(b))
+              );
+              return { name: ing.name, quantity: ing.quantity, isAvailable, isBasic };
             });
 
-            suggestions.sort((a, b) => b.matchPercent - a.matchPercent);
-            fromCache = false;
+            const matchedNonBasic = results.filter(r => r.isAvailable && !r.isBasic).length;
+            const nonBasicTotal = results.filter(r => !r.isBasic).length;
+            const missing = results.filter(r => !r.isAvailable && !r.isBasic);
+            const matchPercent = nonBasicTotal > 0
+              ? Math.round((matchedNonBasic / nonBasicTotal) * 100)
+              : 100;
 
-            console.log(`[FridgeAI] Suggested ${suggestions.length} dishes for: ${ingsStr}`);
-          } catch (parseErr) {
-            console.error('[FridgeAI] JSON parse error:', parseErr.message);
-          }
+            return {
+              dish: aiDish,
+              matchPercent,
+              matched: results.filter(r => r.isAvailable),
+              missing,
+              needsShopping: missing.length > 0
+            };
+          });
+
+          suggestions.sort((a, b) => b.matchPercent - a.matchPercent);
+          fromCache = false;
+
+          console.log(`[FridgeAI] Suggested ${suggestions.length} dishes for: ${ingsStr}`);
+        } catch (parseErr) {
+          console.error('[FridgeAI] JSON parse error:', parseErr.message);
         }
       }
     } catch (e) {
-      console.error('[DeepSeek] Fridge suggestion error:', e.message);
+      console.error('[Gemini] Fridge suggestion error:', e.message);
     }
   }
 
@@ -993,9 +960,7 @@ app.post('/api/recommend-by-body', async (req, res) => {
     return res.json({ success: false, error: 'Missing body metrics' });
   }
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-
-  if (apiKey) {
+  if (process.env.GEMINI_API_KEY) {
     // Dùng AI đề xuất
     const systemPrompt = `Bạn là chuyên gia dinh dưỡng và đầu bếp. Dựa trên chỉ số cơ thể người dùng, hãy đề xuất các món ăn phù hợp.
 
@@ -1046,34 +1011,16 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 7000);
-      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          temperature: 0.4,
-          max_tokens: 4000
-        }),
-        signal: controller.signal
-      });
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      const content = await callGemini(
+        systemPrompt,
+        [{ role: 'user', content: userPrompt }],
+        { temperature: 0.4, max_tokens: 4000, signal: controller.signal }
+      );
       clearTimeout(timeout);
 
-      if (!response.ok) throw new Error(`DeepSeek API error: ${response.status}`);
-
-      const data = await response.json();
-      const content = data?.choices?.[0]?.message?.content;
-
       if (content) {
-        let clean = content.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
-        const result = JSON.parse(clean);
+        const result = parseJSONFromGemini(content);
         if (result.dishes && result.dishes.length > 0) {
           // Thêm matchPercent dựa trên độ phù hợp calo
           const dishesWithScore = result.dishes.map(d => {
@@ -1173,7 +1120,6 @@ app.get('/api/recommend-by-body-stream', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
   let aiSucceeded = false;
 
   // Helper to send SSE dish
@@ -1186,7 +1132,7 @@ app.get('/api/recommend-by-body-stream', async (req, res) => {
     res.end();
   }
 
-  if (apiKey) {
+  if (process.env.GEMINI_API_KEY) {
     // Map goal names (client may send gain_muscle or gain)
     const goalNormalized = goal === 'gain_muscle' || goal === 'gain' ? 'gain_muscle' : goal;
     const goalDisplay = goalNormalized === 'lose' ? 'Giảm cân' :
@@ -1228,75 +1174,19 @@ Hãy đề xuất 5 món ăn Việt Nam phù hợp với thể trạng và mục
 
     try {
       const controller = new AbortController();
-      // Timeout 7s — Vercel Hobby chỉ có 10s, để dư 3s cho fallback
-      const timeout = setTimeout(() => controller.abort(), 7000);
-      const aiResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          temperature: 0.4,
-          max_tokens: 4000,
-          stream: true
-        }),
-        signal: controller.signal
-      });
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      const aiResponse = await callGeminiStream(
+        systemPrompt,
+        [{ role: 'user', content: userPrompt }],
+        { temperature: 0.4, max_tokens: 4000, signal: controller.signal }
+      );
       clearTimeout(timeout);
 
-      if (!aiResponse.ok) throw new Error(`DeepSeek API error: ${aiResponse.status}`);
-
-      // Stream DeepSeek response, accumulate, then parse and send each dish
-      const reader = aiResponse.body.getReader();
-      const decoder = new TextDecoder();
-      let sseBuffer = '';
-      let accumulated = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        sseBuffer += decoder.decode(value, { stream: true });
-
-        const lines = sseBuffer.split('\n');
-        sseBuffer = lines.pop() || '';
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim();
-            if (data === '[DONE]') continue;
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed?.choices?.[0]?.delta?.content || '';
-              accumulated += content;
-            } catch (e) { /* skip */ }
-          }
-        }
-      }
-      if (sseBuffer.trim()) {
-        const line = sseBuffer;
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6).trim();
-          if (data !== '[DONE]') {
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed?.choices?.[0]?.delta?.content || '';
-              accumulated += content;
-            } catch (e) { /* skip */ }
-          }
-        }
-      }
+      const accumulated = await accumulateGeminiStream(aiResponse);
 
       // Parse accumulated JSON array
       try {
-        let clean = accumulated.trim();
-        const jsonMatch = clean.match(/```(?:json)?\s*([\s\S]*?)```/);
-        if (jsonMatch) clean = jsonMatch[1].trim();
-        const arr = JSON.parse(clean);
+        const arr = fixAndParseJSON(accumulated);
 
         if (Array.isArray(arr)) {
           const perMeal = Math.round(parseInt(calTarget) / 3) || 500;
@@ -1424,9 +1314,7 @@ QUY TẮC ĐÁNH GIÁ:
 Các nguyên liệu chính: ${ingredients.join(', ') || 'không rõ'}.
 Hãy phân tích tác động lên tim, thận, gan dựa trên các nguyên liệu này. Ước tính các chỉ số dinh dưỡng một cách hợp lý.`;
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-
-  if (!apiKey) {
+  if (!process.env.GEMINI_API_KEY) {
     // Mock response khi không có API key
     return res.json({
       success: true,
@@ -1438,36 +1326,15 @@ Hãy phân tích tác động lên tim, thận, gan dựa trên các nguyên li�
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.3,
-        max_tokens: 2000
-      }),
-      signal: controller.signal
-    });
+    const content = await callGemini(
+      systemPrompt,
+      [{ role: 'user', content: userPrompt }],
+      { temperature: 0.3, max_tokens: 2000, signal: controller.signal }
+    );
     clearTimeout(timeout);
 
-    if (!response.ok) {
-      throw new Error(`DeepSeek API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content = data?.choices?.[0]?.message?.content;
-
     if (content) {
-      // Parse JSON từ response
-      let clean = content.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
-      const analysis = JSON.parse(clean);
+      const analysis = parseJSONFromGemini(content);
 
       // Validate structure
       if (analysis.heart && analysis.kidneys && analysis.liver) {
@@ -1604,9 +1471,7 @@ Nguyên liệu: ${ingsWithQty || 'không rõ'}.
 
 Hãy hướng dẫn bày trí món này ra đĩa/tô CHUYÊN NGHIỆP và ĐẸP MẮT.`;
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-
-  if (!apiKey) {
+  if (!process.env.GEMINI_API_KEY) {
     return res.json({
       success: true,
       mock: true,
@@ -1616,34 +1481,16 @@ Hãy hướng dẫn bày trí món này ra đĩa/tô CHUYÊN NGHIỆP và ĐẸP
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.6,
-        max_tokens: 2000
-      }),
-      signal: controller.signal
-    });
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    const content = await callGemini(
+      systemPrompt,
+      [{ role: 'user', content: userPrompt }],
+      { temperature: 0.6, max_tokens: 2000, signal: controller.signal }
+    );
     clearTimeout(timeout);
 
-    if (!response.ok) throw new Error(`DeepSeek API error: ${response.status}`);
-
-    const data = await response.json();
-    const content = data?.choices?.[0]?.message?.content;
-
     if (content) {
-      let clean = content.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
-      const plating = JSON.parse(clean);
+      const plating = parseJSONFromGemini(content);
 
       if (plating.steps && plating.steps.length > 0) {
         return res.json({ success: true, plating });
