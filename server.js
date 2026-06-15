@@ -50,7 +50,13 @@ async function callGemini(systemPrompt, messages, opts = {}) {
     generationConfig: {
       temperature: opts.temperature ?? 0.7,
       maxOutputTokens: opts.max_tokens ?? 3000
-    }
+    },
+    safetySettings: [
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' }
+    ]
   };
   if (systemPrompt) {
     body.system_instruction = { parts: [{ text: systemPrompt }] };
@@ -84,7 +90,13 @@ function callGeminiStream(systemPrompt, messages, opts = {}) {
     generationConfig: {
       temperature: opts.temperature ?? 0.7,
       maxOutputTokens: opts.max_tokens ?? 3000
-    }
+    },
+    safetySettings: [
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' }
+    ]
   };
   if (systemPrompt) {
     body.system_instruction = { parts: [{ text: systemPrompt }] };
@@ -206,7 +218,7 @@ app.post('/api/search-dishes', async (req, res) => {
   if (exactMatch.length < 6 && process.env.GEMINI_API_KEY) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
+      const timeout = setTimeout(() => controller.abort(), 20000);
       const systemContent = `JSON array. Mỗi món: name, time(số phút), calories(số kcal), difficulty, description, ingredients[{name,quantity}], instructions(\\n cách bước, bắt buộc dùng \\n giữa các bước, mỗi bước có số "1. ...\n2. ...\n3. ..."). Tìm món liên quan đến "${query}". Ưu tiên món có tên hoặc mô tả liên quan — linh hoạt, không cứng nhắc tên phải chứa chính xác. VD: tìm "kho quẹt" → trả "Kho Quẹt", "Rau Luộc Kho Quẹt", "Cơm Trắng Kho Quẹt". Tìm "rau" → trả các món rau. Trả 3-6 món (không ép nhiều nếu không đủ). Instructions: MẸO QUAN TRỌNG: LUÔN dùng \\n giữa các bước, mỗi bước có số thứ tự.`;
 
       const content = await callGemini(
@@ -339,6 +351,7 @@ app.get('/api/search-dishes-stream', async (req, res) => {
     console.log(`[Gemini] Streamed ${allAiDishes.length} AI dishes for: "${query}"`);
   } catch (e) {
     console.error('Gemini stream error:', e.message);
+    if (!res.writableEnded) res.end();
   }
 
   res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);

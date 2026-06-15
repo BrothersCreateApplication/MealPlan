@@ -1,4 +1,4 @@
-// ===================== Trang Chủ Module =====================
+﻿// ===================== Trang Chủ Module =====================
 
 (function() {
   let currentDishes = []; // cache for detail button by index
@@ -1238,9 +1238,12 @@
     let streamEnded = false;
     let hasRendered = false;
 
-    // Timeout an toàn: nếu stream chưa kết thúc sau 8s, render kết quả hiện tại
-    const safetyTimeout = setTimeout(() => {
-      if (!streamEnded && !hasRendered && allDishes.length > 0) {
+        // Timeout an toàn: nếu stream chưa kết thúc sau 25s, fallback sang POST API
+    const safetyTimeout = setTimeout(async () => {
+      if (streamEnded || hasRendered) return;
+      streamEnded = true;
+
+      if (allDishes.length > 0) {
         hasRendered = true;
         const sorted = filterByPriority(allDishes, query);
         if (sorted.length > 0) {
@@ -1250,8 +1253,42 @@
           renderDishes(allDishes);
           currentDishes = allDishes;
         }
+        return;
       }
-    }, 8000);
+
+      // Fallback: goi POST API
+      console.warn('Search stream timeout, falling back to regular API');
+      try {
+        const fallbackRes = await fetch('/api/search-dishes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query })
+        });
+        const data = await fallbackRes.json();
+        if (data.dishes && data.dishes.length > 0) {
+          hasRendered = true;
+          const sorted = filterByPriority(data.dishes, query);
+          renderDishes(sorted);
+          currentDishes = sorted;
+          return;
+        }
+      } catch (e2) {
+        console.warn('Fallback search error:', e2);
+      }
+
+      // Không có kết quả
+      const grid = document.getElementById('dish-grid');
+      if (grid) {
+        const msg = 'Không tìm thấy món "' + query + '"';
+        grid.innerHTML = [
+          '<div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">',
+          '  <span class="material-symbols-outlined text-5xl text-outline mb-4">search_off</span>',
+          '  <p class="text-on-surface-variant font-body-md">' + msg + '</p>',
+          '  <p class="text-xs text-on-surface-variant mt-2">Thử tìm từ khóa khác hoặc dùng gợi ý theo buổi</p>',
+          '</div>'
+        ].join('\n');
+      }
+    }, 25000);
 
     try {
       const res = await fetch(`/api/search-dishes-stream?query=${encodeURIComponent(query)}`, { signal });
@@ -1342,7 +1379,7 @@
                   grid.innerHTML = `
                     <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
                       <span class="material-symbols-outlined text-5xl text-outline mb-4">cloud_off</span>
-                      <p class="text-on-surface-variant font-body-md">Server đang quá tải</p>
+                      <p class="text-on-surface-variant font-body-md">Không tìm thấy món</p>
                       <p class="text-xs text-on-surface-variant mt-2">Vui lòng thử lại sau vài giây</p>
                     </div>`;
                 }
@@ -1387,7 +1424,7 @@
           grid.innerHTML = `
             <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
               <span class="material-symbols-outlined text-5xl text-outline mb-4">cloud_off</span>
-              <p class="text-on-surface-variant font-body-md">Server đang quá tải</p>
+              <p class="text-on-surface-variant font-body-md">Không tìm thấy món</p>
               <p class="text-xs text-on-surface-variant mt-2">Vui lòng thử lại sau vài giây</p>
             </div>`;
         }
@@ -1401,7 +1438,7 @@
         grid.innerHTML = `
           <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
             <span class="material-symbols-outlined text-5xl text-outline mb-4">cloud_off</span>
-            <p class="text-on-surface-variant font-body-md">Server đang quá tải</p>
+            <p class="text-on-surface-variant font-body-md">Không tìm thấy món</p>
             <p class="text-xs text-on-surface-variant mt-2">Vui lòng thử lại sau vài giây</p>
           </div>`;
       }
