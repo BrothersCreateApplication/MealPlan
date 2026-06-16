@@ -98,6 +98,12 @@ const MealPlan = (function() {
     const target = document.getElementById(`page-${page}`);
     if (target) target.classList.add('active');
 
+    // Đóng các overlay khi chuyển trang
+    ['body-recommend-overlay', 'body-result-overlay', 'camera-modal'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+
     // Update bottom nav links
     document.querySelectorAll('.nav-link').forEach(el => {
       const isActive = el.dataset.page === page;
