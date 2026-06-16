@@ -265,9 +265,6 @@
             <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
               <span class="text-4xl dish-emoji">${emoji}</span>
             </div>
-            <button class="fav-btn absolute top-1 left-1 bg-white/80 backdrop-blur-md p-1 rounded-full shadow-sm" data-dish="${dish.name}">
-              <span class="material-symbols-outlined text-[16px] text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
-            </button>
           </div>
           <div class="flex-1 p-3 min-w-0 flex flex-col">
             <h4 class="font-title-md text-[17px] text-on-surface line-clamp-1">${dish.name}</h4>
@@ -283,9 +280,14 @@
             </div>
             <div class="flex items-center justify-between gap-2 mt-1">
               ${getDifficultyBadge(dish.difficulty)}
-              <button class="detail-btn w-7 h-7 flex-shrink-0 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 active:scale-[0.95] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
-                <span class="material-symbols-outlined text-[16px]">add</span>
-              </button>
+              <div class="flex flex-col items-center gap-0.5">
+                <button class="fav-btn bg-white/80 backdrop-blur-md p-1 rounded-full shadow-sm" data-dish="${dish.name}">
+                  <span class="material-symbols-outlined text-[16px] text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
+                </button>
+                <button class="detail-btn w-7 h-7 flex-shrink-0 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 active:scale-[0.95] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
+                  <span class="material-symbols-outlined text-[16px]">add</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -490,9 +492,6 @@
             <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
               <span class="text-4xl dish-emoji">${emoji}</span>
             </div>
-            <button class="fav-btn absolute top-1 left-1 bg-white/80 backdrop-blur-md p-1 rounded-full shadow-sm" data-dish="${dish.name}">
-              <span class="material-symbols-outlined text-[16px] text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
-            </button>
           </div>
           <div class="flex-1 p-3 min-w-0 flex flex-col">
             <h4 class="font-title-md text-[17px] text-on-surface line-clamp-1">${dish.name}</h4>
@@ -508,9 +507,14 @@
             </div>
             <div class="flex items-center justify-between gap-2 mt-1">
               ${getDifficultyBadge(dish.difficulty)}
-              <button class="detail-btn w-7 h-7 flex-shrink-0 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 active:scale-[0.95] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
-                <span class="material-symbols-outlined text-[16px]">add</span>
-              </button>
+              <div class="flex flex-col items-center gap-0.5">
+                <button class="fav-btn bg-white/80 backdrop-blur-md p-1 rounded-full shadow-sm" data-dish="${dish.name}">
+                  <span class="material-symbols-outlined text-[16px] text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
+                </button>
+                <button class="detail-btn w-7 h-7 flex-shrink-0 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 active:scale-[0.95] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
+                  <span class="material-symbols-outlined text-[16px]">add</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1476,9 +1480,6 @@
             <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
               <span class="text-4xl dish-emoji">${emoji}</span>
             </div>
-            <button class="fav-btn absolute top-1 left-1 bg-white/80 backdrop-blur-md p-1 rounded-full shadow-sm" data-dish="${dish.name}">
-              <span class="material-symbols-outlined text-[16px] text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
-            </button>
           </div>
           <div class="flex-1 p-3 min-w-0 flex flex-col">
             <h4 class="font-title-md text-[17px] text-on-surface line-clamp-1">${dish.name}</h4>
@@ -1494,9 +1495,14 @@
             </div>
             <div class="flex items-center justify-between gap-2 mt-1">
               ${getDifficultyBadge(dish.difficulty)}
-              <button class="detail-btn w-7 h-7 flex-shrink-0 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 active:scale-[0.95] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
-                <span class="material-symbols-outlined text-[16px]">add</span>
-              </button>
+              <div class="flex flex-col items-center gap-0.5">
+                <button class="fav-btn bg-white/80 backdrop-blur-md p-1 rounded-full shadow-sm" data-dish="${dish.name}">
+                  <span class="material-symbols-outlined text-[16px] text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
+                </button>
+                <button class="detail-btn w-7 h-7 flex-shrink-0 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 active:scale-[0.95] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
+                  <span class="material-symbols-outlined text-[16px]">add</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
