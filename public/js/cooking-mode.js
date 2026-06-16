@@ -710,7 +710,18 @@
   // ===================== Text-to-Speech =====================
 
   function speakStepText(step) {
-    // Không tự động đọc — user bấm nút "Đọc lại" mới đọc
+    if (!step) return;
+    const text = `Bước ${step.number}: ` +
+      step.instructions.join('. ') +
+      (step.tip ? `. Mẹo: ${step.tip}` : '');
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'vi-VN';
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    }
   }
 
   function speakCurrentStep() {
