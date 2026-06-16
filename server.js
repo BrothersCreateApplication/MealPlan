@@ -518,61 +518,73 @@ function hashStr(str) {
 // ---- Pick 1 ảnh từ nhiều kết quả Unsplash dùng hash ----
 function pickUnsplashImage(results, name) {
   if (!results || results.length === 0) return null;
-  // Nhiều kết quả → dùng hash tên món để chọn ảnh riêng, tránh trùng
   const idx = results.length > 1 ? hashStr(name) % results.length : 0;
   return results[idx]?.urls?.small || results[0]?.urls?.small || null;
 }
 
-// ---- Unsplash image proxy (single) ----
+// ---- Pick 1 ảnh từ nhiều kết quả Pexels dùng hash ----
+function pickPexelsImage(photos, name) {
+  if (!photos || photos.length === 0) return null;
+  const idx = photos.length > 1 ? hashStr(name) % photos.length : 0;
+  return photos[idx]?.src?.medium || photos[0]?.src?.medium || null;
+}
+
+// ---- Unsplash search ----
+async function tryUnsplash(name) {
+  const key = process.env.UNSPLASH_ACCESS_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch(
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(name + ' món ăn')}&per_page=5&orientation=landscape`,
+      { headers: { 'Authorization': `Client-ID ${key}` }, signal: AbortSignal.timeout(5000) }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return pickUnsplashImage(data.results, name);
+  } catch { return null; }
+}
+
+// ---- Pexels search (fallback khi Unsplash hết quota) ----
+async function tryPexels(name) {
+  const key = process.env.PEXELS_API_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch(
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(name + ' món ăn')}&per_page=5&orientation=landscape`,
+      { headers: { 'Authorization': key }, signal: AbortSignal.timeout(5000) }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return pickPexelsImage(data.photos, name);
+  } catch { return null; }
+}
+
+// ---- Dish image proxy: thử Pexels trước, fallback Unsplash ----
 app.get('/api/dish-image', async (req, res) => {
   const { name } = req.query;
   if (!name) return res.json({ url: null });
 
-  const unsplashKey = process.env.UNSPLASH_ACCESS_KEY;
-  if (!unsplashKey) return res.json({ url: null });
-
-  try {
-    const response = await fetch(
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(name + ' món ăn')}&per_page=5&orientation=landscape`,
-      { headers: { 'Authorization': `Client-ID ${unsplashKey}` } }
-    );
-    if (!response.ok) throw new Error(`Unsplash error: ${response.status}`);
-    const data = await response.json();
-    const url = pickUnsplashImage(data.results, name);
-    res.json({ url });
-  } catch (err) {
-    console.error('Unsplash error:', err.message);
-    res.json({ url: null });
-  }
+  let url = await tryPexels(name);
+  if (!url) url = await tryUnsplash(name);
+  res.json({ url });
 });
 
-// ---- Batch Unsplash images: nhận nhiều tên món, trả 1 lúc ----
+// ---- Batch dish images: nhận nhiều tên món, trả 1 lúc ----
 app.post('/api/dish-images', async (req, res) => {
   const { names } = req.body;
   if (!names || !Array.isArray(names) || names.length === 0) {
     return res.json({ images: {} });
   }
 
-  const unsplashKey = process.env.UNSPLASH_ACCESS_KEY;
-  if (!unsplashKey) return res.json({ images: {} });
-
   const images = {};
-  // Chỉ fetch tối đa 6 ảnh 1 lần để tránh rate limit
+  // Chỉ fetch tối đa 6 ảnh 1 lần
   const batch = names.slice(0, 6);
 
   await Promise.allSettled(batch.map(async (name) => {
-    try {
-      const response = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(name + ' món ăn')}&per_page=5&orientation=landscape`,
-        { headers: { 'Authorization': `Client-ID ${unsplashKey}` }, signal: AbortSignal.timeout(5000) }
-      );
-      if (!response.ok) return;
-      const data = await response.json();
-      const url = pickUnsplashImage(data.results, name);
-      if (url) images[name] = url;
-    } catch (e) {
-      // Skip image for this dish
-    }
+    // Thử Pexels trước (200 req/h free), fallback Unsplash
+    let url = await tryPexels(name);
+    if (!url) url = await tryUnsplash(name);
+    if (url) images[name] = url;
   }));
 
   res.json({ images });
