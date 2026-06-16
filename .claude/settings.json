@@ -1,7 +1,6 @@
 {
   "permissions": {
     "allow": [
-      "*",
       "mcp__codegraph__codegraph_search",
       "mcp__codegraph__codegraph_context",
       "mcp__codegraph__codegraph_callers",
