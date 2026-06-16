@@ -261,7 +261,7 @@
       return `
       <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high">
         <div class="flex items-start">
-          <div class="relative w-24 h-24 md:w-28 md:h-28 flex-shrink-0 overflow-hidden">
+          <div class="relative w-28 h-28 md:w-32 md:h-32 flex-shrink-0 overflow-hidden">
             <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
               <span class="text-4xl dish-emoji">${emoji}</span>
             </div>
@@ -488,7 +488,7 @@
       return `
       <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high">
         <div class="flex items-start">
-          <div class="relative w-24 h-24 md:w-28 md:h-28 flex-shrink-0 overflow-hidden">
+          <div class="relative w-28 h-28 md:w-32 md:h-32 flex-shrink-0 overflow-hidden">
             <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
               <span class="text-4xl dish-emoji">${emoji}</span>
             </div>
@@ -1476,7 +1476,7 @@
 
       <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high">
         <div class="flex items-start">
-          <div class="relative w-24 h-24 md:w-28 md:h-28 flex-shrink-0 overflow-hidden">
+          <div class="relative w-28 h-28 md:w-32 md:h-32 flex-shrink-0 overflow-hidden">
             <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
               <span class="text-4xl dish-emoji">${emoji}</span>
             </div>
