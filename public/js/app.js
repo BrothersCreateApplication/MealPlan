@@ -92,11 +92,17 @@ const MealPlan = (function() {
 
   // ---- Router ----
   function navigate(page) {
-    // Hide all pages
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    // Hide all pages — remove active, add hidden để tránh conflict CSS
+    document.querySelectorAll('.page').forEach(p => {
+      p.classList.remove('active');
+      p.classList.add('hidden');
+    });
     // Show target
     const target = document.getElementById(`page-${page}`);
-    if (target) target.classList.add('active');
+    if (target) {
+      target.classList.add('active');
+      target.classList.remove('hidden');
+    }
 
     // Đóng các overlay khi chuyển trang
     ['body-recommend-overlay', 'body-result-overlay', 'camera-modal'].forEach(id => {
