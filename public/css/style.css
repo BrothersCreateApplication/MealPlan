@@ -75,16 +75,13 @@ nav.fixed.bottom-0 .nav-link {
   opacity: 0.8;
 }
 
-/* Smooth dish card hover */
-.dish-card:hover .dish-image {
-  transform: scale(1.05);
-}
-/* Dish image loading — emoji fallback */
+/* Dish card — image loading & animation */
 .dish-image {
-  transition: transform 0.5s ease-out;
+  border-radius: 0.75rem 0 0 0.75rem;
 }
 .dish-img-loaded {
   animation: dishImgFadeIn 0.4s ease-out;
+  border-radius: 0.75rem 0 0 0.75rem;
 }
 @keyframes dishImgFadeIn {
   from { opacity: 0; transform: scale(1.05); }

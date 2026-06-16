@@ -249,38 +249,33 @@
       const { gradient, emoji } = getDishVisual(dish.name);
       return `
       <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high">
-        <div class="relative h-48 overflow-hidden">
-          <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
-            <span class="text-6xl dish-emoji">${emoji}</span>
-          </div>
-          <div class="absolute top-3 right-3 z-10">
-            <button class="fav-btn bg-white/80 backdrop-blur-md p-1.5 rounded-full shadow-sm" data-dish="${dish.name}">
-              <span class="material-symbols-outlined text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
+        <div class="flex">
+          <div class="relative w-24 h-24 md:w-28 md:h-28 flex-shrink-0 overflow-hidden">
+            <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
+              <span class="text-4xl dish-emoji">${emoji}</span>
+            </div>
+            <button class="fav-btn absolute top-1 left-1 bg-white/80 backdrop-blur-md p-1 rounded-full shadow-sm" data-dish="${dish.name}">
+              <span class="material-symbols-outlined text-[16px] text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
             </button>
           </div>
-        </div>
-        <div class="p-4">
-          <h4 class="font-title-md text-on-surface mb-2">${dish.name}</h4>
-          <div class="flex items-center gap-gutter-md mb-3">
-            <div class="flex items-center gap-1 text-on-surface-variant font-label-md">
-              <span class="material-symbols-outlined text-[18px]">schedule</span>
-              ${dish.time || '--'}
+          <div class="flex-1 p-3 min-w-0">
+            <div class="flex items-start justify-between gap-2">
+              <h4 class="font-title-md text-[17px] text-on-surface line-clamp-1">${dish.name}</h4>
+              <button class="detail-btn w-7 h-7 flex-shrink-0 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 active:scale-[0.95] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
+                <span class="material-symbols-outlined text-[16px]">add</span>
+              </button>
             </div>
-            <div class="flex items-center gap-1 text-on-surface-variant font-label-md">
-              <span class="material-symbols-outlined text-[18px]">local_fire_department</span>
-              ${dish.calories || '--'}
+            <div class="flex items-center gap-2 mt-1">
+              <span class="flex items-center gap-0.5 text-sm text-on-surface-variant">
+                <span class="material-symbols-outlined text-[18px]">schedule</span>
+                ${dish.time || '--'}
+              </span>
+              <span class="flex items-center gap-0.5 text-sm text-on-surface-variant">
+                <span class="material-symbols-outlined text-[18px]">local_fire_department</span>
+                ${dish.calories || '--'}
+              </span>
             </div>
-            ${dish.difficulty ? `
-            <div class="flex items-center gap-1 text-on-surface-variant font-label-md">
-              <span class="material-symbols-outlined text-[18px]">signal_cellular_alt</span>
-              ${dish.difficulty}
-            </div>` : ''}
           </div>
-          ${dish.description ? `<p class="text-body-md text-on-surface-variant mb-3 line-clamp-2">${dish.description}</p>` : ''}
-          <button class="detail-btn w-full flex items-center justify-center gap-2 bg-surface-container-high text-primary font-label-md px-4 py-2.5 rounded-lg hover:bg-primary-container/30 active:scale-[0.98] transition-all" data-idx="${idx}" data-dish-name="${dish.name}">
-            <span class="material-symbols-outlined text-[18px]">article</span>
-            Xem Chi tiết
-          </button>
         </div>
       </div>`;
     }).join('');
@@ -478,38 +473,33 @@
       const { gradient, emoji } = getDishVisual(dish.name);
       return `
       <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high">
-        <div class="relative h-48 overflow-hidden">
-          <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
-            <span class="text-6xl dish-emoji">${emoji}</span>
-          </div>
-          <div class="absolute top-3 right-3 z-10">
-            <button class="fav-btn bg-white/80 backdrop-blur-md p-1.5 rounded-full shadow-sm" data-dish="${dish.name}">
-              <span class="material-symbols-outlined text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
+        <div class="flex">
+          <div class="relative w-24 h-24 md:w-28 md:h-28 flex-shrink-0 overflow-hidden">
+            <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
+              <span class="text-4xl dish-emoji">${emoji}</span>
+            </div>
+            <button class="fav-btn absolute top-1 left-1 bg-white/80 backdrop-blur-md p-1 rounded-full shadow-sm" data-dish="${dish.name}">
+              <span class="material-symbols-outlined text-[16px] text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
             </button>
           </div>
-        </div>
-        <div class="p-4">
-          <h4 class="font-title-md text-on-surface mb-2">${dish.name}</h4>
-          <div class="flex items-center gap-gutter-md mb-3">
-            <div class="flex items-center gap-1 text-on-surface-variant font-label-md">
-              <span class="material-symbols-outlined text-[18px]">schedule</span>
-              ${dish.time || '--'}
+          <div class="flex-1 p-3 min-w-0">
+            <div class="flex items-start justify-between gap-2">
+              <h4 class="font-title-md text-[17px] text-on-surface line-clamp-1">${dish.name}</h4>
+              <button class="detail-btn w-7 h-7 flex-shrink-0 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 active:scale-[0.95] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
+                <span class="material-symbols-outlined text-[16px]">add</span>
+              </button>
             </div>
-            <div class="flex items-center gap-1 text-on-surface-variant font-label-md">
-              <span class="material-symbols-outlined text-[18px]">local_fire_department</span>
-              ${dish.calories || '--'}
+            <div class="flex items-center gap-2 mt-1">
+              <span class="flex items-center gap-0.5 text-sm text-on-surface-variant">
+                <span class="material-symbols-outlined text-[18px]">schedule</span>
+                ${dish.time || "--"}
+              </span>
+              <span class="flex items-center gap-0.5 text-sm text-on-surface-variant">
+                <span class="material-symbols-outlined text-[18px]">local_fire_department</span>
+                ${dish.calories || "--"}
+              </span>
             </div>
-            ${dish.difficulty ? `
-            <div class="flex items-center gap-1 text-on-surface-variant font-label-md">
-              <span class="material-symbols-outlined text-[18px]">signal_cellular_alt</span>
-              ${dish.difficulty}
-            </div>` : ''}
           </div>
-          ${dish.description ? `<p class="text-body-md text-on-surface-variant mb-3 line-clamp-2">${dish.description}</p>` : ''}
-          <button class="detail-btn w-full flex items-center justify-center gap-2 bg-surface-container-high text-primary font-label-md px-4 py-2.5 rounded-lg hover:bg-primary-container/30 active:scale-[0.98] transition-all" data-idx="${idx}" data-dish-name="${dish.name}">
-            <span class="material-symbols-outlined text-[18px]">article</span>
-            Xem Chi tiết
-          </button>
         </div>
       </div>`;
     }).join('');
@@ -666,7 +656,7 @@
                 <span class="material-symbols-outlined">monitor_heart</span>
                 Phân tích sức khỏe
               </button>
-              <p class="text-xs text-on-surface-variant text-center mt-1">Đánh giá tác động lên tim, thận, gan</p>
+              <p class="text-sm text-on-surface-variant text-center mt-1">Đánh giá tác động lên tim, thận, gan</p>
             </div>
 
             <!-- YouTube video embed -->
@@ -678,7 +668,7 @@
               <div id="youtube-video-container" class="bg-surface-container-low rounded-xl overflow-hidden aspect-video flex items-center justify-center">
                 <div class="text-center p-6">
                   <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
-                  <p class="text-xs text-on-surface-variant">Đang tìm video hướng dẫn...</p>
+                  <p class="text-sm text-on-surface-variant">Đang tìm video hướng dẫn...</p>
                 </div>
               </div>
             </div>
@@ -810,7 +800,7 @@
               </div>
               <div>
                 <h2 class="font-title-md text-on-surface">Phân tích sức khỏe</h2>
-                <p class="text-xs text-on-surface-variant">${dish.name}</p>
+                <p class="text-sm text-on-surface-variant">${dish.name}</p>
               </div>
             </div>
             <button class="health-analysis-close p-1.5 rounded-full hover:bg-surface-container-high transition-all">
@@ -825,7 +815,7 @@
           <div class="text-center py-8" id="health-loading">
             <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600 mx-auto mb-4"></div>
             <p class="text-on-surface font-label-md mb-1">AI đang phân tích...</p>
-            <p class="text-xs text-on-surface-variant">Đánh giá tác động lên tim, thận và gan</p>
+            <p class="text-sm text-on-surface-variant">Đánh giá tác động lên tim, thận và gan</p>
           </div>
 
           <!-- Results (hidden initially) -->
@@ -835,7 +825,7 @@
           <div id="health-error" class="hidden text-center py-8">
             <span class="material-symbols-outlined text-4xl text-error mb-3">error_outline</span>
             <p class="text-on-surface font-label-md">Không thể phân tích món ăn</p>
-            <p class="text-xs text-on-surface-variant mt-1">Vui lòng thử lại sau vài giây</p>
+            <p class="text-sm text-on-surface-variant mt-1">Vui lòng thử lại sau vài giây</p>
           </div>
         </div>
 
@@ -1091,7 +1081,7 @@
         container.innerHTML = `
           <div class="text-center p-6">
             <span class="material-symbols-outlined text-3xl text-outline mb-2">videocam_off</span>
-            <p class="text-xs text-on-surface-variant">Không tìm thấy video hướng dẫn</p>
+            <p class="text-sm text-on-surface-variant">Không tìm thấy video hướng dẫn</p>
           </div>
         `;
       }
@@ -1101,7 +1091,7 @@
         container.innerHTML = `
           <div class="text-center p-6">
             <span class="material-symbols-outlined text-3xl text-outline mb-2">videocam_off</span>
-            <p class="text-xs text-on-surface-variant">Lỗi tải video</p>
+            <p class="text-sm text-on-surface-variant">Lỗi tải video</p>
           </div>
         `;
       }
@@ -1228,7 +1218,7 @@
         <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p class="text-on-surface-variant font-body-md">🔍 Đang tìm kiếm gợi ý cho "${query}"...</p>
-          <p class="text-xs text-on-surface-variant mt-2" id="search-status">Đang tra cứu cơ sở dữ liệu...</p>
+          <p class="text-sm text-on-surface-variant mt-2" id="search-status">Đang tra cứu cơ sở dữ liệu...</p>
         </div>`;
     }
 
@@ -1284,7 +1274,7 @@
           '<div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">',
           '  <span class="material-symbols-outlined text-5xl text-outline mb-4">search_off</span>',
           '  <p class="text-on-surface-variant font-body-md">' + msg + '</p>',
-          '  <p class="text-xs text-on-surface-variant mt-2">Thử tìm từ khóa khác hoặc dùng gợi ý theo buổi</p>',
+          '  <p class="text-sm text-on-surface-variant mt-2">Thử tìm từ khóa khác hoặc dùng gợi ý theo buổi</p>',
           '</div>'
         ].join('\n');
       }
@@ -1380,7 +1370,7 @@
                     <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
                       <span class="material-symbols-outlined text-5xl text-outline mb-4">cloud_off</span>
                       <p class="text-on-surface-variant font-body-md">Không tìm thấy món</p>
-                      <p class="text-xs text-on-surface-variant mt-2">Vui lòng thử lại sau vài giây</p>
+                      <p class="text-sm text-on-surface-variant mt-2">Vui lòng thử lại sau vài giây</p>
                     </div>`;
                 }
               }
@@ -1425,7 +1415,7 @@
             <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
               <span class="material-symbols-outlined text-5xl text-outline mb-4">cloud_off</span>
               <p class="text-on-surface-variant font-body-md">Không tìm thấy món</p>
-              <p class="text-xs text-on-surface-variant mt-2">Vui lòng thử lại sau vài giây</p>
+              <p class="text-sm text-on-surface-variant mt-2">Vui lòng thử lại sau vài giây</p>
             </div>`;
         }
       }
@@ -1439,7 +1429,7 @@
           <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container-high p-4 col-span-full text-center py-12">
             <span class="material-symbols-outlined text-5xl text-outline mb-4">cloud_off</span>
             <p class="text-on-surface-variant font-body-md">Không tìm thấy món</p>
-            <p class="text-xs text-on-surface-variant mt-2">Vui lòng thử lại sau vài giây</p>
+            <p class="text-sm text-on-surface-variant mt-2">Vui lòng thử lại sau vài giây</p>
           </div>`;
       }
     }
@@ -1466,39 +1456,35 @@
 
     const { gradient, emoji } = getDishVisual(dish.name);
     const cardHtml = `
-      <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high animate-fade-in">
-        <div class="relative h-48 overflow-hidden">
-          <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
-            <span class="text-6xl dish-emoji">${emoji}</span>
-          </div>
-          <div class="absolute top-3 right-3 z-10">
-            <button class="fav-btn bg-white/80 backdrop-blur-md p-1.5 rounded-full shadow-sm" data-dish="${dish.name}">
-              <span class="material-symbols-outlined text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
+
+      <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high">
+        <div class="flex">
+          <div class="relative w-24 h-24 md:w-28 md:h-28 flex-shrink-0 overflow-hidden">
+            <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
+              <span class="text-4xl dish-emoji">${emoji}</span>
+            </div>
+            <button class="fav-btn absolute top-1 left-1 bg-white/80 backdrop-blur-md p-1 rounded-full shadow-sm" data-dish="${dish.name}">
+              <span class="material-symbols-outlined text-[16px] text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
             </button>
           </div>
-        </div>
-        <div class="p-4">
-          <h4 class="font-title-md text-on-surface mb-2">${dish.name}</h4>
-          <div class="flex items-center gap-gutter-md mb-3">
-            <div class="flex items-center gap-1 text-on-surface-variant font-label-md">
-              <span class="material-symbols-outlined text-[18px]">schedule</span>
-              ${dish.time || '--'}
+          <div class="flex-1 p-3 min-w-0">
+            <div class="flex items-start justify-between gap-2">
+              <h4 class="font-title-md text-[17px] text-on-surface line-clamp-1">${dish.name}</h4>
+              <button class="detail-btn w-7 h-7 flex-shrink-0 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 active:scale-[0.95] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
+                <span class="material-symbols-outlined text-[16px]">add</span>
+              </button>
             </div>
-            <div class="flex items-center gap-1 text-on-surface-variant font-label-md">
-              <span class="material-symbols-outlined text-[18px]">local_fire_department</span>
-              ${dish.calories || '--'}
+            <div class="flex items-center gap-2 mt-1">
+              <span class="flex items-center gap-0.5 text-sm text-on-surface-variant">
+                <span class="material-symbols-outlined text-[18px]">schedule</span>
+                ${dish.time || '--'}
+              </span>
+              <span class="flex items-center gap-0.5 text-sm text-on-surface-variant">
+                <span class="material-symbols-outlined text-[18px]">local_fire_department</span>
+                ${dish.calories || '--'}
+              </span>
             </div>
-            ${dish.difficulty ? `
-            <div class="flex items-center gap-1 text-on-surface-variant font-label-md">
-              <span class="material-symbols-outlined text-[18px]">signal_cellular_alt</span>
-              ${dish.difficulty}
-            </div>` : ''}
           </div>
-          ${dish.description ? `<p class="text-body-md text-on-surface-variant mb-3 line-clamp-2">${dish.description}</p>` : ''}
-          <button class="detail-btn w-full flex items-center justify-center gap-2 bg-surface-container-high text-primary font-label-md px-4 py-2.5 rounded-lg hover:bg-primary-container/30 active:scale-[0.98] transition-all" data-idx="${idx}" data-dish-name="${dish.name}">
-            <span class="material-symbols-outlined text-[18px]">article</span>
-            Xem Chi tiết
-          </button>
         </div>
       </div>`;
 
@@ -1727,11 +1713,11 @@
           <div class="flex-1 min-w-0">
             <h4 class="font-title-md text-sm text-on-surface">${dish.name}</h4>
             <div class="flex items-center gap-3 mt-1">
-              <span class="flex items-center gap-1 text-xs text-on-surface-variant">
-                <span class="material-symbols-outlined text-[14px]">schedule</span> ${dish.time || '--'}
+              <span class="flex items-center gap-1 text-sm text-on-surface-variant">
+                <span class="material-symbols-outlined text-[18px]">schedule</span> ${dish.time || '--'}
               </span>
-              <span class="flex items-center gap-1 text-xs text-on-surface-variant">
-                <span class="material-symbols-outlined text-[14px]">local_fire_department</span> ${dish.calories || '--'}
+              <span class="flex items-center gap-1 text-sm text-on-surface-variant">
+                <span class="material-symbols-outlined text-[18px]">local_fire_department</span> ${dish.calories || '--'}
               </span>
               ${dish.difficulty ? `<span class="px-1.5 py-0.5 bg-surface-container-high text-on-surface-variant rounded text-[10px] font-semibold">${dish.difficulty}</span>` : ''}
             </div>
@@ -1743,7 +1729,7 @@
             <span class="text-[10px] text-on-surface-variant mt-0.5">phù hợp</span>
           </div>` : ''}
         </div>
-        ${dish.description ? `<p class="text-xs text-on-surface-variant mt-2 line-clamp-1">${dish.description}</p>` : ''}
+        ${dish.description ? `<p class="text-sm text-on-surface-variant mt-2 line-clamp-1">${dish.description}</p>` : ''}
         <div class="flex gap-2 mt-3">
           <button class="body-dish-detail flex-1 bg-surface-container-high text-indigo-600 py-2 rounded-lg text-xs font-label-md hover:bg-indigo-50 active:scale-[0.98] transition-all flex items-center justify-center gap-1">
             <span class="material-symbols-outlined text-[15px]">article</span>
