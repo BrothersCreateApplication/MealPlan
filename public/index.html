@@ -107,7 +107,7 @@
     };
   </script>
 </head>
-<body class="bg-background text-on-surface min-h-screen lg:pb-0 flex flex-col">
+<body class="bg-background text-on-surface h-dvh lg:pb-0 flex flex-col overflow-hidden">
   <!-- Desktop Sidebar (hidden on mobile) -->
   <aside id="desktop-sidebar" class="hidden lg:flex lg:flex-col lg:w-[280px] lg:h-screen lg:fixed lg:inset-y-0 lg:left-0 lg:bg-surface lg:border-r lg:border-outline-variant/30 lg:shadow-sm lg:z-50">
     <!-- Logo area -->
@@ -157,9 +157,9 @@
   </header>
 
   <!-- Main Content -->
-  <main class="px-4 py-4 pb-24 lg:ml-[280px] lg:pb-8 flex flex-col min-h-0 flex-1">
+  <main class="px-4 py-4 lg:ml-[280px] flex flex-col min-h-0 flex-1 overflow-hidden">
     <!-- PAGE: Trang Chủ -->
-    <div id="page-home" class="page active flex flex-col flex-1 min-h-0">
+    <div id="page-home" class="page active flex flex-col flex-1 min-h-0 overflow-hidden">
       <div class="flex-shrink-0">
         <section class="mb-5">
           <div class="flex items-start gap-3 mb-4">
@@ -204,7 +204,7 @@
         </section>
       </div>
 
-      <section class="flex-1 min-h-0 overflow-y-auto">
+      <section class="flex-1 min-h-0 overflow-y-auto pb-24 lg:pb-0">
         <div class="flex items-center gap-2 mb-3">
           <div id="period-icon" class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0">
             <span class="material-symbols-outlined text-white text-[16px]">wb_sunny</span>
@@ -218,7 +218,7 @@
             Xem thêm
           </button>
         </div>
-        <div id="dish-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div id="dish-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
           <!-- Rendered by JS -->
         </div>
       </section>
@@ -277,7 +277,7 @@
     </div>
 
     <!-- PAGE: Giỏ Đi Chợ -->
-    <div id="page-cart" class="page hidden pb-36 lg:pb-28">
+    <div id="page-cart" class="page hidden flex flex-col flex-1 min-h-0 overflow-y-auto pb-36 lg:pb-28">
       <div class="flex-shrink-0">
         <h1 class="font-headline-lg font-bold text-primary mb-4 text-xl">Giỏ Đi Chợ</h1>
         <!-- Summary Bar -->
@@ -333,7 +333,7 @@
     </div>
 
     <!-- PAGE: Nấu Ăn -->
-    <div id="page-cooking" class="page hidden">
+    <div id="page-cooking" class="page hidden flex flex-col flex-1 min-h-0 overflow-y-auto pb-36 lg:pb-8">
       <div class="max-w-4xl mx-auto space-y-6">
         <div class="flex items-center gap-3 mb-2">
           <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md">
@@ -387,7 +387,7 @@
     </div>
 
     <!-- PAGE: Tủ Lạnh -->
-    <div id="page-fridge" class="page hidden">
+    <div id="page-fridge" class="page hidden flex flex-col flex-1 min-h-0 overflow-y-auto pb-36 lg:pb-8">
       <div class="mb-5">
         <h1 class="font-headline-lg text-on-surface mb-1 text-2xl font-bold">Tủ Lạnh Có Gì?</h1>
         <p class="text-on-surface-variant text-sm">Nhập nguyên liệu bạn đang có, tôi sẽ gợi ý món ăn!</p>
