@@ -47,6 +47,17 @@
     return defaultVisual;
   }
 
+  function getDifficultyBadge(difficulty) {
+    if (!difficulty) return '<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-semibold">&mdash;</span>';
+    const colors = {
+      'Dễ': 'bg-emerald-100 text-emerald-700',
+      'Trung bình': 'bg-amber-100 text-amber-700',
+      'Khó': 'bg-red-100 text-red-700',
+    };
+    const cls = colors[difficulty] || 'bg-surface-container-high text-on-surface-variant';
+    return '<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold ' + cls + '">' + difficulty + '</span>';
+  }
+
   // ---- Dish Image Cache (Unsplash) ----
   // Lưu URL ảnh trong localStorage, có version để clear cache cũ
   const DISH_IMAGE_CACHE_KEY = 'dish_image_cache_v2';
@@ -258,13 +269,8 @@
               <span class="material-symbols-outlined text-[16px] text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
             </button>
           </div>
-          <div class="flex-1 p-3 min-w-0">
-            <div class="flex items-start justify-between gap-2">
-              <h4 class="font-title-md text-[17px] text-on-surface line-clamp-1">${dish.name}</h4>
-              <button class="detail-btn w-7 h-7 flex-shrink-0 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 active:scale-[0.95] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
-                <span class="material-symbols-outlined text-[16px]">add</span>
-              </button>
-            </div>
+          <div class="flex-1 p-3 min-w-0 flex flex-col">
+            <h4 class="font-title-md text-[17px] text-on-surface line-clamp-1">${dish.name}</h4>
             <div class="flex items-center gap-2 mt-1">
               <span class="flex items-center gap-0.5 text-sm text-on-surface-variant">
                 <span class="material-symbols-outlined text-[18px]">schedule</span>
@@ -274,6 +280,12 @@
                 <span class="material-symbols-outlined text-[18px]">local_fire_department</span>
                 ${dish.calories || '--'}
               </span>
+            </div>
+            <div class="flex items-center justify-between gap-2 mt-1">
+              ${getDifficultyBadge(dish.difficulty)}
+              <button class="detail-btn w-7 h-7 flex-shrink-0 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 active:scale-[0.95] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
+                <span class="material-symbols-outlined text-[16px]">add</span>
+              </button>
             </div>
           </div>
         </div>
@@ -482,13 +494,8 @@
               <span class="material-symbols-outlined text-[16px] text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
             </button>
           </div>
-          <div class="flex-1 p-3 min-w-0">
-            <div class="flex items-start justify-between gap-2">
-              <h4 class="font-title-md text-[17px] text-on-surface line-clamp-1">${dish.name}</h4>
-              <button class="detail-btn w-7 h-7 flex-shrink-0 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 active:scale-[0.95] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
-                <span class="material-symbols-outlined text-[16px]">add</span>
-              </button>
-            </div>
+          <div class="flex-1 p-3 min-w-0 flex flex-col">
+            <h4 class="font-title-md text-[17px] text-on-surface line-clamp-1">${dish.name}</h4>
             <div class="flex items-center gap-2 mt-1">
               <span class="flex items-center gap-0.5 text-sm text-on-surface-variant">
                 <span class="material-symbols-outlined text-[18px]">schedule</span>
@@ -498,6 +505,12 @@
                 <span class="material-symbols-outlined text-[18px]">local_fire_department</span>
                 ${dish.calories || "--"}
               </span>
+            </div>
+            <div class="flex items-center justify-between gap-2 mt-1">
+              ${getDifficultyBadge(dish.difficulty)}
+              <button class="detail-btn w-7 h-7 flex-shrink-0 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 active:scale-[0.95] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
+                <span class="material-symbols-outlined text-[16px]">add</span>
+              </button>
             </div>
           </div>
         </div>
@@ -1467,13 +1480,8 @@
               <span class="material-symbols-outlined text-[16px] text-secondary ${MealPlan.isFavorite(dish.name) ? '' : 'opacity-40'}" style="font-variation-settings: 'FILL' ${MealPlan.isFavorite(dish.name) ? '1' : '0'};">favorite</span>
             </button>
           </div>
-          <div class="flex-1 p-3 min-w-0">
-            <div class="flex items-start justify-between gap-2">
-              <h4 class="font-title-md text-[17px] text-on-surface line-clamp-1">${dish.name}</h4>
-              <button class="detail-btn w-7 h-7 flex-shrink-0 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 active:scale-[0.95] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
-                <span class="material-symbols-outlined text-[16px]">add</span>
-              </button>
-            </div>
+          <div class="flex-1 p-3 min-w-0 flex flex-col">
+            <h4 class="font-title-md text-[17px] text-on-surface line-clamp-1">${dish.name}</h4>
             <div class="flex items-center gap-2 mt-1">
               <span class="flex items-center gap-0.5 text-sm text-on-surface-variant">
                 <span class="material-symbols-outlined text-[18px]">schedule</span>
@@ -1483,6 +1491,12 @@
                 <span class="material-symbols-outlined text-[18px]">local_fire_department</span>
                 ${dish.calories || '--'}
               </span>
+            </div>
+            <div class="flex items-center justify-between gap-2 mt-1">
+              ${getDifficultyBadge(dish.difficulty)}
+              <button class="detail-btn w-7 h-7 flex-shrink-0 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 active:scale-[0.95] transition-all shadow-sm" data-idx="${idx}" data-dish-name="${dish.name}">
+                <span class="material-symbols-outlined text-[16px]">add</span>
+              </button>
             </div>
           </div>
         </div>
