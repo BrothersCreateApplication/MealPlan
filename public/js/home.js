@@ -260,8 +260,8 @@
       const { gradient, emoji } = getDishVisual(dish.name);
       return `
       <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high">
-        <div class="flex">
-          <div class="relative w-24 md:w-28 flex-shrink-0 overflow-hidden">
+        <div class="flex items-start">
+          <div class="relative w-24 h-24 md:w-28 md:h-28 flex-shrink-0 overflow-hidden">
             <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
               <span class="text-4xl dish-emoji">${emoji}</span>
             </div>
@@ -487,8 +487,8 @@
       const { gradient, emoji } = getDishVisual(dish.name);
       return `
       <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high">
-        <div class="flex">
-          <div class="relative w-24 md:w-28 flex-shrink-0 overflow-hidden">
+        <div class="flex items-start">
+          <div class="relative w-24 h-24 md:w-28 md:h-28 flex-shrink-0 overflow-hidden">
             <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
               <span class="text-4xl dish-emoji">${emoji}</span>
             </div>
@@ -1475,8 +1475,8 @@
     const cardHtml = `
 
       <div class="dish-card bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all group overflow-hidden border border-surface-container-high">
-        <div class="flex">
-          <div class="relative w-24 md:w-28 flex-shrink-0 overflow-hidden">
+        <div class="flex items-start">
+          <div class="relative w-24 h-24 md:w-28 md:h-28 flex-shrink-0 overflow-hidden">
             <div class="dish-image w-full h-full flex items-center justify-center ${gradient}" data-dish-name="${dish.name}">
               <span class="text-4xl dish-emoji">${emoji}</span>
             </div>
